@@ -1,0 +1,342 @@
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[project]
+name = "pyhaul"
+version = "0.1.0"
+description = "Resumable, cursor-based, CDN-safe HTTP downloads for Python"
+readme = "PYPI_README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+authors = [
+    { name = "pyhaul contributors" },
+]
+keywords = [
+    "http",
+    "download",
+    "resume",
+    "range",
+    "partial",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: System :: Networking",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/chad-loder/pyhaul"
+Documentation = "https://github.com/chad-loder/pyhaul#readme"
+Issues = "https://github.com/chad-loder/pyhaul/issues"
+Source = "https://github.com/chad-loder/pyhaul"
+Changelog = "https://github.com/chad-loder/pyhaul/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+niquests = [
+    "niquests>=3.14",
+]
+requests = [
+    "requests>=2.32",
+]
+httpx = [
+    "httpx>=0.27",
+]
+urllib3 = [
+    "urllib3>=2.0",
+]
+
+[tool.uv.build-backend]
+module-name = "pyhaul"
+module-root = "src"
+source-include = ["src/pyhaul/py.typed"]
+source-exclude = [
+    "**/.mypy_cache",
+    "**/.ruff_cache",
+    "**/.pytest_cache",
+    "**/__pycache__",
+    "**/*.pyc",
+    "src/pyhaul/cli.py",
+    "src/pyhaul/__main__.py",
+]
+
+[dependency-groups]
+# PEP 735 — not published as installable extras; for contributors / CI only.
+test = [
+    "pytest>=8",
+    "pytest-cov>=6",
+    "hypothesis>=6",
+    "anyio>=4",
+    "niquests>=3.14",
+    "requests>=2.32",
+    "types-requests>=2.33.0.20260408",
+    "httpx>=0.27",
+    "urllib3>=2.0",
+]
+lint = [
+    "ruff>=0.15",
+    "mypy>=1.13,<1.20",
+    "pre-commit>=4",
+    "pyright>=1.1.400",
+    "tenacity>=9",
+    "markdown-it-py>=4,<5",
+]
+
+[tool.uv]
+default-groups = ["test", "lint"]
+# Resolver cutoff: ignore PyPI uploads newer than this (relative to lock/sync resolve time).
+exclude-newer = "48h"
+
+# ---------------------------------------------------------------------------
+# Tool configuration
+# ---------------------------------------------------------------------------
+
+[tool.rumdl]
+respect-gitignore = true
+exclude = [".git", "node_modules", "dist", "build", ".scratch"]
+
+# --- Headings ---
+[tool.rumdl.MD003]
+style = "atx"
+
+[tool.rumdl.MD024]
+siblings-only = true
+
+[tool.rumdl.MD026]
+punctuation = ".,;:!"
+
+[tool.rumdl.MD041]
+front-matter-title = "title"
+
+# --- Lists ---
+[tool.rumdl.MD004]
+style = "dash"
+
+# --- Whitespace / line layout ---
+[tool.rumdl.MD013]
+line-length = 150
+code-blocks = false
+tables = false
+headings = false
+
+# --- Formatting ---
+[tool.rumdl.MD033]
+allowed-elements = ["details", "summary", "strong"]
+
+[tool.rumdl.MD044]
+names = ["pyhaul", "Python", "GitHub"]
+code-blocks = false
+
+[tool.rumdl.MD049]
+style = "asterisk"
+
+[tool.rumdl.MD050]
+style = "asterisk"
+
+# --- Code blocks ---
+[tool.rumdl.MD040]
+style = "consistent"
+unknown-language-action = "warn"
+
+[tool.rumdl.MD046]
+style = "fenced"
+
+[tool.rumdl.MD048]
+style = "backtick"
+
+# --- Links ---
+[tool.rumdl.MD057]
+compact-paths = true
+
+# --- Forbidden terms (catch stale TODOs in published docs) ---
+[tool.rumdl.MD061]
+terms = ["TODO", "FIXME", "XXX", "HACK"]
+
+# --- Per-file overrides ---
+[tool.rumdl.per-file-ignores]
+".github/PULL_REQUEST_TEMPLATE.md" = ["MD041"]
+"SECURITY.md" = ["MD036"]
+"README.md" = ["MD044", "MD061"]
+"PYPI_README.md" = ["MD044", "MD061"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+respect-gitignore = true
+extend-exclude = []
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "SIM",
+    "C4",
+    "C90",
+    "PIE",
+    "T20",
+    "BLE",
+    "DTZ",
+    "PTH",
+    "ERA",
+    "PL",
+    "PERF",
+    "FURB",
+    "TID",
+    "RUF",
+]
+ignore = [
+    "E501",
+    "PLC0415",
+    "PLR0913",
+]
+unfixable = ["F401"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-branches = 12
+max-statements = 50
+max-returns = 6
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+known-first-party = ["pyhaul"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/test_*.py" = ["C901", "D103", "PLR2004", "N802"]
+"**/conftest.py" = ["C901", "D103", "N802"]
+"examples/**" = ["T20"]
+"scripts/**" = ["T20"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+explicit_package_bases = true
+mypy_path = ["src"]
+cache_dir = ".mypy_cache"
+sqlite_cache = true
+incremental = true
+enable_error_code = [
+    "exhaustive-match",
+    "possibly-undefined",
+    "truthy-bool",
+    "ignore-without-code",
+]
+exclude = '''(?x)(
+    ^\.venv/
+    | ^build/
+    | ^dist/
+    | \.egg-info/
+)'''
+
+[tool.pyright]
+pythonVersion = "3.12"
+pythonPlatform = "All"
+typeCheckingMode = "strict"
+include = ["src", "tests", "examples", "scripts"]
+exclude = [".venv", "build", "dist", "**/__pycache__"]
+
+# Tests need repo root on the path for ``from tests.…``; relax noisy rules there only.
+[[tool.pyright.executionEnvironments]]
+root = "src"
+extraPaths = ["src"]
+
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+extraPaths = ["src", "."]
+reportPrivateUsage = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+
+[[tool.pyright.executionEnvironments]]
+root = "examples"
+extraPaths = ["src"]
+reportUnknownParameterType = false
+reportUnknownArgumentType = false
+reportMissingTypeStubs = false
+
+[[tool.pyright.executionEnvironments]]
+root = "scripts"
+reportMissingTypeStubs = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "--tb=short --strict-markers"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+#
+# Opt-in, machine-readable coverage. Invoke with:
+#
+#     uv run pytest --cov --cov-report=json --cov-report=term-missing
+#
+# The JSON report lands at ``.coverage.json`` (format documented at
+# https://coverage.readthedocs.io/en/latest/cmd.html#json-reporting).
+# Both humans and tools can consume it:
+#
+#     jq '.totals | {percent_covered, num_statements, missing_lines}' .coverage.json
+#     jq '.files | to_entries | map({k: .key, pct: .value.summary.percent_covered}) | sort_by(.pct)' .coverage.json
+#
+# Branch coverage is on by default — catches "if cond: return" where the
+# false branch is never exercised.
+
+[tool.coverage.run]
+source = ["src/pyhaul"]
+branch = true
+parallel = false
+data_file = ".coverage"
+omit = [
+    "src/pyhaul/__init__.py",
+    "src/pyhaul/_types.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+skip_empty = true
+precision = 1
+sort = "-Cover"
+exclude_also = [
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "^\\s*\\.\\.\\.$",
+    "@overload",
+    "pragma: no cover",
+]
+
+[tool.coverage.json]
+output = ".coverage.json"
+pretty_print = false
+show_contexts = false
+
+[tool.coverage.html]
+directory = "htmlcov"

@@ -1,0 +1,59 @@
+name: Bug report
+description: Something doesn't work the way it should.
+title: "bug: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+        Please include a minimal reproduction — a small URL or server
+        behavior that reliably triggers the issue.
+
+  - type: input
+    id: version
+    attributes:
+      label: pyhaul version
+      description: Output of `python -c 'import pyhaul; print(pyhaul.__version__)'`
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12.3"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Ubuntu 24.04 / macOS 15.3 / Windows 11"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Actual vs. expected behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Smallest possible code snippet or CLI invocation.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / tracebacks
+      render: shell

@@ -1,0 +1,3 @@
+source-path=SCRIPTDIR
+enable=SC1091
+disable=SC2126

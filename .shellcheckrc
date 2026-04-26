@@ -1,0 +1,3 @@
+shell=bash
+disable=SC1091,SC2126
+source-path=SCRIPTDIR

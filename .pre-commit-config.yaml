@@ -1,0 +1,50 @@
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: local
+    hooks:
+      - id: check-commit-signing
+        name: Require signed commits
+        entry: .githooks/check-commit-signing.sh
+        language: script
+        pass_filenames: false
+        always_run: true
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: cef0300fd0fc4d2a87a85fa2093c6b283ea36f4b  # frozen: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: b831c3dc5d27d9da294ae4e915773b99aa24a7c5  # frozen: v0.15.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca  # frozen: v1.7.12
+    hooks:
+      - id: actionlint
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: ed81924a8b1cecdaa570b072528fa80c9c4d6ccd  # frozen: 0.37.1
+    hooks:
+      - id: check-github-workflows
+      - id: check-renovate
+        additional_dependencies: ["pyjson5"]
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: a4727cbbcd26d7098e96b9cb738169b59711ae51  # frozen: v1.24.1
+    hooks:
+      - id: zizmor

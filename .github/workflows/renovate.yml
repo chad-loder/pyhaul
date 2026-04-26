@@ -1,0 +1,56 @@
+name: Renovate
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"  # Monday 4am UTC, aligns with renovate.json schedule
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Run without creating PRs"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    name: Self-hosted Renovate
+    runs-on: ubuntu-latest
+    environment: renovate
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Generate token
+        id: token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-checks: write
+          permission-statuses: write
+          permission-issues: write
+          permission-workflows: write
+          permission-administration: read
+          permission-vulnerability-alerts: read
+          permission-members: read
+
+      - name: Self-hosted Renovate
+        uses: renovatebot/github-action@83ec54fee49ab67d9cd201084c1ff325b4b462e4 # v46.1.10
+        with:
+          token: ${{ steps.token.outputs.token }}
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_ONBOARDING: "false"
+          RENOVATE_REQUIRE_CONFIG: "optional"
+          RENOVATE_DRY_RUN: ${{ inputs.dry-run && 'full' || 'null' }}
+          LOG_LEVEL: info

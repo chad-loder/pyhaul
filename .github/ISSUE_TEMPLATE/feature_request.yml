@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest a new capability or API.
+title: "feat: "
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the library doesn't let you do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Sketch the API or behavior you'd like.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

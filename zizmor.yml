@@ -1,0 +1,7 @@
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # slsa-verifier requires semver tags, not SHA refs
+        "slsa-framework/*": ref-pin
+        "*": hash-pin

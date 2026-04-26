@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Tool caches
+.venv/
+.mypy_cache/
+.ruff_cache/
+.rumdl_cache/
+.pytest_cache/
+
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# pyhaul sidecar files
+*.part
+*.part.ctrl
+
+# OS / editor
+.env
+.DS_Store
+.vscode/
+.idea/
+.cursorignore
+
+# Local scratch (notes, archives, scripts, fetched READMEs, etc.)
+.scratch/

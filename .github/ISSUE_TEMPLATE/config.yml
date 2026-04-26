@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/chad-loder/pyhaul/security/advisories/new
+    about: Please report security issues privately, not as public issues.
+  - name: Question / discussion
+    url: https://github.com/chad-loder/pyhaul/discussions
+    about: Ask questions and discuss ideas in GitHub Discussions.

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    "security:openssf-scorecard"
+  ],
+  "osvVulnerabilityAlerts": true,
+  "dependencyDashboardOSVVulnerabilitySummary": "unresolved",
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "minimumReleaseAge": null
+  },
+  "pre-commit": {
+    "enabled": true
+  },
+  "schedule": ["* 0-4 * * 1"],
+  "timezone": "Etc/UTC",
+  "prCreation": "not-pending",
+  "internalChecksFilter": "strict",
+  "prConcurrentLimit": 3,
+  "packageRules": [
+    {
+      "description": "7-day cooldown for all dependency managers",
+      "matchManagers": ["pep621", "pre-commit", "github-actions"],
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Group lint/dev tool updates into a single PR",
+      "groupName": "lint tools",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": [
+        "ruff",
+        "mypy",
+        "pyright",
+        "pre-commit",
+        "markdown-it-py"
+      ]
+    },
+    {
+      "description": "Group test dependency updates into a single PR",
+      "groupName": "test deps",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": [
+        "pytest",
+        "pytest-cov",
+        "hypothesis",
+        "anyio",
+        "types-requests"
+      ]
+    },
+    {
+      "description": "Group pre-commit hook updates into a single PR",
+      "groupName": "pre-commit hooks",
+      "matchManagers": ["pre-commit"]
+    },
+    {
+      "description": "Group GitHub Actions updates into a single PR",
+      "groupName": "github actions",
+      "matchManagers": ["github-actions"]
+    },
+    {
+      "description": "Automerge non-major dev/lint dependency updates (skip 0.x)",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": [
+        "ruff",
+        "mypy",
+        "pyright",
+        "pre-commit",
+        "markdown-it-py",
+        "pytest",
+        "pytest-cov",
+        "hypothesis",
+        "anyio",
+        "types-requests",
+        "tenacity"
+      ],
+      "matchCurrentVersion": "!/^0/",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "branch"
+    }
+  ]
+}

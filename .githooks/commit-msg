@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Maintainer-local hook: conventional commits, single line (strict for agents)
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$ROOT" ]]; then
+  echo "ERROR: commit-msg hook must run inside a git repository"
+  exit 1
+fi
+# shellcheck source=_shared.sh
+source "$ROOT/.githooks/_shared.sh"
+
+COMMIT_MSG_FILE=${1:-}
+if [[ -z "$COMMIT_MSG_FILE" || ! -f "$COMMIT_MSG_FILE" ]]; then
+  echo "ERROR: commit-msg hook expects a message file path"
+  exit 1
+fi
+
+LINE_COUNT=$(grep -v '^#' "$COMMIT_MSG_FILE" | grep -v '^$' | wc -l | tr -d '[:space:]')
+CONVENTIONAL_REGEX="^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9_-]+\))?!?: .+$"
+
+if [[ "$LINE_COUNT" -gt 1 ]]; then
+  if is_agent; then
+    agent_refusal "Multi-line commit message" "Only 1-line conventional commits allowed; do not write a body"
+    exit 1
+  fi
+
+  if [[ "${COMMIT_BYPASS:-0}" != "1" ]]; then
+    echo "ERROR: Multi-line commit detected"
+    if is_truly_interactive; then
+      if read -r -n 1 -p "Continue anyway? (y/N) " REPLY < /dev/tty; then
+        echo
+        [[ ${REPLY:-} =~ ^[Yy]$ ]] || exit 1
+      else
+        echo "ERROR: Could not read confirmation from terminal"
+        exit 1
+      fi
+    else
+      echo "Non-interactive shell detected; to bypass: COMMIT_BYPASS=1 git commit"
+      exit 1
+    fi
+  fi
+fi
+
+# First non-comment, non-blank line (matches verbose / git commit -v templates)
+FIRST_LINE=$(grep -v '^#' "$COMMIT_MSG_FILE" | grep -v '^$' | head -n 1)
+if ! printf '%s\n' "$FIRST_LINE" | grep -iqE "$CONVENTIONAL_REGEX"; then
+  echo "ERROR: Invalid format: '$FIRST_LINE'"
+  echo "Must match: <type>(scope): description"
+  exit 1
+fi

@@ -1,0 +1,66 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 4 * * *" # 04:17 UTC daily; off-peak so we don't share a slot
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  nightly:
+    name: Build & publish dev release
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/pyhaul
+    permissions:
+      id-token: write # Trusted Publishing (OIDC) for TestPyPI
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: false
+
+      - name: Stamp dev version into pyproject.toml
+        id: ver
+        shell: python
+        run: |
+          import datetime as dt
+          import os
+          import pathlib
+          import re
+          import tomllib
+
+          p = pathlib.Path("pyproject.toml")
+          txt = p.read_text()
+          base = tomllib.loads(txt)["project"]["version"]
+          stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%d")
+          dev = f"{base}.dev{stamp}"
+          new = re.sub(r'^version = "[^"]+"', f'version = "{dev}"', txt, count=1, flags=re.M)
+          p.write_text(new)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"dev={dev}\n")
+          name = tomllib.loads(txt)["project"]["name"]
+          print(f"::notice::Stamped {name}=={dev}")
+
+      - name: Build
+        run: uv build
+
+      - name: Check distribution metadata
+        run: uvx twine check dist/*
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
