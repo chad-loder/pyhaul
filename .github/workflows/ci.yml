@@ -200,8 +200,10 @@ jobs:
         uses: deadsnakes/action@e640ac8743173a67cca4d7d77cd837e514bf98e8 # v3.2.0
         with:
           python-version: "3.15-dev"
+      # Only the `test` group: `lint` pulls semgrep → pydantic-core (Rust/PyO3) which
+      # often lags CPython pre-releases; the lint job already runs on 3.14 in test-stable.
       - name: Install project
-        run: uv sync --python python3.15 --all-groups
+        run: uv sync --python python3.15 --no-default-groups --group test
       - name: pytest
         run: uv run pytest
 
