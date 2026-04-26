@@ -93,6 +93,10 @@ lint = [
     "pyright>=1.1.400",
     "tenacity>=9",
     "markdown-it-py>=4,<5",
+    "ty>=0.0.1",
+    "codespell>=2.4",
+    "validate-pyproject[all]>=0.25",
+    "semgrep>=1",
 ]
 
 [tool.uv]
@@ -360,3 +364,10 @@ show_contexts = false
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+# ---------------------------------------------------------------------------
+# codespell
+# ---------------------------------------------------------------------------
+[tool.codespell]
+ignore-words-list = "te"
+skip = "*.lock,./dist,./build,./.mypy_cache,./.ruff_cache"

@@ -90,9 +90,9 @@ _lint-py:
     uv run ruff format --quiet --check .
     uv run mypy --no-error-summary src tests examples scripts
     _out=$(uv run pyright 2>&1) || { echo "$_out"; exit 1; }
-    uvx ty check --quiet --quiet
-    uvx --with packaging validate-pyproject pyproject.toml > /dev/null
-    uvx semgrep scan --config=auto --quiet --emacs --error src/
+    uv run ty check --quiet --quiet
+    uv run validate-pyproject pyproject.toml > /dev/null
+    uv run semgrep scan --config=auto --quiet --emacs --error src/
 
 [private]
 _lint-py-fix:
@@ -143,7 +143,7 @@ _lint-docs-fix:
 
 [private]
 _lint-spell:
-    @uvx codespell -L te src tests docs examples scripts *.md *.toml
+    @uv run codespell src tests docs examples scripts *.md *.toml
 
 # Copies tracked hook scripts into .git/hooks, aborting on local edits.
 [private]
