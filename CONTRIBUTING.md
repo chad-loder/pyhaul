@@ -20,6 +20,13 @@ just dev
 `just dev` runs `just setup` (install deps, git hooks) then `just test`.
 That single command is all you need to go from clone to green test suite.
 
+**Branching:** day-to-day work lands on `main` through pull requests. We do
+not use a long-lived `dev` branch. If a **patch to an old release** is ever
+needed, branch from the **release tag** (or a short-lived `maint-x.y` branch
+forked from that tag), fix, and tag a patch version—this is the usual
+Python-library pattern, not a standing “integrate in dev, promote to main”
+split.
+
 ## Common commands
 
 Run `just` with no arguments to see all available recipes, organized by
@@ -156,8 +163,8 @@ We don't cut releases manually. The flow is:
 
 ### Nightly builds
 
-A scheduled workflow (`nightly.yml`) runs once a day. It stamps a
-`.devYYYYMMDD` suffix on the current `pyproject.toml` version, builds
+A scheduled workflow (`nightly.yml`) runs once a day against **`main`**. It
+stamps a `.devYYYYMMDD` suffix on the current `pyproject.toml` version, builds
 sdist + wheel, and publishes to **TestPyPI**. To install a nightly:
 
 ```bash
