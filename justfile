@@ -73,7 +73,8 @@ clean:
 [group('ci')]
 ci: setup
     uv run pre-commit run --all-files --show-diff-on-failure
-    uv run pytest --cov=pyhaul --cov-report=xml
+    uv run coverage run -m pytest
+    uv run coverage xml -o coverage.xml
 
 # Validate renovate.json against official schema
 [group('ci')]

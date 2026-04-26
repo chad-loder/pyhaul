@@ -44,17 +44,24 @@ is stronger than "install the wheel but leave `src/` in place" (pytest,
 environment as the test dependency. The tests themselves do not point at
 `./src/`.
 
-**Coverage with this layout:** Traced file paths are under `site-packages/…` (or
-the venv’s `lib/…`), not `./src/…`. In `pyproject`, set **`[tool.coverage.run]
-source = ["<package>"]` using the import name** (e.g. `pyhaul`), not
-`source = ["src/..."]`, so `coverage report` and `coverage combine` match what
-CI executes. structlog’s **separate** `coverage` job downloads `.coverage.*`
-from each matrix cell (`coverage-data-*`), runs `coverage combine`, writes a
-markdown report to `$GITHUB_STEP_SUMMARY`, and fails with
-`coverage report --fail-under=…` (or `fail_under` in config). Avoid putting
-`fail_under` in config if **each matrix cell** runs `pytest --cov` — a single
-OS (e.g. Windows) can land slightly under the line until data is **combined**;
-gate on the **combined** report only.
+**Coverage with this layout (structlog’s exact pattern):**
+- **Measure** with **`coverage run -m pytest`** in the test job (they use tox:
+  `commands = coverage run -m pytest`), **not** `pytest --cov=…`. That keeps
+  behavior aligned with coverage.py’s **parallel** data files and with the
+  upload glob below.
+- In `pyproject`, **`[tool.coverage.run] source = ["<package>"]`** (import name),
+  **`parallel = true`**, and **`[tool.coverage.paths] source`** listing both the
+  checkout tree and a `*/site-packages/<package>` glob so `coverage combine`
+  can merge traces from different machines and from wheel installs.
+- **Upload** artifacts: **`path: .coverage.*`**, **`include-hidden-files: true`**,
+  **`if-no-files-found: ignore`** (see
+  [structlog `ci.yml` “Upload coverage data”](https://github.com/hynek/structlog/blob/main/.github/workflows/ci.yml)).
+  If you also see a bare `.coverage` from some runs, add it as a second path
+  line (multi-line `path` in `upload-artifact`).
+- **Combine job:** `download-artifact` with **`pattern: coverage-data-*`** and
+  **`merge-multiple: true`**, then `coverage combine` + `coverage report
+  --fail-under=…`. Do not enforce **`fail_under` in `[tool.coverage.report]`**
+  if every matrix cell runs reporting — gate only on the **combined** report.
 
 **Why it matters:**
 - Catches forgotten files: if a module isn't in the wheel, tests fail.

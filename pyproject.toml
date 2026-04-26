@@ -335,6 +335,8 @@ testpaths = ["tests"]
 [tool.coverage.run]
 # Package name (not ``src/...``) so coverage matches imports from a wheel
 # in CI (see structlog: extract sdist, ``rm -rf src``, test against wheel only).
+# Run tests with ``coverage run -m pytest`` (as structlog does via tox), not
+# ``pytest --cov`` — aligns with their workflow and with ``parallel`` data files.
 source = ["pyhaul"]
 branch = true
 parallel = true
@@ -343,6 +345,11 @@ omit = [
     "*/pyhaul/__init__.py",
     "*/pyhaul/_types.py",
 ]
+
+# Map checkout tree and installed wheel paths so ``coverage combine`` can merge
+# Linux/Windows and matrix data (structlog: ``src`` + site-packages)
+[tool.coverage.paths]
+source = ["src/pyhaul", "*/site-packages/pyhaul"]
 
 [tool.coverage.report]
 # Do not set fail_under here: matrix jobs only collect .coverage.*; the CI

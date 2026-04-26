@@ -117,16 +117,18 @@ jobs:
           whl=(dist/pyhaul-*.whl)
           uv pip install --force-reinstall --no-deps "${whl[0]}"
       # --no-sync: without src/, uv would try to build the workspace project; the wheel is already installed.
-      - name: pytest
+      # structlog: ``coverage run -m pytest`` (not ``pytest --cov``) so parallel data
+      # files are consistently ``.coverage.*``; upload with that glob + hidden files.
+      - name: Run tests (coverage)
         shell: bash
-        run: uv run --no-sync pytest --cov=pyhaul --cov-report=term
-      # Globs: `.coverage` is the data file; parallel mode adds `.suffix` (not
-      # only `.coverage.*`). Upload both so every matrix cell has artifacts.
+        run: uv run --no-sync coverage run -m pytest
       - name: Upload coverage data
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-data-${{ matrix.os }}-${{ matrix.python-version }}
+          # structlog: ``path: .coverage.*``; include hidden files. Also upload
+          # ``.coverage`` if a run produces a single main file (edge cases).
           path: |
             .coverage
             .coverage.*
