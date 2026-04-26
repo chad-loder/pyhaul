@@ -56,6 +56,7 @@ def make_transport(backend: str, native: object) -> TransportSession:
 
 
 def close_native(native: object) -> None:
+    """Shut down a native HTTP client by calling its ``close`` or ``clear`` method."""
     close = getattr(native, "close", None)
     if callable(close):
         close()

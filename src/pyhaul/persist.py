@@ -66,7 +66,7 @@ def deserialize(data: bytes) -> Checkpoint:
     if not isinstance(loaded, dict):
         raise ControlFileError("JSON root is not an object")
 
-    obj = cast(dict[str, object], loaded)
+    obj = cast("dict[str, object]", loaded)
 
     version = _require_int(obj, "version")
     if version != CTRL_VERSION:

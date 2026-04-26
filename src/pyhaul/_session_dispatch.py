@@ -100,6 +100,18 @@ def _try_async_httpx(obj: object) -> AsyncTransportSession | None:
     return None
 
 
+def _try_async_aiohttp(obj: object) -> AsyncTransportSession | None:
+    try:
+        import aiohttp
+    except ImportError:
+        return None
+    if isinstance(obj, aiohttp.ClientSession):
+        from pyhaul.transport.aiohttp_adapter import AsyncAiohttpAdapter
+
+        return AsyncAiohttpAdapter(obj)
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Registries
 # ---------------------------------------------------------------------------
@@ -114,6 +126,7 @@ _sync_factories: list[SyncAdapterFactory] = [
 _async_factories: list[AsyncAdapterFactory] = [
     _try_async_niquests,
     _try_async_httpx,
+    _try_async_aiohttp,
 ]
 
 

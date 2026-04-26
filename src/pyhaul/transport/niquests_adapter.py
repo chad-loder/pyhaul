@@ -46,19 +46,23 @@ class NiquestsTransportResponse(TransportResponse):
 
     @property
     def status_code(self) -> int:
-        return cast(int, self._resp.status_code)
+        """HTTP status code of the response."""
+        return cast("int", self._resp.status_code)
 
     @property
     def headers(self) -> TransportHeaders:
+        """Response headers, lazily parsed on first access."""
         if self._headers is None:
             self._headers = headers_from_niquests_response(self._resp)
         return self._headers
 
     def raise_for_status(self) -> None:
+        """Raise :exc:`~pyhaul.transport.errors.TransportHTTPError` for 4xx/5xx responses."""
         with map_requests_like_transport_errors(_niquests_exceptions):
             self._resp.raise_for_status()
 
     def iter_raw_bytes(self, *, chunk_size: int) -> Iterator[bytes]:
+        """Yield raw response body chunks without decoding."""
         with map_requests_like_transport_errors(_niquests_exceptions):
             yield from self._resp.iter_raw(chunk_size=chunk_size)
 
@@ -79,6 +83,7 @@ class NiquestsAdapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> Iterator[TransportResponse]:
+        """Open a streaming GET request and yield the response."""
         kwargs = request_options_to_requests_like_kwargs(options)
         with (
             map_requests_like_transport_errors(_niquests_exceptions),
@@ -108,19 +113,23 @@ class AsyncNiquestsTransportResponse(AsyncTransportResponse):
 
     @property
     def status_code(self) -> int:
-        return cast(int, self._resp.status_code)
+        """HTTP status code of the response."""
+        return cast("int", self._resp.status_code)
 
     @property
     def headers(self) -> TransportHeaders:
+        """Response headers, lazily parsed on first access."""
         if self._headers is None:
             self._headers = headers_from_niquests_response(self._resp)
         return self._headers
 
     def raise_for_status(self) -> None:
+        """Raise :exc:`~pyhaul.transport.errors.TransportHTTPError` for 4xx/5xx responses."""
         with map_requests_like_transport_errors(_niquests_exceptions):
             self._resp.raise_for_status()
 
     async def aiter_raw_bytes(self, *, chunk_size: int) -> AsyncIterator[bytes]:
+        """Yield raw response body chunks without decoding."""
         with map_requests_like_transport_errors(_niquests_exceptions):
             async for chunk in await self._resp.iter_raw(chunk_size=chunk_size):
                 yield chunk
@@ -142,6 +151,7 @@ class AsyncNiquestsAdapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> AsyncIterator[AsyncTransportResponse]:
+        """Open a streaming GET request and yield the response."""
         kwargs = request_options_to_requests_like_kwargs(options)
         with map_requests_like_transport_errors(_niquests_exceptions):
             resp = await self._session.get(url, headers=dict(headers), stream=True, **kwargs)

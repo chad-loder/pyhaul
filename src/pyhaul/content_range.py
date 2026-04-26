@@ -37,6 +37,7 @@ class ContentRange:
 
     @property
     def is_unsatisfied(self) -> bool:
+        """Return ``True`` if the server could not satisfy the range request."""
         return self.start is None
 
     @property
@@ -90,7 +91,7 @@ def parse_content_range(raw: str) -> ContentRange:  # noqa: C901
     if start > end:
         raise ContentRangeParseError(f"start > end in Content-Range: {start} > {end}")
 
-    if length_token == "*":
+    if length_token == "*":  # noqa: S105 — not a password, it's the RFC 9110 wildcard
         return ContentRange(start=start, end=end, instance_length=None)
 
     instance_length = int(length_token)

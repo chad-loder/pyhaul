@@ -75,7 +75,7 @@ def test_headers_from_requests_response_normalizes() -> None:
 
 def test_requests_transport_response_protocol() -> None:
     inner = _CMResponse(chunks=(b"a", b"bc"))
-    tr: TransportResponse = RequestsTransportResponse(cast(requests.Response, inner))
+    tr: TransportResponse = RequestsTransportResponse(cast("requests.Response", inner))
     assert tr.status_code == 200
     assert list(tr.iter_raw_bytes(chunk_size=1024)) == [b"a", b"bc"]
     tr.raise_for_status()
@@ -83,7 +83,7 @@ def test_requests_transport_response_protocol() -> None:
 
 def test_requests_transport_response_http_error_maps() -> None:
     inner = _CMResponse(status_code=503, chunks=())
-    tr = RequestsTransportResponse(cast(requests.Response, inner))
+    tr = RequestsTransportResponse(cast("requests.Response", inner))
     with pytest.raises(TransportHTTPError) as ctx:
         tr.raise_for_status()
     assert ctx.value.status_code == 503

@@ -56,7 +56,7 @@ class TransportHeaders:
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, str]) -> TransportHeaders:
-        """Build headers from a string mapping (single value per key).
+        r"""Build headers from a string mapping (single value per key).
 
         Iteration order follows ``mapping`` iteration (Python 3.7+ dict order).
         Keys that differ only by case become separate pairs first, then share
@@ -68,7 +68,7 @@ class TransportHeaders:
         return cls.from_pairs(pairs)
 
     def get(self, name: str) -> str:
-        """Return the first value for *name*, or ``\"\"`` if absent."""
+        r"""Return the first value for *name*, or ``\"\"`` if absent."""
         key = _norm_header_name(name)
         for k, v in self._items:
             if k == key:

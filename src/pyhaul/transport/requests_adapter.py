@@ -31,19 +31,23 @@ class RequestsTransportResponse(TransportResponse):
 
     @property
     def status_code(self) -> int:
+        """HTTP status code of the response."""
         return int(self._resp.status_code)
 
     @property
     def headers(self) -> TransportHeaders:
+        """Response headers, lazily parsed on first access."""
         if self._headers is None:
             self._headers = headers_from_requests_response(self._resp)
         return self._headers
 
     def raise_for_status(self) -> None:
+        """Raise :exc:`~pyhaul.transport.errors.TransportHTTPError` for 4xx/5xx responses."""
         with map_requests_like_transport_errors(_requests_exceptions):
             self._resp.raise_for_status()
 
     def iter_raw_bytes(self, *, chunk_size: int) -> Iterator[bytes]:
+        """Yield raw response body chunks without decoding."""
         with map_requests_like_transport_errors(_requests_exceptions):
             yield from self._resp.raw.stream(chunk_size, decode_content=False)
 
@@ -64,6 +68,7 @@ class RequestsAdapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> Iterator[TransportResponse]:
+        """Open a streaming GET request and yield the response."""
         kwargs = request_options_to_requests_like_kwargs(options)
         with (
             map_requests_like_transport_errors(_requests_exceptions),

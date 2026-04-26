@@ -7,9 +7,9 @@ default:
 
 # --- Quality ---
 
-# Lint code, shell, and docs (contributor-facing)
+# Lint code, shell, docs, and spelling (contributor-facing)
 [group('quality')]
-lint: _lint-py _lint-sh _lint-docs
+lint: _lint-py _lint-sh _lint-docs _lint-spell
     @printf '\033[32m✓ lint\033[0m\n'
 
 # Lint workflows, actions security, and CI config (maintainer-facing)
@@ -19,7 +19,7 @@ lint-maintainer: _lint-workflows
 
 # Run all linters (contributor + maintainer)
 [group('quality')]
-lint-all: _lint-py _lint-sh _lint-docs _lint-workflows
+lint-all: _lint-py _lint-sh _lint-docs _lint-spell _lint-workflows
     @printf '\033[32m✓ lint-all\033[0m\n'
 
 # Auto-fix everything fixable, then check
@@ -90,6 +90,8 @@ _lint-py:
     uv run ruff format --quiet --check .
     uv run mypy --no-error-summary src tests examples scripts
     _out=$(uv run pyright 2>&1) || { echo "$_out"; exit 1; }
+    uvx ty check --quiet --quiet
+    uvx --with packaging validate-pyproject pyproject.toml > /dev/null
     uvx semgrep scan --config=auto --quiet --emacs --error src/
 
 [private]
@@ -138,6 +140,10 @@ _lint-workflows:
 [private]
 _lint-docs-fix:
     uvx rumdl fix .
+
+[private]
+_lint-spell:
+    @uvx codespell -L te src tests docs examples scripts *.md *.toml
 
 # Copies tracked hook scripts into .git/hooks, aborting on local edits.
 [private]

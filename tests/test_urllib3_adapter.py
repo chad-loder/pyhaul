@@ -50,13 +50,13 @@ def test_headers_from_urllib3_response_multi_value() -> None:
     resp.headers = urllib3.HTTPHeaderDict()
     resp.headers.add("Set-Cookie", "a=1")
     resp.headers.add("Set-Cookie", "b=2")
-    th = headers_from_urllib3_response(cast(urllib3.HTTPResponse, resp))
+    th = headers_from_urllib3_response(cast("urllib3.HTTPResponse", resp))
     assert th.get_all("set-cookie") == ("a=1", "b=2")
 
 
 def test_urllib3_transport_response_protocol() -> None:
     inner = _FakeResponse(chunks=(b"a", b"bc"))
-    tr: TransportResponse = Urllib3TransportResponse(cast(urllib3.HTTPResponse, inner))
+    tr: TransportResponse = Urllib3TransportResponse(cast("urllib3.HTTPResponse", inner))
     assert tr.status_code == 206
     assert list(tr.iter_raw_bytes(chunk_size=1024)) == [b"a", b"bc"]
     tr.raise_for_status()
@@ -64,7 +64,7 @@ def test_urllib3_transport_response_protocol() -> None:
 
 def test_urllib3_transport_response_raise_for_status_on_error() -> None:
     inner = _FakeResponse(status=503, chunks=())
-    tr = Urllib3TransportResponse(cast(urllib3.HTTPResponse, inner))
+    tr = Urllib3TransportResponse(cast("urllib3.HTTPResponse", inner))
     with pytest.raises(TransportHTTPError) as ctx:
         tr.raise_for_status()
     assert ctx.value.status_code == 503
@@ -80,7 +80,7 @@ def test_urllib3_transport_response_incomplete_read_maps() -> None:
             )
 
     inner = _BadStream(chunks=())
-    tr = Urllib3TransportResponse(cast(urllib3.HTTPResponse, inner))
+    tr = Urllib3TransportResponse(cast("urllib3.HTTPResponse", inner))
     with pytest.raises(TransportConnectionError) as ctx:
         list(tr.iter_raw_bytes(chunk_size=1024))
     assert isinstance(ctx.value.__cause__, urllib3.exceptions.IncompleteRead)
