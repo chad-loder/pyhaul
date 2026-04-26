@@ -1,52 +1,159 @@
-"""Auto-coerce popular HTTP client objects into pyhaul transport sessions.
+"""Auto-coerce HTTP client objects into pyhaul transport sessions.
 
-Dispatch is based on MRO class identity (module + qualname), not duck-typing,
-so no optional dependency is imported until a matching object actually arrives.
+Built-in adapters handle requests, niquests, httpx, and urllib3.  Third-party
+packages can register additional adapters via :func:`register_sync_adapter`
+and :func:`register_async_adapter` — no monkeypatching required.
+
+Each adapter factory is a callable ``(object) -> T | None``.  The dispatch
+walks the factory list in registration order; the first non-``None`` result
+wins.  Built-in factories use lazy imports so no backend is pulled until a
+matching client object actually arrives.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
 
 from pyhaul.transport.protocols import AsyncTransportSession, TransportSession
 
-_SYNC_DISPATCH: list[tuple[str, str, str, str]] = [
-    ("requests.sessions", "Session", "pyhaul.transport.requests_adapter", "RequestsAdapter"),
-    ("niquests.sessions", "Session", "pyhaul.transport.niquests_adapter", "NiquestsAdapter"),
-    ("httpx._client", "Client", "pyhaul.transport.httpx_adapter", "HttpxAdapter"),
-    ("urllib3.poolmanager", "PoolManager", "pyhaul.transport.urllib3_adapter", "Urllib3Adapter"),
-    ("urllib3.poolmanager", "ProxyManager", "pyhaul.transport.urllib3_adapter", "Urllib3Adapter"),
-]
+type SyncAdapterFactory = Callable[[object], TransportSession | None]
+"""Callable that wraps a raw sync HTTP client, or returns ``None``."""
 
-_ASYNC_DISPATCH: list[tuple[str, str, str, str]] = [
-    ("niquests.sessions", "AsyncSession", "pyhaul.transport.niquests_adapter", "AsyncNiquestsAdapter"),
-    ("httpx._client", "AsyncClient", "pyhaul.transport.httpx_adapter", "AsyncHttpxAdapter"),
-]
+type AsyncAdapterFactory = Callable[[object], AsyncTransportSession | None]
+"""Callable that wraps a raw async HTTP client, or returns ``None``."""
 
 
-def _resolve(obj: Any, table: list[tuple[str, str, str, str]]) -> Any | None:
-    for cls in type(obj).__mro__:
-        key = (cls.__module__, cls.__qualname__)
-        for mod_name, cls_name, adapter_mod, adapter_cls in table:
-            if key == (mod_name, cls_name):
-                import importlib
+# ---------------------------------------------------------------------------
+# Built-in factories (lazy imports — no backend pulled until needed)
+# ---------------------------------------------------------------------------
 
-                m = importlib.import_module(adapter_mod)  # nosemgrep: non-literal-import
-                return getattr(m, adapter_cls)(obj)
+
+def _try_requests(obj: object) -> TransportSession | None:
+    try:
+        import requests
+    except ImportError:
+        return None
+    if isinstance(obj, requests.Session):
+        from pyhaul.transport.requests_adapter import RequestsAdapter
+
+        return RequestsAdapter(obj)
     return None
+
+
+def _try_niquests(obj: object) -> TransportSession | None:
+    try:
+        import niquests
+    except ImportError:
+        return None
+    if isinstance(obj, niquests.Session):
+        from pyhaul.transport.niquests_adapter import NiquestsAdapter
+
+        return NiquestsAdapter(obj)
+    return None
+
+
+def _try_httpx(obj: object) -> TransportSession | None:
+    try:
+        import httpx
+    except ImportError:
+        return None
+    if isinstance(obj, httpx.Client):
+        from pyhaul.transport.httpx_adapter import HttpxAdapter
+
+        return HttpxAdapter(obj)
+    return None
+
+
+def _try_urllib3(obj: object) -> TransportSession | None:
+    try:
+        import urllib3
+    except ImportError:
+        return None
+    if isinstance(obj, urllib3.PoolManager):
+        from pyhaul.transport.urllib3_adapter import Urllib3Adapter
+
+        return Urllib3Adapter(obj)
+    return None
+
+
+def _try_async_niquests(obj: object) -> AsyncTransportSession | None:
+    try:
+        import niquests
+    except ImportError:
+        return None
+    if isinstance(obj, niquests.AsyncSession):
+        from pyhaul.transport.niquests_adapter import AsyncNiquestsAdapter
+
+        return AsyncNiquestsAdapter(obj)
+    return None
+
+
+def _try_async_httpx(obj: object) -> AsyncTransportSession | None:
+    try:
+        import httpx
+    except ImportError:
+        return None
+    if isinstance(obj, httpx.AsyncClient):
+        from pyhaul.transport.httpx_adapter import AsyncHttpxAdapter
+
+        return AsyncHttpxAdapter(obj)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Registries
+# ---------------------------------------------------------------------------
+
+_sync_factories: list[SyncAdapterFactory] = [
+    _try_requests,
+    _try_niquests,
+    _try_httpx,
+    _try_urllib3,
+]
+
+_async_factories: list[AsyncAdapterFactory] = [
+    _try_async_niquests,
+    _try_async_httpx,
+]
+
+
+def register_sync_adapter(factory: SyncAdapterFactory) -> None:
+    """Append a sync adapter factory.
+
+    *factory* is called with a raw client object and must return a
+    :class:`~pyhaul.transport.protocols.TransportSession` or ``None``.
+    Factories are tried in registration order; the first non-``None``
+    result wins.
+    """
+    _sync_factories.append(factory)
+
+
+def register_async_adapter(factory: AsyncAdapterFactory) -> None:
+    """Append an async adapter factory.
+
+    *factory* is called with a raw client object and must return an
+    :class:`~pyhaul.transport.protocols.AsyncTransportSession` or ``None``.
+    """
+    _async_factories.append(factory)
+
+
+# ---------------------------------------------------------------------------
+# Public coercion API
+# ---------------------------------------------------------------------------
 
 
 def coerce_sync_session(obj: object) -> TransportSession:
     """Wrap a raw HTTP client as a ``TransportSession``, or pass through."""
     if isinstance(obj, TransportSession):
         return obj
-    result = _resolve(obj, _SYNC_DISPATCH)
-    if isinstance(result, TransportSession):
-        return result
+    for factory in _sync_factories:
+        result = factory(obj)
+        if result is not None:
+            return result
     raise TypeError(
-        f"expected a TransportSession or a supported HTTP client "
-        f"(requests.Session, niquests.Session, httpx.Client, urllib3.PoolManager), "
-        f"got {type(obj).__module__}.{type(obj).__qualname__}"
+        f"No sync adapter for {type(obj).__module__}.{type(obj).__qualname__}. "
+        f"Install a pyhaul extra (pyhaul[niquests], pyhaul[requests], "
+        f"pyhaul[httpx], pyhaul[urllib3]) or call register_sync_adapter()."
     )
 
 
@@ -54,11 +161,12 @@ def coerce_async_session(obj: object) -> AsyncTransportSession:
     """Wrap a raw async HTTP client as an ``AsyncTransportSession``, or pass through."""
     if isinstance(obj, AsyncTransportSession):
         return obj
-    result = _resolve(obj, _ASYNC_DISPATCH)
-    if isinstance(result, AsyncTransportSession):
-        return result
+    for factory in _async_factories:
+        result = factory(obj)
+        if result is not None:
+            return result
     raise TypeError(
-        f"expected an AsyncTransportSession or a supported async HTTP client "
-        f"(niquests.AsyncSession, httpx.AsyncClient), "
-        f"got {type(obj).__module__}.{type(obj).__qualname__}"
+        f"No async adapter for {type(obj).__module__}.{type(obj).__qualname__}. "
+        f"Install a pyhaul extra (pyhaul[niquests], pyhaul[httpx]) "
+        f"or call register_async_adapter()."
     )

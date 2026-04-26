@@ -1,5 +1,6 @@
 """pyhaul: resumable, cursor-based, CDN-safe HTTP downloads."""
 
+from pyhaul._session_dispatch import register_async_adapter, register_sync_adapter
 from pyhaul._types import (
     CompleteHaul,
     ContentRangeError,
@@ -38,4 +39,6 @@ __all__ = [
     "haul_async",
     "parse_etag",
     "parse_url",
+    "register_async_adapter",
+    "register_sync_adapter",
 ]

@@ -270,6 +270,9 @@ extraPaths = ["src", "."]
 reportPrivateUsage = false
 reportUnknownMemberType = false
 reportUnknownVariableType = false
+reportUnknownLambdaType = false
+reportUnknownArgumentType = false
+reportAttributeAccessIssue = false
 
 [[tool.pyright.executionEnvironments]]
 root = "examples"

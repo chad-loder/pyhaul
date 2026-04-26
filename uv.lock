@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.12"
 
 [options]
-exclude-newer = "2026-04-24T01:04:28.433828Z"
+exclude-newer = "2026-04-24T06:10:48.981531Z"
 exclude-newer-span = "PT48H"
 
 [[package]]
@@ -560,7 +560,7 @@ wheels = [
 
 [[package]]
 name = "pyhaul"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 
 [package.optional-dependencies]
