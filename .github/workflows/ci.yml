@@ -158,7 +158,7 @@ jobs:
           uv run coverage combine
           uv run coverage html --skip-covered --skip-empty
           uv run coverage report --format=markdown >> "${GITHUB_STEP_SUMMARY}"
-          uv run coverage report
+          uv run coverage report --fail-under=85
           uv run coverage xml -o coverage.xml
       - name: Upload HTML report if check failed
         if: failure()

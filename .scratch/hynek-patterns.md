@@ -51,7 +51,10 @@ source = ["<package>"]` using the import name** (e.g. `pyhaul`), not
 CI executes. structlog’s **separate** `coverage` job downloads `.coverage.*`
 from each matrix cell (`coverage-data-*`), runs `coverage combine`, writes a
 markdown report to `$GITHUB_STEP_SUMMARY`, and fails with
-`coverage report --fail-under=…` (or `fail_under` in config).
+`coverage report --fail-under=…` (or `fail_under` in config). Avoid putting
+`fail_under` in config if **each matrix cell** runs `pytest --cov` — a single
+OS (e.g. Windows) can land slightly under the line until data is **combined**;
+gate on the **combined** report only.
 
 **Why it matters:**
 - Catches forgotten files: if a module isn't in the wheel, tests fail.

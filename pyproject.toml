@@ -345,8 +345,8 @@ omit = [
 ]
 
 [tool.coverage.report]
-# Combined matrix in CI; keep in sync with ``coverage`` job (low 80s is typical).
-fail_under = 85
+# Do not set fail_under here: matrix jobs only collect .coverage.*; the CI
+# ``coverage`` job runs ``coverage report --fail-under`` on combined data.
 show_missing = true
 skip_covered = false
 skip_empty = true
