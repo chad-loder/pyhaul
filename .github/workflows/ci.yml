@@ -116,9 +116,10 @@ jobs:
           uv sync --frozen --all-groups --no-install-project
           whl=(dist/pyhaul-*.whl)
           uv pip install --force-reinstall --no-deps "${whl[0]}"
+      # --no-sync: without src/, uv would try to build the workspace project; the wheel is already installed.
       - name: pytest
         shell: bash
-        run: uv run pytest --cov=pyhaul --cov-report=term
+        run: uv run --no-sync pytest --cov=pyhaul --cov-report=term
       - name: Upload coverage data
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

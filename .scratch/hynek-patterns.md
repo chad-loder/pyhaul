@@ -62,11 +62,20 @@ markdown report to `$GITHUB_STEP_SUMMARY`, and fails with
 
 **Without tox (same invariants):** `uv sync --frozen --all-groups
 --no-install-project` to install test deps, then
-`uv pip install --force-reinstall --no-deps dist/<pkg>-*.whl`, then
-`uv run pytest --cov=<package>` after `src/` is gone.
+`uv pip install --force-reinstall --no-deps dist/<pkg>-*.whl`, then run pytest
+after `src/` is gone. With **uv**, plain `uv run pytest` will try to **re-sync /
+build** the workspace from `pyproject.toml` and fail with “Expected … at
+`src/<pkg>/__init__.py`”. Use **`uv run --no-sync pytest …`** so the tool
+command uses the existing venv (with the wheel already installed) without
+rebuilding the tree.
+
+**Wheel contents vs tests:** If the build backend **excludes** modules from the
+wheel (e.g. optional `source-exclude` for `cli.py`), any test that imports those
+modules will fail in wheel-only runs. Either ship those modules in the wheel or
+constrain / skip those tests in the wheel job.
 
 **Status:** **Done** in our `ci.yml` (sdist extract + `rm -rf src`, wheel install
-via `uv`, combined coverage job).
+via `uv`, `uv run --no-sync pytest`, combined coverage job).
 
 **Effort (historical):** Medium for the first wiring; maintenance is low.
 

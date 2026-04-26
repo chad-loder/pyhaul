@@ -69,8 +69,6 @@ source-exclude = [
     "**/.pytest_cache",
     "**/__pycache__",
     "**/*.pyc",
-    "src/pyhaul/cli.py",
-    "src/pyhaul/__main__.py",
 ]
 
 [dependency-groups]
