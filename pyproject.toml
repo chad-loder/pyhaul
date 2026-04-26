@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "pyhaul"
-version = "0.2.0"
+version = "0.2.1"
 description = "Resumable, cursor-based, CDN-safe HTTP downloads for Python"
 readme = "PYPI_README.md"
 license = "MIT"
@@ -19,6 +19,7 @@ keywords = [
     "resume",
     "range",
     "partial",
+    "aiohttp",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
