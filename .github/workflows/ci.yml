@@ -120,12 +120,16 @@ jobs:
       - name: pytest
         shell: bash
         run: uv run --no-sync pytest --cov=pyhaul --cov-report=term
+      # Globs: `.coverage` is the data file; parallel mode adds `.suffix` (not
+      # only `.coverage.*`). Upload both so every matrix cell has artifacts.
       - name: Upload coverage data
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-data-${{ matrix.os }}-${{ matrix.python-version }}
-          path: .coverage.*
+          path: |
+            .coverage
+            .coverage.*
           include-hidden-files: true
           if-no-files-found: ignore
 
