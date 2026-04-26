@@ -27,6 +27,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: System :: Networking",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -97,6 +98,7 @@ lint = [
     "codespell>=2.4",
     "validate-pyproject[all]>=0.25",
     "semgrep>=1",
+    "interrogate>=1.7",
 ]
 
 [tool.uv]
@@ -313,7 +315,6 @@ addopts = ["--tb=short", "--strict-markers", "--strict-config", "--import-mode=i
 xfail_strict = true
 filterwarnings = ["once::Warning"]
 testpaths = ["tests"]
-pythonpath = ["src"]
 
 # ---------------------------------------------------------------------------
 # Coverage
@@ -334,16 +335,20 @@ pythonpath = ["src"]
 # false branch is never exercised.
 
 [tool.coverage.run]
-source = ["src/pyhaul"]
+# Package name (not ``src/...``) so coverage matches imports from a wheel
+# in CI (see structlog: extract sdist, ``rm -rf src``, test against wheel only).
+source = ["pyhaul"]
 branch = true
-parallel = false
+parallel = true
 data_file = ".coverage"
 omit = [
-    "src/pyhaul/__init__.py",
-    "src/pyhaul/_types.py",
+    "*/pyhaul/__init__.py",
+    "*/pyhaul/_types.py",
 ]
 
 [tool.coverage.report]
+# Combined matrix in CI; keep in sync with ``coverage`` job (low 80s is typical).
+fail_under = 85
 show_missing = true
 skip_covered = false
 skip_empty = true
@@ -366,8 +371,19 @@ show_contexts = false
 directory = "htmlcov"
 
 # ---------------------------------------------------------------------------
+# interrogate  (docstring coverage)
+# ---------------------------------------------------------------------------
+[tool.interrogate]
+ignore-init-method = true
+ignore-magic = true
+ignore-private = true
+ignore-semiprivate = true
+fail-under = 100
+exclude = ["tests", "examples", "scripts"]
+
+# ---------------------------------------------------------------------------
 # codespell
 # ---------------------------------------------------------------------------
 [tool.codespell]
 ignore-words-list = "te"
-skip = "*.lock,./dist,./build,./.mypy_cache,./.ruff_cache"
+skip = "*.lock,./dist,./build,./.mypy_cache,./.ruff_cache,./.scratch"

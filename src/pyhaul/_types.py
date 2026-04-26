@@ -188,6 +188,7 @@ class HashBuilder:
         return True
 
     def hexdigest(self) -> str:
+        """Return the accumulated SHA-256 digest as a lowercase hex string."""
         return self._h.hexdigest()
 
     @staticmethod

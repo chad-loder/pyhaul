@@ -73,7 +73,7 @@ clean:
 [group('ci')]
 ci: setup
     uv run pre-commit run --all-files --show-diff-on-failure
-    uv run pytest --cov=./ --cov-report=xml
+    uv run pytest --cov=pyhaul --cov-report=xml
 
 # Validate renovate.json against official schema
 [group('ci')]
@@ -92,6 +92,7 @@ _lint-py:
     _out=$(uv run pyright 2>&1) || { echo "$_out"; exit 1; }
     uv run ty check --quiet --quiet
     uv run validate-pyproject pyproject.toml > /dev/null
+    uv run interrogate --quiet src/pyhaul/
     uv run semgrep scan --config=auto --quiet --emacs --error src/
 
 [private]

@@ -9,6 +9,7 @@ from pyhaul.transport.types import TransportRequestOptions
 
 
 def header_value_to_str(value: object, default: str = "") -> str:
+    """Coerce a header value to ``str``, returning *default* for ``None``."""
     if value is None:
         return default
     if isinstance(value, bytes):
@@ -19,6 +20,7 @@ def header_value_to_str(value: object, default: str = "") -> str:
 def transport_header_pairs(
     items: Iterable[tuple[object, object]],
 ) -> list[tuple[str, str]]:
+    """Convert raw header pairs to ``(str, str)`` tuples."""
     return [(str(k), header_value_to_str(v).strip()) for k, v in items]
 
 
@@ -31,6 +33,7 @@ class _RequestsLikeRequestKwargs(TypedDict, total=False):
 def request_options_to_requests_like_kwargs(
     options: TransportRequestOptions | None,
 ) -> _RequestsLikeRequestKwargs:
+    """Translate :class:`TransportRequestOptions` to requests/niquests kwargs."""
     if options is None:
         return {}
     kw: _RequestsLikeRequestKwargs = {}
