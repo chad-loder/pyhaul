@@ -55,6 +55,8 @@ _MAX_RETRIES = 20
 
 
 class ByteStandard(StrEnum):
+    """Unit system for human-readable byte formatting (IEC binary vs SI decimal)."""
+
     IEC = "IEC"
     SI = "SI"
 
@@ -136,6 +138,7 @@ def format_bytes(size: float, std: ByteStandard = ByteStandard.IEC, prec: int = 
 
 
 def format_duration(seconds: float) -> str:
+    """Format *seconds* as a compact human-readable duration string."""
     if seconds < _SEC_PER_MIN:
         return f"{seconds:.1f}s"
     m, s = divmod(int(seconds), _SEC_PER_MIN)
@@ -161,12 +164,14 @@ class Printer:
         self.quiet = quiet
 
     def info(self, msg: str) -> None:
+        """Write an informational message to stderr (suppressed in quiet mode)."""
         if self.quiet:
             return
         sys.stderr.write(msg + "\n")
         sys.stderr.flush()
 
     def err(self, msg: str) -> None:
+        """Write a prefixed error message to stderr (always shown)."""
         sys.stderr.write(f"pyhaul: {msg}\n")
         sys.stderr.flush()
 
@@ -177,6 +182,7 @@ class Printer:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Construct the ``pyhaul`` CLI argument parser."""
     parser = argparse.ArgumentParser(
         prog="pyhaul",
         description=(
@@ -294,6 +300,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def resolve_timeout(args: argparse.Namespace) -> float | tuple[float, float] | None:
+    """Derive a timeout value from parsed CLI arguments."""
     ct = args.connect_timeout
     rt = args.read_timeout
     if ct is None and rt is None:
@@ -306,6 +313,7 @@ def resolve_timeout(args: argparse.Namespace) -> float | tuple[float, float] | N
 
 
 def resolve_destination(args: argparse.Namespace) -> Path:
+    """Determine the output file path from parsed CLI arguments."""
     name = args.output or default_output(args.url)
     dest = Path(name)
     if args.output_dir:
@@ -369,7 +377,7 @@ def _build_httpx(args: argparse.Namespace) -> object:
     timeout = resolve_timeout(args)
     if timeout is not None:
         kw["timeout"] = timeout
-    return httpx.Client(**kw)  # type: ignore[arg-type]
+    return httpx.Client(**kw)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
 def _build_urllib3(args: argparse.Namespace) -> object:
@@ -382,16 +390,16 @@ def _build_urllib3(args: argparse.Namespace) -> object:
     if args.insecure:
         kw["cert_reqs"] = "CERT_NONE"
     if args.proxy:
-        return urllib3.ProxyManager(args.proxy, **kw)  # type: ignore[arg-type]
-    return urllib3.PoolManager(**kw)  # type: ignore[arg-type]
+        return urllib3.ProxyManager(args.proxy, **kw)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    return urllib3.PoolManager(**kw)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
 def _close_client(client: object) -> None:
     obj: Any = client
     if hasattr(obj, "close") and callable(obj.close):
-        obj.close()
+        obj.close()  # ty: ignore[call-top-callable]
     elif hasattr(obj, "clear") and callable(obj.clear):
-        obj.clear()
+        obj.clear()  # ty: ignore[call-top-callable]
 
 
 # ---------------------------------------------------------------------------
@@ -457,6 +465,7 @@ def _configure_logging(verbosity: int) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Run the ``pyhaul`` CLI, returning a POSIX exit code."""
     parser = build_parser()
     args = parser.parse_args(argv)
 

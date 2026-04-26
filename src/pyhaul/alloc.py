@@ -44,6 +44,8 @@ class Mechanism(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class AllocationResult:
+    """Result of a file-space allocation attempt."""
+
     outcome: AllocationOutcome
     previous_size: int
     final_size: int
@@ -100,7 +102,7 @@ _F_ALLOCATEALL = 0x00000004
 _F_PEOFPOSMODE = 3
 _FSTORE_FMT = "@Iiqqq"
 _FSTORE_PACKED_BYTES = 32
-assert struct.calcsize(_FSTORE_FMT) == _FSTORE_PACKED_BYTES, "unexpected fstore_t pack size"
+assert struct.calcsize(_FSTORE_FMT) == _FSTORE_PACKED_BYTES, "unexpected fstore_t pack size"  # noqa: S101
 
 _POSIX_FALLOCATE_FALLBACK_ERRNOS = frozenset(
     {

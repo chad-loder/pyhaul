@@ -1,4 +1,4 @@
-"""Filesystem utilities: path-length validation and safe path construction.
+r"""Filesystem utilities: path-length validation and safe path construction.
 
 pyhaul creates sidecar files alongside the destination (``dest.part``,
 ``dest.part.ctrl``, ``dest.done``).  These extend the filename, so a
@@ -119,7 +119,7 @@ def _name_byte_len(name: str) -> int:
 
 
 def _get_path_max(parent_dir: str) -> int:
-    """Path-length limit that applies to strings we hand to ``open()``.
+    r"""Path-length limit that applies to strings we hand to ``open()``.
 
     On Windows we use :func:`safe_open_path` which prepends the
     ``\\\\?\\`` extended-length prefix when needed, so the effective
@@ -140,7 +140,7 @@ def _posix_path_max(parent_dir: str) -> int:
 
 
 def safe_open_path(path: str | os.PathLike[str]) -> str:
-    """Return *path* in a form safe to pass to ``open()``.
+    r"""Return *path* in a form safe to pass to ``open()``.
 
     On Windows, applies the ``\\\\?\\`` extended-length prefix **only
     when the path exceeds** :data:`_WIN32_LONG_PATH_THRESHOLD`
@@ -174,7 +174,7 @@ def path_fits(
     dest: str | os.PathLike[str],
     suffix: str = _LONGEST_SIDECAR_SUFFIX,
 ) -> bool:
-    """Check whether *dest* plus *suffix* fits within filesystem limits.
+    r"""Check whether *dest* plus *suffix* fits within filesystem limits.
 
     Checks two independent constraints:
 

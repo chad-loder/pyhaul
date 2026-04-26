@@ -84,15 +84,18 @@ class Urllib3TransportResponse(TransportResponse):
 
     @property
     def status_code(self) -> int:
+        """HTTP status code of the response."""
         return self._resp.status
 
     @property
     def headers(self) -> TransportHeaders:
+        """Response headers, lazily parsed on first access."""
         if self._headers is None:
             self._headers = headers_from_urllib3_response(self._resp)
         return self._headers
 
     def raise_for_status(self) -> None:
+        """Raise :exc:`~pyhaul.transport.errors.TransportHTTPError` for 4xx/5xx responses."""
         if self._resp.status >= _HTTP_400:
             raise TransportHTTPError(
                 f"HTTP {self._resp.status}",
@@ -100,6 +103,7 @@ class Urllib3TransportResponse(TransportResponse):
             )
 
     def iter_raw_bytes(self, *, chunk_size: int) -> Iterator[bytes]:
+        """Yield raw response body chunks without decoding."""
         with map_urllib3_transport_errors():
             yield from self._resp.stream(chunk_size, decode_content=False)
 
@@ -120,6 +124,7 @@ class Urllib3Adapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> Iterator[TransportResponse]:
+        """Open a streaming GET request and yield the response."""
         kw = _build_urlopen_kwargs(options)
         with map_urllib3_transport_errors():
             resp = self._pool.request(

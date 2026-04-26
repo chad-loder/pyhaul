@@ -16,7 +16,7 @@ from pyhaul.transport.errors import (
 try:
     import urllib3.exceptions as _urllib3_exc
 except ImportError:  # pragma: no cover
-    _urllib3_exc = None  # type: ignore[assignment]
+    _urllib3_exc = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 
 @contextmanager

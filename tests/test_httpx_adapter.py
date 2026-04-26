@@ -56,7 +56,7 @@ def test_headers_from_httpx_response_multi_value() -> None:
 
 def test_httpx_transport_response_protocol() -> None:
     inner = _StreamCM(chunks=(b"a", b"bc"))
-    tr: TransportResponse = HttpxTransportResponse(cast(httpx.Response, inner))
+    tr: TransportResponse = HttpxTransportResponse(cast("httpx.Response", inner))
     assert tr.status_code == 206
     assert list(tr.iter_raw_bytes(chunk_size=1024)) == [b"a", b"bc"]
     tr.raise_for_status()
@@ -69,7 +69,7 @@ def test_httpx_transport_response_remote_protocol_error_maps() -> None:
             raise httpx.RemoteProtocolError("peer closed early")
 
     inner = _BadStream(chunks=())
-    tr = HttpxTransportResponse(cast(httpx.Response, inner))
+    tr = HttpxTransportResponse(cast("httpx.Response", inner))
     with pytest.raises(TransportConnectionError) as ctx:
         list(tr.iter_raw_bytes(chunk_size=1024))
     assert isinstance(ctx.value.__cause__, httpx.RemoteProtocolError)

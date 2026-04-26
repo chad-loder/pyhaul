@@ -205,7 +205,7 @@ def _plan_206(
     cr = parse_content_range(cr_raw)
     if cr.is_unsatisfied:
         raise ServerMisconfiguredError("206 with unsatisfied Content-Range")
-    assert cr.start is not None
+    assert cr.start is not None  # noqa: S101 — type narrowing after is_unsatisfied guard
     if cr.start != prep.request_byte:
         raise ServerMisconfiguredError(f"Content-Range start {cr.start} != requested {prep.request_byte}")
 
@@ -354,7 +354,7 @@ def _reset_checkpoint(ctrl_path: Path, start: int) -> None:
     )
 
 
-def _make_checkpoint(plan: StreamPlan, prep: PrepareHaul) -> Checkpoint:
+def _make_checkpoint(plan: StreamPlan, _prep: PrepareHaul) -> Checkpoint:
     return Checkpoint(
         version=CTRL_VERSION,
         start=plan.start,

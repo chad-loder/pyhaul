@@ -95,19 +95,23 @@ class HttpxTransportResponse(TransportResponse):
 
     @property
     def status_code(self) -> int:
+        """HTTP status code of the response."""
         return int(self._resp.status_code)
 
     @property
     def headers(self) -> TransportHeaders:
+        """Response headers, lazily parsed on first access."""
         if self._headers is None:
             self._headers = headers_from_httpx_response(self._resp)
         return self._headers
 
     def raise_for_status(self) -> None:
+        """Raise :exc:`~pyhaul.transport.errors.TransportHTTPError` for 4xx/5xx responses."""
         with map_httpx_transport_errors():
             self._resp.raise_for_status()
 
     def iter_raw_bytes(self, *, chunk_size: int) -> Iterator[bytes]:
+        """Yield raw response body chunks without decoding."""
         with map_httpx_transport_errors():
             yield from self._resp.iter_raw(chunk_size=chunk_size)
 
@@ -128,6 +132,7 @@ class HttpxAdapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> Iterator[TransportResponse]:
+        """Open a streaming GET request and yield the response."""
         kwargs = _request_options_to_httpx_kwargs(options)
         with (
             map_httpx_transport_errors(),
@@ -157,19 +162,23 @@ class AsyncHttpxTransportResponse(AsyncTransportResponse):
 
     @property
     def status_code(self) -> int:
+        """HTTP status code of the response."""
         return int(self._resp.status_code)
 
     @property
     def headers(self) -> TransportHeaders:
+        """Response headers, lazily parsed on first access."""
         if self._headers is None:
             self._headers = headers_from_httpx_response(self._resp)
         return self._headers
 
     def raise_for_status(self) -> None:
+        """Raise :exc:`~pyhaul.transport.errors.TransportHTTPError` for 4xx/5xx responses."""
         with map_httpx_transport_errors():
             self._resp.raise_for_status()
 
     async def aiter_raw_bytes(self, *, chunk_size: int) -> AsyncIterator[bytes]:
+        """Yield raw response body chunks without decoding."""
         with map_httpx_transport_errors():
             async for chunk in self._resp.aiter_raw(chunk_size=chunk_size):
                 yield chunk
@@ -191,6 +200,7 @@ class AsyncHttpxAdapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> AsyncIterator[AsyncTransportResponse]:
+        """Open a streaming GET request and yield the response."""
         kwargs = _request_options_to_httpx_kwargs(options)
         with map_httpx_transport_errors():
             async with self._client.stream("GET", str(url), headers=dict(headers), **kwargs) as resp:

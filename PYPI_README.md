@@ -8,7 +8,7 @@
 Resumable HTTP downloads for Python.
 
 ```bash
-pip install pyhaul[requests]   # or: pyhaul[httpx], pyhaul[niquests], pyhaul[urllib3]
+pip install pyhaul[requests]   # or: httpx, niquests, urllib3, aiohttp (see below)
 ```
 
 ```python
@@ -28,7 +28,7 @@ A small, pure-Python library that makes HTTP downloads **resumable**.
 Call `haul()` with your existing HTTP client, a URL, and a destination
 path — it handles byte-range negotiation, ETag validation, crash-safe
 checkpointing, and atomic file completion. Sync and async; works with
-requests, httpx, niquests, and urllib3.
+requests, httpx, niquests, urllib3, and **aiohttp** (async).
 
 Each call to `haul()` upholds these guarantees:
 

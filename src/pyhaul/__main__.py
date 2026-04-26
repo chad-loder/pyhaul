@@ -14,6 +14,7 @@ _HTTP_CLIENT_MODULES = ("niquests", "requests", "httpx", "urllib3")
 
 
 def main() -> int:
+    """Entry point for ``python -m pyhaul``; checks for an HTTP backend then delegates to the CLI."""
     if not any(importlib.util.find_spec(name) for name in _HTTP_CLIENT_MODULES):
         sys.stderr.write(
             "Error: no HTTP client is installed. Install at least one of:\n"

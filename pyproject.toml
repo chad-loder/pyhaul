@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "pyhaul"
-version = "0.2.0"
+version = "0.2.1"
 description = "Resumable, cursor-based, CDN-safe HTTP downloads for Python"
 readme = "PYPI_README.md"
 license = "MIT"
@@ -19,6 +19,7 @@ keywords = [
     "resume",
     "range",
     "partial",
+    "aiohttp",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -27,6 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: System :: Networking",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -54,6 +56,9 @@ httpx = [
 urllib3 = [
     "urllib3>=2.0",
 ]
+aiohttp = [
+    "aiohttp>=3.10",
+]
 
 [tool.uv.build-backend]
 module-name = "pyhaul"
@@ -65,8 +70,6 @@ source-exclude = [
     "**/.pytest_cache",
     "**/__pycache__",
     "**/*.pyc",
-    "src/pyhaul/cli.py",
-    "src/pyhaul/__main__.py",
 ]
 
 [dependency-groups]
@@ -81,6 +84,7 @@ test = [
     "types-requests>=2.33.0.20260408",
     "httpx>=0.27",
     "urllib3>=2.0",
+    "aiohttp>=3.10",
 ]
 lint = [
     "ruff>=0.15",
@@ -89,6 +93,11 @@ lint = [
     "pyright>=1.1.400",
     "tenacity>=9",
     "markdown-it-py>=4,<5",
+    "ty>=0.0.1",
+    "codespell>=2.4",
+    "validate-pyproject[all]>=0.25",
+    "semgrep>=1",
+    "interrogate>=1.7",
 ]
 
 [tool.uv]
@@ -175,31 +184,22 @@ respect-gitignore = true
 extend-exclude = []
 
 [tool.ruff.lint]
-select = [
-    "E", "F", "W",
-    "I",
-    "N",
-    "UP",
-    "B",
-    "SIM",
-    "C4",
-    "C90",
-    "PIE",
-    "T20",
-    "BLE",
-    "DTZ",
-    "PTH",
-    "ERA",
-    "PL",
-    "PERF",
-    "FURB",
-    "TID",
-    "RUF",
-]
+select = ["ALL"]
 ignore = [
-    "E501",
-    "PLC0415",
-    "PLR0913",
+    "ANN",      # type annotations — mypy / pyright / ty are authoritative
+    "COM812",   # missing trailing comma — conflicts with ruff formatter
+    "ISC001",   # implicit string concat — conflicts with ruff formatter
+    "D104",     # missing package __init__.py docstring — noise for marker files
+    "D107",     # missing __init__ docstring — class docstring suffices
+    "EM101",    # string literal in exception — descriptive messages are intentional
+    "EM102",    # f-string in exception — same
+    "TRY003",   # long exception message — same
+    "E501",     # line length — formatter handles this
+    "PLC0415",  # import not at top level — lazy imports are deliberate
+    "PLR0913",  # too many arguments — complex constructors are fine
+    "TC001",    # typing-only first-party import — deferred to future refactor
+    "TC002",    # typing-only third-party import — same
+    "TC003",    # typing-only stdlib import — same
 ]
 unfixable = ["F401"]
 
@@ -221,10 +221,24 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 known-first-party = ["pyhaul"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/test_*.py" = ["C901", "D103", "PLR2004", "N802"]
-"**/conftest.py" = ["C901", "D103", "N802"]
-"examples/**" = ["T20"]
-"scripts/**" = ["T20"]
+"**/test_*.py" = [
+    "S101",     # assert is how you test
+    "D",        # no docstrings in tests
+    "ARG",      # unused args from fixtures / protocol stubs
+    "S108",     # /tmp paths in test assertions
+    "FBT",      # boolean positional args in test helpers
+    "SLF001",   # private-member access for testing internals
+    "PLR2004",  # magic values in assertions
+    "N802",     # function-name conventions (test method names)
+    "C901",     # complexity in tests is fine
+    "PYI034",   # non-self return type in test doubles
+    "A002",     # builtin-arg shadowing in test helpers
+    "PT011",    # raises too broad — errno checks are more precise than match=
+    "PT017",    # assert in except — sometimes clearer than pytest.raises
+]
+"**/conftest.py" = ["D", "ARG", "S101", "SLF001", "A002", "N802", "C901"]
+"examples/**" = ["T20", "INP001", "D", "ASYNC240"]
+"scripts/**" = ["T20", "INP001", "D"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -270,6 +284,9 @@ extraPaths = ["src", "."]
 reportPrivateUsage = false
 reportUnknownMemberType = false
 reportUnknownVariableType = false
+reportUnknownLambdaType = false
+reportUnknownArgumentType = false
+reportAttributeAccessIssue = false
 
 [[tool.pyright.executionEnvironments]]
 root = "examples"
@@ -285,11 +302,18 @@ reportUnknownVariableType = false
 reportUnknownMemberType = false
 reportUnknownArgumentType = false
 
+# ---------------------------------------------------------------------------
+# ty  (Astral's Rust-based type checker — scoped to library code only)
+# ---------------------------------------------------------------------------
+[tool.ty.src]
+include = ["src"]
+
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "--tb=short --strict-markers"
+addopts = ["--tb=short", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+xfail_strict = true
+filterwarnings = ["once::Warning"]
 testpaths = ["tests"]
-pythonpath = ["src"]
 
 # ---------------------------------------------------------------------------
 # Coverage
@@ -310,16 +334,27 @@ pythonpath = ["src"]
 # false branch is never exercised.
 
 [tool.coverage.run]
-source = ["src/pyhaul"]
+# Package name (not ``src/...``) so coverage matches imports from a wheel
+# in CI (see structlog: extract sdist, ``rm -rf src``, test against wheel only).
+# Run tests with ``coverage run -m pytest`` (as structlog does via tox), not
+# ``pytest --cov`` — aligns with their workflow and with ``parallel`` data files.
+source = ["pyhaul"]
 branch = true
-parallel = false
+parallel = true
 data_file = ".coverage"
 omit = [
-    "src/pyhaul/__init__.py",
-    "src/pyhaul/_types.py",
+    "*/pyhaul/__init__.py",
+    "*/pyhaul/_types.py",
 ]
 
+# Map checkout tree and installed wheel paths so ``coverage combine`` can merge
+# Linux/Windows and matrix data (structlog: ``src`` + site-packages)
+[tool.coverage.paths]
+source = ["src/pyhaul", "*/site-packages/pyhaul"]
+
 [tool.coverage.report]
+# Do not set fail_under here: matrix jobs only collect .coverage.*; the CI
+# ``coverage`` job runs ``coverage report --fail-under`` on combined data.
 show_missing = true
 skip_covered = false
 skip_empty = true
@@ -340,3 +375,21 @@ show_contexts = false
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+# ---------------------------------------------------------------------------
+# interrogate  (docstring coverage)
+# ---------------------------------------------------------------------------
+[tool.interrogate]
+ignore-init-method = true
+ignore-magic = true
+ignore-private = true
+ignore-semiprivate = true
+fail-under = 100
+exclude = ["tests", "examples", "scripts"]
+
+# ---------------------------------------------------------------------------
+# codespell
+# ---------------------------------------------------------------------------
+[tool.codespell]
+ignore-words-list = "te"
+skip = "*.lock,./dist,./build,./.mypy_cache,./.ruff_cache,./.scratch"
