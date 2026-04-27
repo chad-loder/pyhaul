@@ -71,7 +71,7 @@ def close_native(native: object) -> None:
         if callable(keys):
             for key in list(keys()):
                 with contextlib.suppress(OSError):
-                    pools[key].close()
+                    pools[key].close()  # type: ignore[index]
         else:
             reg = getattr(pools, "_registry", None)
             if isinstance(reg, dict):
