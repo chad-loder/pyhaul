@@ -70,7 +70,7 @@ jobs:
         id: baipp
 
   test-stable:
-    name: Test (${{ contains(matrix.os, 'windows') && 'windows' || 'ubuntu' }} / Python ${{ matrix.python-version }})
+    name: Test (${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'macos-latest' && 'macos' || 'ubuntu' }} / Python ${{ matrix.python-version }})
     needs: [build]
     runs-on: ${{ matrix.os }}
     permissions:
@@ -78,7 +78,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ${{ fromJson(needs.build.outputs.python-versions) }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
