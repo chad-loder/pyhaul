@@ -35,6 +35,8 @@ def map_httpx_transport_errors() -> Iterator[None]:
     """Map :mod:`httpx` failures to :mod:`pyhaul.transport.errors`."""
     try:
         yield
+    except TransportError:
+        raise
     except httpx.HTTPStatusError as e:
         sc = int(e.response.status_code)
         raise TransportHTTPError(str(e), status_code=sc) from e

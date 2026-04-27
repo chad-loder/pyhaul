@@ -9,6 +9,7 @@ finalization.  The only thing each engine owns is the I/O boundary
 
 from __future__ import annotations
 
+import hashlib
 import os
 import time
 from dataclasses import dataclass, field
@@ -28,14 +29,12 @@ from pyhaul._types import (
     parse_url,
 )
 from pyhaul.alloc import allocate_file
+from pyhaul.checkpoint import LATEST_VERSION, Checkpoint, registry
 from pyhaul.content_range import parse_content_range
 from pyhaul.fs import path_fits
 from pyhaul.headers import DEFAULT_HEADERS, merge_headers
 from pyhaul.persist import (
-    CTRL_VERSION,
-    Checkpoint,
     ctrl_path_for,
-    read_checkpoint,
     write_atomic,
 )
 from pyhaul.transport.types import TransportHeaders
@@ -63,6 +62,9 @@ class PrepareHaul:
     start: int
     cursor: int
     stored_etag: ETag
+    hashes: list[bytes]
+    tail_hash: bytes | None
+    block_size: int
     request_byte: int
     merged_headers: dict[str, str]
     t0: float
@@ -78,6 +80,7 @@ class StreamPlan:
     etag: ETag
     resource_length: int | None
     content_type: str
+    hb: HashBuilder
     bytes_since_flush: int = field(default=0, init=False)
 
 
@@ -99,13 +102,16 @@ def prepare_haul(url: str, dest: str | Path) -> PrepareHaul:
     cp: Checkpoint | None = None
     if ctrl_path.exists():
         try:
-            cp = read_checkpoint(ctrl_path)
+            cp = registry.load(ctrl_path.read_bytes())
         except ControlFileError:
             cp = None
 
     start = cp.start if cp else 0
     cursor = cp.valid_length if cp else 0
     stored_etag = cp.etag if cp else ETag("")
+    hashes = cp.hashes if cp else []
+    tail_hash = cp.tail_hash if cp else None
+    block_size = cp.block_size if cp else 8 * 1024 * 1024
 
     request_byte = start + cursor
     req_hdrs: dict[str, str] = {"Range": f"bytes={request_byte}-"}
@@ -121,6 +127,9 @@ def prepare_haul(url: str, dest: str | Path) -> PrepareHaul:
         start=start,
         cursor=cursor,
         stored_etag=stored_etag,
+        hashes=hashes,
+        tail_hash=tail_hash,
+        block_size=block_size,
         request_byte=request_byte,
         merged_headers=merged,
         t0=t0,
@@ -147,10 +156,10 @@ def handle_response(
         return _on_416(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
 
     if status == _HTTP_206:
-        return _plan_206(headers, prep, resp_etag=resp_etag, content_type=resp_ct)
+        return _plan_206(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
 
     if status == _HTTP_200:
-        return _plan_200(headers, resp_etag=resp_etag, content_type=resp_ct)
+        return _plan_200(headers, state, resp_etag=resp_etag, content_type=resp_ct)
 
     raise ServerMisconfiguredError(f"unexpected HTTP {status}")
 
@@ -176,25 +185,32 @@ def _on_416(
             if prep.part_path.exists() and prep.part_path.stat().st_size > prep.cursor:
                 with prep.part_path.open("r+b") as f:
                     f.truncate(prep.cursor)
+
+            # Re-read for tree hash
+            final_sha = HashBuilder.hash_file(prep.part_path, block_size=prep.block_size)
+
             return finalize(
                 prep.dest_path,
                 prep.part_path,
                 prep.ctrl_path,
                 state,
                 valid_length=prep.cursor,
+                sha256=final_sha,
                 etag=resp_etag or prep.stored_etag,
                 content_type=content_type,
                 t0=prep.t0,
             )
 
-    _reset_checkpoint(prep.ctrl_path, prep.start)
+    _reset_checkpoint(prep.ctrl_path, prep.start, prep.block_size)
     state.valid_length = 0
+    state.hashes = []
     raise PartialHaulError("416 Range Not Satisfiable — checkpoint reset")
 
 
 def _plan_206(
     headers: TransportHeaders,
     prep: PrepareHaul,
+    state: HaulState,
     *,
     resp_etag: ETag,
     content_type: str,
@@ -209,9 +225,40 @@ def _plan_206(
     if cr.start != prep.request_byte:
         raise ServerMisconfiguredError(f"Content-Range start {cr.start} != requested {prep.request_byte}")
 
+    # BUG FIX: Verify ETag if server sent one.
+    if resp_etag and prep.stored_etag and resp_etag != prep.stored_etag:
+        raise ServerMisconfiguredError(f"ETag mismatch on 206: server={resp_etag} stored={prep.stored_etag}")
+
     new_etag = resp_etag or prep.stored_etag
     new_rl = cr.instance_length
     new_extent = (cr.instance_length - prep.start) if cr.instance_length is not None else None
+
+    # Resume hash state
+    hb = HashBuilder(block_size=prep.block_size, initial_hashes=prep.hashes)
+
+    # If we are resuming at a non-block boundary, we MUST re-read the partial tail
+    # of the last block to warm up the hasher.
+    num_full_blocks = len(prep.hashes)
+    bytes_hashed = num_full_blocks * prep.block_size
+    bytes_to_re_read = prep.cursor - bytes_hashed
+
+    if bytes_to_re_read > 0:
+        with prep.part_path.open("rb") as f:
+            f.seek(bytes_hashed)
+            tail = f.read(bytes_to_re_read)
+            if len(tail) != bytes_to_re_read:
+                raise ControlFileError(f"could not re-read {bytes_to_re_read} byte tail for hashing")
+
+            # Verify integrity of re-read tail
+            if prep.tail_hash:
+                actual_tail_hash = hashlib.sha256(tail).digest()
+                if actual_tail_hash != prep.tail_hash:
+                    raise ControlFileError("integrity error: local tail corruption detected")
+
+            hb.update(tail)
+
+    state.block_size = prep.block_size
+    state.hashes = hb.completed_hashes.copy()
 
     return StreamPlan(
         start=prep.start,
@@ -220,17 +267,22 @@ def _plan_206(
         etag=new_etag,
         resource_length=new_rl,
         content_type=content_type,
+        hb=hb,
     )
 
 
 def _plan_200(
     headers: TransportHeaders,
+    state: HaulState,
     *,
     resp_etag: ETag,
     content_type: str,
 ) -> StreamPlan:
     cl_str = headers.get("Content-Length")
-    resp_cl = int(cl_str) if cl_str.isdigit() else None
+    resp_cl = int(cl_str) if cl_str and cl_str.isdigit() else None
+
+    state.valid_length = 0
+    state.hashes = []
 
     return StreamPlan(
         start=0,
@@ -239,6 +291,7 @@ def _plan_200(
         etag=resp_etag,
         resource_length=resp_cl,
         content_type=content_type,
+        hb=HashBuilder(block_size=state.block_size),
     )
 
 
@@ -282,16 +335,19 @@ def write_chunk(
     state.bytes_read += n
     state.valid_length = plan.cursor
 
+    plan.hb.update(chunk)
+    state.hashes = plan.hb.completed_hashes.copy()
+
     if plan.bytes_since_flush >= flush_every:
         datasync(fd)
-        write_atomic(prep.ctrl_path, _make_checkpoint(plan, prep))
+        _save_checkpoint(prep.ctrl_path, plan, prep)
         plan.bytes_since_flush = 0
 
 
 def after_stream(plan: StreamPlan, prep: PrepareHaul, state: HaulState) -> CompleteHaul:
     """Post-loop: check completeness, trim junk tail, finalize or raise partial."""
     if plan.extent is not None and plan.cursor < plan.extent:
-        write_atomic(prep.ctrl_path, _make_checkpoint(plan, prep))
+        _save_checkpoint(prep.ctrl_path, plan, prep)
         raise PartialHaulError("stream ended before extent reached")
 
     actual = prep.part_path.stat().st_size
@@ -305,6 +361,7 @@ def after_stream(plan: StreamPlan, prep: PrepareHaul, state: HaulState) -> Compl
         prep.ctrl_path,
         state,
         valid_length=plan.cursor,
+        sha256=plan.hb.finalize(),
         etag=plan.etag,
         content_type=plan.content_type,
         t0=prep.t0,
@@ -321,6 +378,7 @@ def finalize(
     state: HaulState,
     *,
     valid_length: int,
+    sha256: str,
     etag: ETag,
     content_type: str,
     t0: float,
@@ -328,41 +386,45 @@ def finalize(
     """Rename ``.part`` -> dest, delete ``.ctrl``, hash the result."""
     part_path.rename(dest_path)
     ctrl_path.unlink(missing_ok=True)
-    sha = HashBuilder.hash_file(dest_path)
     state.is_complete = True
     state.valid_length = valid_length
     return CompleteHaul(
         elapsed=time.monotonic() - t0,
-        sha256=sha,
+        sha256=sha256,
         etag=etag,
         content_type=content_type,
     )
 
 
-def _reset_checkpoint(ctrl_path: Path, start: int) -> None:
+def _reset_checkpoint(ctrl_path: Path, start: int, block_size: int) -> None:
     ctrl_path.parent.mkdir(parents=True, exist_ok=True)
-    write_atomic(
-        ctrl_path,
-        Checkpoint(
-            version=CTRL_VERSION,
-            start=start,
-            extent=None,
-            valid_length=0,
-            etag=ETag(""),
-            resource_length=None,
-        ),
+    cp = Checkpoint(
+        version=LATEST_VERSION,
+        start=start,
+        extent=None,
+        valid_length=0,
+        etag=ETag(""),
+        block_size=block_size,
+        hashes=[],
+        tail_hash=None,
+        resource_length=None,
     )
+    write_atomic(ctrl_path, registry.dump(cp))
 
 
-def _make_checkpoint(plan: StreamPlan, _prep: PrepareHaul) -> Checkpoint:
-    return Checkpoint(
-        version=CTRL_VERSION,
+def _save_checkpoint(path: Path, plan: StreamPlan, _prep: PrepareHaul) -> None:
+    cp = Checkpoint(
+        version=LATEST_VERSION,
         start=plan.start,
         extent=plan.extent,
         valid_length=plan.cursor,
         etag=plan.etag,
+        block_size=plan.hb.block_size,
+        hashes=plan.hb.completed_hashes.copy(),
+        tail_hash=plan.hb.current_digest,
         resource_length=plan.resource_length,
     )
+    write_atomic(path, registry.dump(cp))
 
 
 def flush_dirty(fd: int, plan: StreamPlan, prep: PrepareHaul) -> None:
@@ -373,5 +435,5 @@ def flush_dirty(fd: int, plan: StreamPlan, prep: PrepareHaul) -> None:
     """
     if plan.bytes_since_flush > 0:
         datasync(fd)
-        write_atomic(prep.ctrl_path, _make_checkpoint(plan, prep))
+        _save_checkpoint(prep.ctrl_path, plan, prep)
         plan.bytes_since_flush = 0

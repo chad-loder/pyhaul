@@ -63,6 +63,8 @@ def map_aiohttp_transport_errors() -> Iterator[None]:
     """Map :mod:`aiohttp` failures to :mod:`pyhaul.transport.errors` (sync)."""
     try:
         yield
+    except TransportError:
+        raise
     except _aiohttp_errors.ClientError as e:
         raise _translate_error(e) from e
 
@@ -72,6 +74,8 @@ async def map_aiohttp_transport_errors_async() -> AsyncIterator[None]:
     """Map :mod:`aiohttp` failures to :mod:`pyhaul.transport.errors` (async)."""
     try:
         yield
+    except TransportError:
+        raise
     except _aiohttp_errors.ClientError as e:
         raise _translate_error(e) from e
 

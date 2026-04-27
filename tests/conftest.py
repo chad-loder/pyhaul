@@ -20,8 +20,9 @@ from typing import Any, Literal
 import pytest
 
 from pyhaul._types import CompleteHaul, Url
+from pyhaul.checkpoint import Checkpoint, registry
 from pyhaul.engine import haul as engine_haul
-from pyhaul.persist import Checkpoint, ctrl_path_for, read_checkpoint
+from pyhaul.persist import ctrl_path_for
 from pyhaul.transport.protocols import TransportSession
 from tests.live_backends import LIVE_BACKENDS, close_native, make_native, make_transport
 
@@ -181,7 +182,7 @@ class HttpTest:
         return ctrl_path_for(self.part_path)
 
     def read_ctrl(self) -> Checkpoint:
-        return read_checkpoint(self.ctrl_path)
+        return registry.load(self.ctrl_path.read_bytes())
 
 
 # ─── HTTP server ──────────────────────────────────────────────────
@@ -336,6 +337,8 @@ def _yield_live_http_harness(tmp_path: Path, backend: str) -> Generator[HttpTest
             ht.close_session()
         srv.shutdown()
         srv.server_close()
+        thread.join(timeout=1.0)
+        time.sleep(0.01)  # allow sockets to close
 
 
 @pytest.fixture(params=LIVE_BACKENDS)
