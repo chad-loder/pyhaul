@@ -1,3 +1,11 @@
+# Self-hosted Renovate. Auth options (PAT vs GitHub App) are documented here:
+# https://github.com/renovatebot/github-action#token
+# https://docs.renovatebot.com/modules/platform/github/
+#
+# The GitHub Action README states GITHUB_TOKEN is not suitable: PRs created with it may not
+# trigger normal pull_request / push CI. Prefer a GitHub App (short-lived install tokens) or
+# a dedicated PAT in secrets. See: https://github.com/renovatebot/github-action#token
+
 name: Renovate
 
 on:
@@ -21,16 +29,22 @@ jobs:
   renovate:
     name: Self-hosted Renovate
     runs-on: ubuntu-latest
+    # Optional: use for environment-scoped secrets / reviewers. If secrets live only on the
+    # environment, duplicate RENOVATE_APP_* there.
     environment: renovate
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
+      # GitHub App installation token (short-lived). Requires repository secrets (or env):
+      # RENOVATE_APP_ID, RENOVATE_APP_PRIVATE_KEY — see
+      # https://docs.renovatebot.com/modules/platform/github/#running-as-a-github-app
       - name: Generate token
         id: token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
+          # GitHub “App ID” (numeric) — action deprecates the name in favor of client-id; same value
           app-id: ${{ secrets.RENOVATE_APP_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
           repositories: ${{ github.event.repository.name }}
@@ -52,5 +66,5 @@ jobs:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           RENOVATE_ONBOARDING: "false"
           RENOVATE_REQUIRE_CONFIG: "optional"
-          RENOVATE_DRY_RUN: ${{ inputs.dry-run && 'full' || 'null' }}
+          RENOVATE_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && (inputs.dry-run == 'true' || inputs.dry-run == true)) && 'full' || '' }}
           LOG_LEVEL: info
