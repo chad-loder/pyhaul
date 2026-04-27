@@ -21,9 +21,10 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: dev
+          # Integration branch: nightlies match default development (trunk on main).
+          ref: main
           persist-credentials: false
-      - name: Check for recent commits on dev
+      - name: Check for recent commits on main
         id: check
         run: |
           if [ "${{ github.event_name }}" != "schedule" ]; then
@@ -32,15 +33,15 @@ jobs:
             exit 0
           fi
           if [ -n "$(git rev-list --after='25 hours' HEAD)" ]; then
-            echo "New commits on dev in the last 25 hours"
+            echo "New commits on main in the last 25 hours"
             echo "should_build=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No new commits on dev — skipping build"
+            echo "No new commits on main — skipping build"
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           fi
 
   nightly:
-    name: Build & publish dev release
+    name: Build & publish nightly
     needs: check
     if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-latest
@@ -53,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: dev
+          ref: main
           persist-credentials: false
       - name: Set up uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
