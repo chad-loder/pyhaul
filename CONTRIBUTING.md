@@ -210,7 +210,11 @@ One-time setup:
    - **Read+write:** Contents, Pull requests, Checks, Commit statuses,
      Issues, Workflows
    - **Read-only:** Administration, Vulnerability alerts, Members
-2. **Install the app** on the `chad-loder/pyhaul` repository.
+2. **Install the app** on the `chad-loder/pyhaul` repository. If you skip
+   this, the `GitHub App installation token` step fails with `404` from
+   the [installation
+   API](https://docs.github.com/rest/apps/apps#get-a-repository-installation-for-the-authenticated-app)
+   (no installation for the app on that repo).
 3. Create a GitHub **environment** named `renovate` (Settings →
    Environments). You can require deployment branches or approvers; keep
    secrets in this environment or at repo level consistently with the
