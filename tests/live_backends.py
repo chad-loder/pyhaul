@@ -7,6 +7,8 @@ same integration coverage via :class:`tests.conftest.HttpTest`.
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Iterable
+from typing import Any, cast
 
 from pyhaul.transport.protocols import TransportSession
 
@@ -69,7 +71,8 @@ def close_native(native: object) -> None:
         pools = native.pools
         keys = getattr(pools, "keys", None)
         if callable(keys):
-            for key in list(keys()):
+            key_ids = cast(Iterable[Any], keys())  # noqa: TC006
+            for key in list(key_ids):
                 with contextlib.suppress(OSError):
                     pools[key].close()  # type: ignore[index]
         else:
