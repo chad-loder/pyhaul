@@ -3,20 +3,27 @@
 [![CI](https://github.com/chad-loder/pyhaul/actions/workflows/ci.yml/badge.svg)](https://github.com/chad-loder/pyhaul/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/chad-loder/pyhaul/graph/badge.svg)](https://codecov.io/gh/chad-loder/pyhaul)
 [![PyPI](https://img.shields.io/pypi/v/pyhaul.svg)](https://pypi.org/project/pyhaul/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/chad-loder/pyhaul/blob/main/LICENSE)
 
-Resumable HTTP downloads for Python.
+Resumable HTTP downloads for Python. **Bring your own client:** pyhaul borrows your existing
+session and handles byte-range negotiation, crash-safe checkpointing, and validation.
+
+[![httpx](https://img.shields.io/badge/httpx-async%2Bsync-6B46C1.svg)](https://www.python-httpx.org/)
+[![niquests](https://img.shields.io/badge/niquests-async%2Bsync-6B46C1.svg)](https://niquests.readthedocs.io/)
+[![aiohttp](https://img.shields.io/badge/aiohttp-async-2563EB.svg)](https://docs.aiohttp.org/)
+[![requests](https://img.shields.io/badge/requests-sync-059669.svg)](https://requests.readthedocs.io/)
+[![urllib3](https://img.shields.io/badge/urllib3-sync-059669.svg)](https://urllib3.readthedocs.io/)
 
 ```bash
-pip install pyhaul[requests]   # or: httpx, niquests, urllib3, aiohttp (see below)
+pip install pyhaul[httpx]   # or: niquests, requests, urllib3, aiohttp
 ```
 
 ```python
-import requests
+import httpx  # or: requests, niquests, urllib3, aiohttp
 from pyhaul import haul
 
-with requests.Session() as session:
-    result = haul("https://example.com/big.zip", session, dest="big.zip")
+with httpx.Client() as client:
+    result = haul("https://example.com/big.zip", client, dest="big.zip")
     print(f"done: sha256={result.sha256[:16]}…")
 ```
 
@@ -71,3 +78,9 @@ async def haul_async(url, client, *, dest, state=None) -> CompleteHaul: ...
 land on disk — works identically in sync and async. See
 [DESIGN.md](https://github.com/chad-loder/pyhaul/blob/main/DESIGN.md) for the exception hierarchy, transport
 adapters, and download lifecycle.
+
+## Documentation
+
+- **[Design](https://github.com/chad-loder/pyhaul/blob/main/DESIGN.md)** — transport adapters, checkpoint state, download lifecycle
+- **[Why this exists](https://github.com/chad-loder/pyhaul/blob/main/WHY.md)** — failure modes and comparison with `curl` / `wget` / `aria2c`
+- **[Specification](https://github.com/chad-loder/pyhaul/blob/main/docs/SPEC.md)** — control file format

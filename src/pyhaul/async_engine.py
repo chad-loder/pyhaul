@@ -62,27 +62,30 @@ async def haul_async(
     transport = coerce_async_session(client)
     prep = prepare_haul(url, dest)
 
-    async with transport.stream_get(prep.parsed_url, headers=prep.merged_headers) as resp:
-        action = handle_response(resp.status_code, resp.headers, prep, state)
+    try:
+        async with transport.stream_get(prep.parsed_url, headers=prep.merged_headers) as resp:
+            action = handle_response(resp.status_code, resp.headers, prep, state)
 
-        if not isinstance(action, StreamPlan):
-            return action
+            if not isinstance(action, StreamPlan):
+                return action
 
-        plan = action
-        fd = open_part_file(plan, prep.part_path)
-        try:
-            async for chunk in resp.aiter_raw_bytes(chunk_size=chunk_size):
-                write_chunk(fd, chunk, plan, prep, state, flush_every)
-            datasync(fd)
-        except TransportError as te:
-            flush_dirty(fd, plan, prep)
-            os.close(fd)
-            original = te.__cause__
-            if original is not None:
-                raise original from None
-            raise
-        finally:
-            with contextlib.suppress(OSError):
+            plan = action
+            fd = open_part_file(plan, prep.part_path)
+            try:
+                async for chunk in resp.aiter_raw_bytes(chunk_size=chunk_size):
+                    write_chunk(fd, chunk, plan, prep, state, flush_every)
+                datasync(fd)
+            except TransportError:
+                flush_dirty(fd, plan, prep)
                 os.close(fd)
+                raise
+            finally:
+                with contextlib.suppress(OSError):
+                    os.close(fd)
 
-        return after_stream(plan, prep, state)
+            return after_stream(plan, prep, state)
+    except TransportError as te:
+        original = te.__cause__
+        if original is not None:
+            raise original from None
+        raise
