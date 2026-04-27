@@ -6,6 +6,8 @@ same integration coverage via :class:`tests.conftest.HttpTest`.
 
 from __future__ import annotations
 
+import contextlib
+
 from pyhaul.transport.protocols import TransportSession
 
 LIVE_BACKENDS: tuple[str, ...] = ("niquests", "requests", "httpx", "urllib3")
@@ -68,18 +70,14 @@ def close_native(native: object) -> None:
         keys = getattr(pools, "keys", None)
         if callable(keys):
             for key in list(keys()):
-                try:
+                with contextlib.suppress(OSError):
                     pools[key].close()
-                except OSError:
-                    pass
         else:
             reg = getattr(pools, "_registry", None)
             if isinstance(reg, dict):
                 for pool in list(reg.values()):
-                    try:
+                    with contextlib.suppress(OSError):
                         pool.close()
-                    except OSError:
-                        pass
         native.clear()
         return
 
