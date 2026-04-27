@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Cursor-based single-range resume engine (sync and async).
-- Crash-safe persistence via `.part` + `.part.ctrl` (JSON checkpoint) files.
+- Crash-safe persistence via `.part` + `.part.ctrl` (binary checkpoint) files.
 - Transport adapters for httpx, niquests, requests, and urllib3.
 - Async engine with niquests and httpx async adapters.
 - `Content-Range` parser with full RFC 9110 coverage.
