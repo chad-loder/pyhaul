@@ -257,6 +257,40 @@ class TestResumeEtagChanged:
         assert isinstance(result, CompleteHaul)
         assert dest.read_bytes() == new_body
 
+    def test_206_etag_mismatch_raises_error(self, tmp_path: Path) -> None:
+        """
+        If the server returns 206 but the ETag doesn't match our checkpoint,
+        the engine must NOT continue (which would corrupt the file).
+        """
+        from pyhaul.engine import haul
+        from pyhaul._types import ServerMisconfiguredError
+
+        old_body = b"AAAAA"
+        new_body_part = b"BBBBB"
+
+        dest = tmp_path / "out.bin"
+        part_path = dest.with_suffix(dest.suffix + ".part")
+        ctrl_path = ctrl_path_for(part_path)
+
+        part_path.write_bytes(old_body)
+        write_atomic(
+            ctrl_path,
+            Checkpoint(
+                version=CTRL_VERSION,
+                start=0,
+                extent=10,
+                valid_length=5,
+                etag=ETag('"old"'),
+                resource_length=10,
+            ),
+        )
+
+        session = MockSession()
+        session.add_response(_make_206_response(new_body_part, start=5, total=10, etag='"new"'))
+
+        with pytest.raises(ServerMisconfiguredError, match="ETag mismatch"):
+            haul(_TEST_URL, session, dest=str(dest))
+
 
 class TestResume416AlreadyComplete:
     def test_416_means_done(self, tmp_path: Path) -> None:

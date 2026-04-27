@@ -209,6 +209,9 @@ def _plan_206(
     if cr.start != prep.request_byte:
         raise ServerMisconfiguredError(f"Content-Range start {cr.start} != requested {prep.request_byte}")
 
+    if resp_etag and prep.stored_etag and resp_etag != prep.stored_etag:
+        raise ServerMisconfiguredError(f"ETag mismatch on 206: server={resp_etag} stored={prep.stored_etag}")
+
     new_etag = resp_etag or prep.stored_etag
     new_rl = cr.instance_length
     new_extent = (cr.instance_length - prep.start) if cr.instance_length is not None else None
