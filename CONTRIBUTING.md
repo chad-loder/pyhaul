@@ -213,16 +213,24 @@ One-time setup:
    - **Optional (organizations):** Members (read) if you use org features;
      the workflow does **not** request `members` so user-only installs avoid
      `422` from the token step.
+   - **After changing permissions on the app:** open
+     [GitHub App
+     installations](https://github.com/settings/installations) →
+     **Configure** this app → accept any **new permissions** (Save / review
+     prompt). **Editing the app does not update an existing install** until
+     you do; otherwise token creation can still return **`422` The
+     permissions requested are not granted to this installation** even when
+     the app *definition* already lists the new scopes.
 2. **Install the app** on the `chad-loder/pyhaul` repository. If you skip
    this, the `GitHub App installation token` step fails with `404` from
    the [installation
    API](https://docs.github.com/rest/apps/apps#get-a-repository-installation-for-the-authenticated-app)
    (no installation for the app on that repo). If the install exists but
-   the token step returns **`422` The permissions requested are not granted**,
-   the app’s permissions (or the [installation
-   update](https://github.com/settings/installations)) are missing something
-   the workflow asks for—align them or relax the token inputs in
-   `.github/workflows/renovate.yml`.
+   the token step returns **`422` The permissions requested are not
+   granted** (and you already set those scopes on the app), the
+   [installation](https://github.com/settings/installations) likely still
+   needs the **permission upgrade** (step 1, last bullet) or a permission
+   mismatch with `.github/workflows/renovate.yml`.
 3. Create a GitHub **environment** named `renovate` (Settings →
    Environments). You can require deployment branches or approvers; keep
    secrets in this environment or at repo level consistently with the
