@@ -6,12 +6,26 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from pyhaul._types import CompleteHaul, PartialHaulError
-from pyhaul.persist import Checkpoint, write_atomic
+from pyhaul._types import CompleteHaul, HashBuilder, PartialHaulError
+from pyhaul.checkpoint import LATEST_VERSION, Checkpoint, registry
+from pyhaul.persist import write_atomic
 from tests.conftest import Request, ServerState, deterministic
 
 if TYPE_CHECKING:
     from tests.conftest import HttpTest
+
+
+def _get_expected_hash(payload: bytes, block_size: int = 8 * 1024 * 1024) -> str:
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(payload)
+        tmp_path = Path(tmp.name)
+    try:
+        return HashBuilder.hash_file(tmp_path, block_size=block_size)
+    finally:
+        tmp_path.unlink()
 
 
 # ---------------------------------------------------------------------------
@@ -63,18 +77,19 @@ def test_200_truncated_mid_stream_is_not_complete(http: HttpTest) -> None:
 def _write_synthetic_ctrl(http: HttpTest, *, valid_length: int, extent: int, etag: str = '"test-etag"') -> None:
     """Stage a .ctrl as if a prior haul wrote ``valid_length`` bytes."""
     from pyhaul._types import ETag
-    from pyhaul.persist import CTRL_VERSION
 
     cp = Checkpoint(
-        version=CTRL_VERSION,
+        version=LATEST_VERSION,
         start=0,
         extent=extent,
         valid_length=valid_length,
         etag=ETag(etag),
+        block_size=8 * 1024 * 1024,
+        hashes=[],
         resource_length=extent,
     )
     http.ctrl_path.parent.mkdir(parents=True, exist_ok=True)
-    write_atomic(http.ctrl_path, cp)
+    write_atomic(http.ctrl_path, registry.dump(cp))
 
 
 def test_416_after_shrink_resets_and_recovers(http: HttpTest) -> None:
@@ -99,7 +114,7 @@ def test_416_after_shrink_resets_and_recovers(http: HttpTest) -> None:
     # Second call starts fresh (checkpoint was reset).
     r2 = http.haul()
     assert isinstance(r2, CompleteHaul)
-    assert r2.sha256 == shrunk.sha256
+    assert r2.sha256 == _get_expected_hash(shrunk)
     assert http.output == shrunk
 
 
@@ -133,7 +148,7 @@ def test_resume_after_etag_change_restarts_from_zero(http: HttpTest) -> None:
 
     result = http.haul()
     assert isinstance(result, CompleteHaul)
-    assert result.sha256 == v2.sha256
+    assert result.sha256 == _get_expected_hash(v2)
     assert http.output == v2
 
 
@@ -163,7 +178,7 @@ def test_resume_without_etag_still_works(http: HttpTest) -> None:
 
     result = http.haul()
     assert isinstance(result, CompleteHaul)
-    assert result.sha256 == data.sha256
+    assert result.sha256 == _get_expected_hash(data)
     assert http.output == data
 
 
@@ -180,7 +195,7 @@ def test_fresh_download_206(http: HttpTest) -> None:
 
     result = http.haul()
     assert isinstance(result, CompleteHaul)
-    assert result.sha256 == data.sha256
+    assert result.sha256 == _get_expected_hash(data)
     assert http.output == data
     assert not http.part_path.exists(), ".part should be renamed to dest"
     assert not http.ctrl_path.exists(), ".ctrl should be cleaned up"
@@ -221,4 +236,4 @@ def test_206_total_length_lie_detected_on_resume(http: HttpTest) -> None:
     http._state.lie_206_total_length = None
     r2 = http.haul()
     assert isinstance(r2, CompleteHaul)
-    assert r2.sha256 == data.sha256
+    assert r2.sha256 == _get_expected_hash(data)

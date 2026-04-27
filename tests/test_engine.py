@@ -11,7 +11,8 @@ from unittest.mock import patch
 import pytest
 
 from pyhaul._types import CompleteHaul, ETag, HaulState, PartialHaulError, Url
-from pyhaul.persist import CTRL_VERSION, Checkpoint, ctrl_path_for, read_checkpoint, write_atomic
+from pyhaul.checkpoint import LATEST_VERSION, Checkpoint, registry
+from pyhaul.persist import ctrl_path_for, write_atomic
 from pyhaul.transport.protocols import TransportResponse
 from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
 
@@ -201,13 +202,17 @@ class TestResume206:
         part_path.write_bytes(first_half)
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=10,
-                valid_length=5,
-                etag=ETag('"test"'),
-                resource_length=10,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=5,
+                    etag=ETag('"test"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=10,
+                )
             ),
         )
 
@@ -239,13 +244,17 @@ class TestResumeEtagChanged:
         part_path.write_bytes(old_body)
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=5,
-                valid_length=5,
-                etag=ETag('"old-etag"'),
-                resource_length=5,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=5,
+                    valid_length=5,
+                    etag=ETag('"old-etag"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=5,
+                )
             ),
         )
 
@@ -256,6 +265,48 @@ class TestResumeEtagChanged:
 
         assert isinstance(result, CompleteHaul)
         assert dest.read_bytes() == new_body
+
+    def test_206_etag_mismatch_raises_error(self, tmp_path: Path) -> None:
+        """
+        If the server returns 206 but the ETag doesn't match our checkpoint,
+        the engine must NOT continue (which would corrupt the file).
+        """
+        from pyhaul.engine import haul
+
+        old_body = b"AAAAA"
+        new_body_part = b"BBBBB"  # Represents bytes 5-9 of a different resource
+
+        dest = tmp_path / "out.bin"
+        part_path = dest.with_suffix(dest.suffix + ".part")
+        ctrl_path = ctrl_path_for(part_path)
+
+        part_path.write_bytes(old_body)
+        write_atomic(
+            ctrl_path,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=5,
+                    etag=ETag('"old"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=10,
+                )
+            ),
+        )
+
+        session = MockSession()
+        # Server incorrectly sends 206 with a DIFFERENT ETag
+        session.add_response(_make_206_response(new_body_part, start=5, total=10, etag='"new"'))
+
+        # This should fail because the ETag changed. Continuing would produce AAAAABBBBB (corruption).
+        # We expect a ServerMisconfiguredError or similar protection.
+        from pyhaul._types import ServerMisconfiguredError
+
+        with pytest.raises(ServerMisconfiguredError, match="ETag mismatch"):
+            haul(_TEST_URL, session, dest=str(dest))
 
 
 class TestResume416AlreadyComplete:
@@ -270,13 +321,17 @@ class TestResume416AlreadyComplete:
         part_path.write_bytes(body)
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=len(body),
-                valid_length=len(body),
-                etag=ETag('"test"'),
-                resource_length=len(body),
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=len(body),
+                    valid_length=len(body),
+                    etag=ETag('"test"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=len(body),
+                )
             ),
         )
 
@@ -310,13 +365,17 @@ class TestResumeNoEtag:
         part_path.write_bytes(first)
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=10,
-                valid_length=3,
-                etag=ETag(""),
-                resource_length=10,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=3,
+                    etag=ETag(""),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=10,
+                )
             ),
         )
 
@@ -346,13 +405,17 @@ class TestResume416ResourceShrank:
         part_path.write_bytes(b"AAAAAAAAAA")
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=10,
-                valid_length=10,
-                etag=ETag('"test"'),
-                resource_length=10,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=10,
+                    etag=ETag('"test"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=10,
+                )
             ),
         )
 
@@ -365,7 +428,7 @@ class TestResume416ResourceShrank:
 
         assert state.valid_length == 0
 
-        cp = read_checkpoint(ctrl_path)
+        cp = registry.load(ctrl_path.read_bytes())
         assert cp.valid_length == 0
 
 
@@ -383,13 +446,17 @@ class TestRestart200SizeChange:
         part_path.write_bytes(b"XXXXX")
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=5,
-                valid_length=5,
-                etag=ETag('"old"'),
-                resource_length=5,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=5,
+                    valid_length=5,
+                    etag=ETag('"old"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=5,
+                )
             ),
         )
 
@@ -414,13 +481,17 @@ class TestRestart200SizeChange:
         part_path.write_bytes(b"XXXXXXXXXXXX")
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=12,
-                valid_length=12,
-                etag=ETag('"old"'),
-                resource_length=12,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=12,
+                    valid_length=12,
+                    etag=ETag('"old"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=12,
+                )
             ),
         )
 
@@ -445,13 +516,17 @@ class TestRestart200SizeChange:
         part_path.write_bytes(b"MUCH_LONGER_OLD_DATA")
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=20,
-                valid_length=20,
-                etag=ETag('"old"'),
-                resource_length=20,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=20,
+                    valid_length=20,
+                    etag=ETag('"old"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=20,
+                )
             ),
         )
 
@@ -482,13 +557,17 @@ class TestCrashRecovery:
         part_path.write_bytes(valid_data + junk)
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=len(full_body),
-                valid_length=len(valid_data),
-                etag=ETag('"test"'),
-                resource_length=len(full_body),
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=len(full_body),
+                    valid_length=len(valid_data),
+                    etag=ETag('"test"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=len(full_body),
+                )
             ),
         )
 

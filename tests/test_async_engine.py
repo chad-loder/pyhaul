@@ -9,7 +9,8 @@ from pathlib import Path
 import pytest
 
 from pyhaul._types import CompleteHaul, ETag, HaulState, Url
-from pyhaul.persist import CTRL_VERSION, Checkpoint, ctrl_path_for, write_atomic
+from pyhaul.checkpoint import LATEST_VERSION, Checkpoint, registry
+from pyhaul.persist import ctrl_path_for, write_atomic
 from pyhaul.transport.protocols import AsyncTransportResponse
 from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
 
@@ -204,13 +205,17 @@ class TestAsyncResume206:
         part_path.write_bytes(first_half)
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=10,
-                valid_length=5,
-                etag=ETag('"test"'),
-                resource_length=10,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=5,
+                    etag=ETag('"test"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=10,
+                )
             ),
         )
 
@@ -233,22 +238,27 @@ class TestAsyncResumeEtagChanged:
     async def test_restarts_from_zero_on_200(self, tmp_path: Path) -> None:
         from pyhaul.async_engine import haul_async
 
+        old_body = b"XXXXX"
         new_body = b"YYYYYYYYY"
 
         dest = tmp_path / "out.bin"
         part_path = dest.with_suffix(dest.suffix + ".part")
         ctrl_path = ctrl_path_for(part_path)
 
-        part_path.write_bytes(b"XXXXX")
+        part_path.write_bytes(old_body)
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=5,
-                valid_length=5,
-                etag=ETag('"old-etag"'),
-                resource_length=5,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=5,
+                    valid_length=5,
+                    etag=ETag('"old-etag"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=5,
+                )
             ),
         )
 
@@ -274,13 +284,17 @@ class TestAsyncResume416AlreadyComplete:
         part_path.write_bytes(body)
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=len(body),
-                valid_length=len(body),
-                etag=ETag('"test"'),
-                resource_length=len(body),
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=len(body),
+                    valid_length=len(body),
+                    etag=ETag('"test"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=len(body),
+                )
             ),
         )
 
@@ -316,13 +330,17 @@ class TestAsyncCrashRecovery:
         part_path.write_bytes(valid_data + junk)
         write_atomic(
             ctrl_path,
-            Checkpoint(
-                version=CTRL_VERSION,
-                start=0,
-                extent=len(full_body),
-                valid_length=len(valid_data),
-                etag=ETag('"test"'),
-                resource_length=len(full_body),
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=len(full_body),
+                    valid_length=len(valid_data),
+                    etag=ETag('"test"'),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    resource_length=len(full_body),
+                )
             ),
         )
 

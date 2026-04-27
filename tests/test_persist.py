@@ -8,13 +8,9 @@ from pathlib import Path
 import pytest
 
 from pyhaul._types import ControlFileError, ETag
+from pyhaul.checkpoint import LATEST_VERSION, Checkpoint, registry
 from pyhaul.persist import (
-    CTRL_VERSION,
-    Checkpoint,
     ctrl_path_for,
-    deserialize,
-    read_checkpoint,
-    serialize,
     write_atomic,
 )
 
@@ -25,11 +21,13 @@ from pyhaul.persist import (
 
 def _make_checkpoint(**overrides: object) -> Checkpoint:
     defaults: dict[str, object] = {
-        "version": CTRL_VERSION,
+        "version": LATEST_VERSION,
         "start": 0,
         "extent": 104857600,
         "valid_length": 67108864,
         "etag": ETag('"abc123"'),
+        "block_size": 8 * 1024 * 1024,
+        "hashes": [],
         "resource_length": 104857600,
     }
     defaults.update(overrides)
@@ -59,47 +57,48 @@ class TestCtrlPathFor:
 class TestRoundTrip:
     def test_known_total(self) -> None:
         cp = _make_checkpoint()
-        raw = serialize(cp)
-        restored = deserialize(raw)
+        raw = registry.dump(cp)
+        restored = registry.load(raw)
         assert restored == cp
 
     def test_null_extent(self) -> None:
         cp = _make_checkpoint(extent=None)
-        raw = serialize(cp)
-        restored = deserialize(raw)
+        raw = registry.dump(cp)
+        restored = registry.load(raw)
         assert restored.extent is None
         assert restored == cp
 
     def test_null_resource_length(self) -> None:
         cp = _make_checkpoint(resource_length=None)
-        raw = serialize(cp)
-        restored = deserialize(raw)
+        raw = registry.dump(cp)
+        restored = registry.load(raw)
         assert restored.resource_length is None
 
     def test_empty_etag(self) -> None:
         cp = _make_checkpoint(etag=ETag(""))
-        raw = serialize(cp)
-        restored = deserialize(raw)
+        raw = registry.dump(cp)
+        restored = registry.load(raw)
         assert restored.etag == ""
 
     def test_zero_valid_length(self) -> None:
         cp = _make_checkpoint(valid_length=0)
-        raw = serialize(cp)
-        restored = deserialize(raw)
+        raw = registry.dump(cp)
+        restored = registry.load(raw)
         assert restored.valid_length == 0
 
     def test_nonzero_start(self) -> None:
         cp = _make_checkpoint(start=1048576, extent=1048576)
-        raw = serialize(cp)
-        restored = deserialize(raw)
+        raw = registry.dump(cp)
+        restored = registry.load(raw)
         assert restored.start == 1048576
 
-    def test_serialized_is_valid_json(self) -> None:
-        cp = _make_checkpoint()
-        raw = serialize(cp)
-        parsed = json.loads(raw)
-        assert parsed["version"] == CTRL_VERSION
-        assert "url" not in parsed
+    def test_with_hashes(self) -> None:
+        hashes = [b"\x00" * 32, b"\xff" * 32]
+        cp = _make_checkpoint(hashes=hashes)
+        raw = registry.dump(cp)
+        restored = registry.load(raw)
+        assert restored.hashes == hashes
+        assert restored == cp
 
 
 # ---------------------------------------------------------------------------
@@ -109,66 +108,41 @@ class TestRoundTrip:
 
 class TestDeserializeErrors:
     def test_empty_bytes(self) -> None:
-        with pytest.raises(ControlFileError):
-            deserialize(b"")
+        with pytest.raises(ControlFileError, match="empty"):
+            registry.load(b"")
 
-    def test_not_json(self) -> None:
-        with pytest.raises(ControlFileError):
-            deserialize(b"this is not json")
+    def test_not_binary_nor_json(self) -> None:
+        with pytest.raises(ControlFileError, match="unrecognized"):
+            registry.load(b"INVALID")
 
-    def test_json_array_not_object(self) -> None:
-        with pytest.raises(ControlFileError):
-            deserialize(json.dumps([1, 2, 3]).encode())
-
-    def test_missing_version(self) -> None:
-        blob = json.dumps({"url": "http://x.com/f"}).encode()
-        with pytest.raises(ControlFileError):
-            deserialize(blob)
+    def test_wrong_magic(self) -> None:
+        with pytest.raises(ControlFileError, match="unrecognized"):
+            registry.load(b"NOTH" + b"\x04" + b"\x00" * 32)
 
     def test_wrong_version(self) -> None:
-        blob = json.dumps({"version": 999, "url": "http://x.com/f"}).encode()
-        with pytest.raises(ControlFileError):
-            deserialize(blob)
+        with pytest.raises(ControlFileError, match="unsupported"):
+            registry.load(b"HAUL" + b"\xff" + b"\x00" * 32)
 
-    def test_missing_required_field(self) -> None:
-        cp = _make_checkpoint()
-        raw = serialize(cp)
-        obj = json.loads(raw)
-        del obj["valid_length"]
-        with pytest.raises(ControlFileError):
-            deserialize(json.dumps(obj).encode())
 
-    def test_wrong_type_for_valid_length(self) -> None:
-        cp = _make_checkpoint()
-        raw = serialize(cp)
-        obj = json.loads(raw)
-        obj["valid_length"] = "not a number"
-        with pytest.raises(ControlFileError):
-            deserialize(json.dumps(obj).encode())
+class TestV3Migration:
+    def test_migrates_v3_json(self) -> None:
+        v3_data = {
+            "version": 3,
+            "start": 100,
+            "extent": 1000,
+            "valid_length": 500,
+            "etag": '"migrated"',
+            "resource_length": 1000,
+        }
+        raw = json.dumps(v3_data).encode("utf-8")
+        cp = registry.load(raw)
 
-    def test_boolean_not_accepted_as_int(self) -> None:
-        cp = _make_checkpoint()
-        raw = serialize(cp)
-        obj = json.loads(raw)
-        obj["valid_length"] = True
-        with pytest.raises(ControlFileError):
-            deserialize(json.dumps(obj).encode())
-
-    def test_negative_valid_length(self) -> None:
-        cp = _make_checkpoint()
-        raw = serialize(cp)
-        obj = json.loads(raw)
-        obj["valid_length"] = -1
-        with pytest.raises(ControlFileError):
-            deserialize(json.dumps(obj).encode())
-
-    def test_negative_start(self) -> None:
-        cp = _make_checkpoint()
-        raw = serialize(cp)
-        obj = json.loads(raw)
-        obj["start"] = -1
-        with pytest.raises(ControlFileError):
-            deserialize(json.dumps(obj).encode())
+        assert cp.version == 3
+        assert cp.start == 100
+        assert cp.valid_length == 500
+        assert cp.etag == '"migrated"'
+        assert cp.block_size == 8 * 1024 * 1024
+        assert cp.hashes == []
 
 
 # ---------------------------------------------------------------------------
@@ -180,25 +154,21 @@ class TestAtomicWriteAndRead:
     def test_write_and_read_round_trip(self, tmp_path: Path) -> None:
         cp = _make_checkpoint()
         ctrl = tmp_path / "file.bin.part.ctrl"
-        write_atomic(ctrl, cp)
-        restored = read_checkpoint(ctrl)
+        write_atomic(ctrl, registry.dump(cp))
+        restored = registry.load(ctrl.read_bytes())
         assert restored == cp
-
-    def test_read_nonexistent_raises_file_not_found(self, tmp_path: Path) -> None:
-        with pytest.raises(FileNotFoundError):
-            read_checkpoint(tmp_path / "nope.ctrl")
 
     def test_write_is_atomic_no_partial_file(self, tmp_path: Path) -> None:
         """The .tmp file should not linger after a successful write."""
         ctrl = tmp_path / "file.bin.part.ctrl"
-        write_atomic(ctrl, _make_checkpoint())
+        write_atomic(ctrl, registry.dump(_make_checkpoint()))
         assert not ctrl.with_suffix(".ctrl.tmp").exists()
 
     def test_overwrite_preserves_atomicity(self, tmp_path: Path) -> None:
         ctrl = tmp_path / "file.bin.part.ctrl"
-        write_atomic(ctrl, _make_checkpoint(valid_length=100))
-        write_atomic(ctrl, _make_checkpoint(valid_length=200))
-        restored = read_checkpoint(ctrl)
+        write_atomic(ctrl, registry.dump(_make_checkpoint(valid_length=100)))
+        write_atomic(ctrl, registry.dump(_make_checkpoint(valid_length=200)))
+        restored = registry.load(ctrl.read_bytes())
         assert restored.valid_length == 200
 
 
