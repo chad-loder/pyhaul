@@ -141,7 +141,7 @@ _lint-workflows:
 
 [private]
 _lint-docs-fix:
-    uvx rumdl fix .
+    uvx rumdl fmt .
 
 [private]
 _lint-spell:
