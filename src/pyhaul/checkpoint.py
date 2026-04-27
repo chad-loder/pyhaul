@@ -8,6 +8,7 @@ migration from legacy formats (like the original JSON V3).
 from __future__ import annotations
 
 import struct
+import zlib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import IntEnum, unique
@@ -23,6 +24,8 @@ LATEST_VERSION: Final = V4_BINARY
 
 _MIN_BINARY_SIZE: Final = 5
 _RL_FIELD_SIZE: Final = 8
+_CRC_SIZE: Final = 4
+_ALIGNMENT: Final = 8
 
 
 @unique
@@ -77,33 +80,45 @@ class CheckpointCodec(Protocol):
 
 
 class V4BinaryCodec:
-    """Binary format: [Magic][Ver][Res][HdrSize][Cursor][BlkSize][Ext][Start][TLV...][Hashes...]."""
+    """Binary format with framed TLVs and 8-byte payload alignment."""
 
     version: int = V4_BINARY
 
     # Magic(4s), Ver(B), Reserved(B), HeaderSize(H), Cursor(Q), BlockSize(Q), Extent(Q), Start(Q)
+    # Total fixed size = 40 bytes
     _CORE_FORMAT: Final = "<4sBBHQQQQ"
     _CORE_SIZE: Final = struct.calcsize(_CORE_FORMAT)
     _MAGIC: Final = b"HAUL"
 
+    def _pack_tlv(self, tag: Tag, value: bytes) -> bytes:
+        """Pack a TLV block with a trailing CRC32."""
+        header = struct.pack("<BH", tag, len(value))
+        payload = header + value
+        crc = zlib.crc32(payload)
+        return payload + struct.pack("<I", crc)
+
     def encode(self, cp: Checkpoint) -> bytes:
         """Serialize Checkpoint to V4 binary format."""
-        # 1. Build TLV Extensions
+        # 1. Build Framed TLV Extensions
         extensions = bytearray()
 
         # ETag
-        etag_bytes = cp.etag.encode("utf-8")
-        extensions.extend(struct.pack("<BH", Tag.ETAG, len(etag_bytes)))
-        extensions.extend(etag_bytes)
+        if cp.etag:
+            extensions.extend(self._pack_tlv(Tag.ETAG, cp.etag.encode("utf-8")))
 
         # Resource Length
         if cp.resource_length is not None:
-            extensions.extend(struct.pack("<BHQ", Tag.RESOURCE_LENGTH, _RL_FIELD_SIZE, cp.resource_length))
+            extensions.extend(self._pack_tlv(Tag.RESOURCE_LENGTH, struct.pack("<Q", cp.resource_length)))
 
         # Tail Hash
         if cp.tail_hash:
-            extensions.extend(struct.pack("<BH", Tag.TAIL_HASH, len(cp.tail_hash)))
-            extensions.extend(cp.tail_hash)
+            extensions.extend(self._pack_tlv(Tag.TAIL_HASH, cp.tail_hash))
+
+        # --- Alignment Padding ---
+        # Calculate padding to ensure hashes start on an 8-byte boundary
+        unaligned_header_size = self._CORE_SIZE + len(extensions)
+        padding_needed = (_ALIGNMENT - (unaligned_header_size % _ALIGNMENT)) % _ALIGNMENT
+        extensions.extend(b"\x00" * padding_needed)
 
         header_size = self._CORE_SIZE + len(extensions)
 
@@ -138,29 +153,10 @@ class V4BinaryCodec:
         if magic != self._MAGIC:
             raise ControlFileError(f"invalid magic bytes: {magic!r}")
 
-        # Parse TLV extensions
-        etag = ETag("")
-        res_len = None
-        tail_hash = None
+        # 2. Safely Parse Framed TLVs
+        etag, res_len, tail_hash = self._parse_extensions(data, h_size)
 
-        ptr = self._CORE_SIZE
-        while ptr < h_size:
-            if ptr + 3 > len(data):
-                break
-            tag_val, v_len = struct.unpack("<BH", data[ptr : ptr + 3])
-            ptr += 3
-
-            val = data[ptr : ptr + v_len]
-            ptr += v_len
-
-            if tag_val == Tag.ETAG:
-                etag = parse_etag(val.decode("utf-8"))
-            elif tag_val == Tag.RESOURCE_LENGTH and v_len == _RL_FIELD_SIZE:
-                res_len = struct.unpack("<Q", val)[0]
-            elif tag_val == Tag.TAIL_HASH:
-                tail_hash = val
-
-        # Remaining bytes are 32-byte hashes
+        # 3. Slice the Hashes Payload (guaranteed to be 8-byte aligned)
         hashes_data = data[h_size:]
         if len(hashes_data) % 32 != 0:
             raise ControlFileError("corrupt hash payload: not a multiple of 32 bytes")
@@ -178,6 +174,47 @@ class V4BinaryCodec:
             tail_hash=tail_hash,
             resource_length=res_len,
         )
+
+    def _parse_extensions(self, data: bytes, header_size: int) -> tuple[ETag, int | None, bytes | None]:
+        """Parse TLV chunks from the header area."""
+        etag = ETag("")
+        res_len = None
+        tail_hash = None
+
+        ptr = self._CORE_SIZE
+        while ptr < header_size:
+            # Check if we hit padding (Tag 0x00)
+            if data[ptr] == 0:
+                break
+
+            if ptr + 3 > header_size:
+                raise ControlFileError("truncated TLV header")
+
+            tag_val, v_len = struct.unpack("<BH", data[ptr : ptr + 3])
+            chunk_total_len = 3 + v_len + _CRC_SIZE
+
+            if ptr + chunk_total_len > header_size:
+                raise ControlFileError(f"TLV {tag_val} length {v_len} exceeds header bounds")
+
+            # Extract data and CRC for validation
+            chunk_data = data[ptr : ptr + 3 + v_len]
+            stored_crc = struct.unpack("<I", data[ptr + 3 + v_len : ptr + chunk_total_len])[0]
+
+            if zlib.crc32(chunk_data) != stored_crc:
+                raise ControlFileError(f"CRC mismatch in TLV Tag {tag_val}")
+
+            value = data[ptr + 3 : ptr + 3 + v_len]
+
+            if tag_val == Tag.ETAG:
+                etag = parse_etag(value.decode("utf-8"))
+            elif tag_val == Tag.RESOURCE_LENGTH and v_len == _RL_FIELD_SIZE:
+                res_len = struct.unpack("<Q", value)[0]
+            elif tag_val == Tag.TAIL_HASH:
+                tail_hash = value
+
+            ptr += chunk_total_len
+
+        return etag, res_len, tail_hash
 
 
 # --- Legacy V3 JSON Codec ---
