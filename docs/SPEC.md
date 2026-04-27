@@ -27,6 +27,9 @@ All multi-byte integers are encoded in Little-Endian byte order.
 
 ### 3.1. Header Structure
 
+The control file begins with a 40-byte fixed core header, followed by variable-length
+framed TLV extensions, null padding for alignment, and finally the hash payload.
+
 ```text
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -51,9 +54,11 @@ All multi-byte integers are encoded in Little-Endian byte order.
 +                         Start (64-bit)                        +
 |                                                               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|     TLV Extensions ... (Variable Length)                      |
+|     Framed TLV Extensions ... (Variable Length)               |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|     Hashes Payload ... (32-byte SHA-256 blocks)               |
+|     Null Alignment Padding (0-7 bytes)                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|     Hashes Payload ... (Contiguous 32-byte SHA-256 blocks)    |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
@@ -62,75 +67,96 @@ All multi-byte integers are encoded in Little-Endian byte order.
 - **Magic (4 bytes):** The literal ASCII string `b"HAUL"`.
 - **Version (1 byte):** Unsigned integer. Currently `4`.
 - **Reserved (1 byte):** Must be `0`.
-- **HeaderSize (2 bytes):** Total offset in bytes from the start of the file to the beginning of the Hashes Payload.
-- **Cursor (8 bytes):** The number of valid bytes currently in the `.part` file relative to the `Start` offset.
+- **HeaderSize (2 bytes):** Total offset in bytes from the start of the file to
+  the beginning of the Hashes Payload. This pointer allows parsers to jump to
+  the payload even if they do not recognize all TLV extensions.
+- **Cursor (8 bytes):** The number of valid bytes currently in the `.part` file
+  relative to the `Start` offset.
 - **BlockSize (8 bytes):** The fixed size of each hashing block (default 8MiB).
-- **Extent (8 bytes):** The total expected size of the resource (or `0` if unknown).
-- **Start (8 bytes):** The byte offset in the remote resource where this download begins.
+- **Extent (8 bytes):** The total size of the range being downloaded (or `0`
+  if unknown).
+- **Start (8 bytes):** The byte offset in the remote resource where this
+  download begins.
 
-### 3.3. TLV Extensions
+### 3.3. Framed TLV Extensions
 
-Variable-length metadata is stored as Tag-Length-Value (TLV) blocks:
+Metadata blocks are stored as CRC-verified chunks. This prevents bitrot in the
+control file from causing the parser to misinterpret lengths or ETag strings.
 
 ```text
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|      Tag      |     Length    |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|     Value ... (Variable)      |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|      Tag      |     Length    |     Value ... (Variable)      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      Chunk CRC32 (IEEE)                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
 - **Tag (1 byte):** Field identifier.
 - **Length (2 bytes):** Size of the Value field in bytes.
 - **Value (N bytes):** Field data.
+- **Chunk CRC32 (4 bytes):** IEEE CRC32 calculated over the bytes
+  of `(Tag + Length + Value)`.
 
 Supported Tags:
 
 - `1`: ETag (UTF-8 string)
-- `2`: Resource Length (64-bit unsigned integer)
-- `3`: Tail Hash (32-byte SHA-256 binary digest)
+- `2`: Resource Length (64-bit unsigned integer — the full remote file size)
+- `3`: Tail Hash (32-byte SHA-256 binary digest of the current partial block)
 
 ### 3.4. Hashes Payload
 
-A contiguous sequence of raw 32-byte SHA-256 digests. Each hash corresponds to
-a completed `BlockSize` chunk of data. The number of hashes is implicitly
-calculated as `(FileSize - HeaderSize) / 32`.
+A sequence of raw 32-byte SHA-256 digests. Each hash represents a completed
+`BlockSize` chunk of data. The number of hashes is implicitly calculated as
+`(FileSize - HeaderSize) / 32`. The payload is guaranteed to start on an
+8-byte boundary (achieved via null padding after the TLV area).
 
 ## 4. Operational Rules
 
 ### 4.1. Write Sequencing (Crash Safety)
 
-To maintain the invariant that the Control File never "lies" about the state of the data on disk, implementers MUST follow this sequence:
+To maintain the invariant that the Control File never "lies" about the state
+of the data on disk, implementers MUST follow this sequence:
 
 1. Write data to the `.part` file.
-2. Perform an **`fdatasync`** (or `fsync`) on the `.part` file descriptor.
+2. Perform an **`fdatasync`** on the `.part` file descriptor.
 3. Prepare the new Control File content.
 4. Perform an **Atomic Write** of the Control File:
    - Write to a `.tmp` sidecar.
    - `fsync` the `.tmp` file.
    - `rename` (or `replace`) the `.tmp` over the existing `.ctrl` file.
 
-### 4.2. Resume Validation
+### 4.2. Reading Strategy
 
-When resuming a download, the engine MUST perform the following validations before appending network data:
+A robust implementer SHOULD parse the file using this strategy:
 
-1. **ETag Match:** If the server provides an ETag on the `206 Partial Content` response, it MUST match the ETag stored in the checkpoint.
-2. **Range Alignment:** The server's `Content-Range` start MUST match the `Start + Cursor` position.
-3. **Tail Integrity:**
-   - Calculate the length of the partial tail: `TailLen = Cursor % BlockSize`.
-   - If `TailLen > 0`:
-     - Re-read `TailLen` bytes from the `.part` file starting at the last block boundary.
-     - Compute the SHA-256 of these bytes.
-     - Verify against the `TailHash` in the Control File.
-     - If mismatch, raise a `ControlFileError`.
+1. Read the first 40 bytes and verify Magic/Version.
+2. Extract `HeaderSize` to establish the payload boundary.
+3. Iterate through the TLV area (from byte 40 to `HeaderSize`):
+   - If the current byte is `0x00`, assume alignment padding and stop TLV
+     parsing.
+   - Read Tag and Length.
+   - Calculate and verify the Chunk CRC32 before interpreting the Value.
+   - If a Tag is unknown, skip it using its Length.
+4. Jump to `HeaderSize` and read the remaining bytes as a flat list of
+   32-byte hashes.
 
-### 4.3. Finalization
+### 4.3. Resume Validation
 
-Upon reaching the `Extent`:
+Before appending network data, the engine MUST validate:
 
-1. Verify the total length of the `.part` file.
-2. Truncate any junk data past the `Cursor`.
-3. Rename `.part` to the final destination path.
-4. Unlink the `.ctrl` file.
-5. Compute and return the **Tree Hash Fingerprint**:
-   - `SHA256(Concatenated Block Hashes) + "-" + NumBlocks`.
+1. **ETag Match:** If a new ETag is received, it must match the one in the
+   checkpoint.
+2. **Tail Integrity:**
+   - If `Cursor % BlockSize > 0`:
+     - Re-read the partial tail from `.part`.
+     - Compute its SHA-256 and verify against the `TailHash` TLV.
+     - Raise `ControlFileError` on mismatch.
+
+### 4.4. Finalization
+
+Upon completion:
+
+1. Truncate junk past `Cursor`.
+2. Move `.part` to destination.
+3. Unlink `.ctrl`.
+4. Return Tree Hash Fingerprint: `SHA256(Concatenated Hashes) + "-" + Count`.
