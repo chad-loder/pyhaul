@@ -88,6 +88,7 @@ def close_native(native: object) -> None:
     if callable(close):
         close()
     else:
+        # urllib3 PoolManager might only have clear()
         clear = getattr(native, "clear", None)
         if callable(clear):
             clear()

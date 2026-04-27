@@ -120,6 +120,11 @@ class V4BinaryCodec:
         padding_needed = (_ALIGNMENT - (unaligned_header_size % _ALIGNMENT)) % _ALIGNMENT
         extensions.extend(b"\x00" * padding_needed)
 
+        # Tail Hash
+        if cp.tail_hash:
+            extensions.extend(struct.pack("<BH", Tag.TAIL_HASH, len(cp.tail_hash)))
+            extensions.extend(cp.tail_hash)
+
         header_size = self._CORE_SIZE + len(extensions)
 
         # 2. Pack Header

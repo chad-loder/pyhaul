@@ -8,6 +8,7 @@ a temp destination path, fault injection helpers, and a shortcut for
 
 from __future__ import annotations
 
+import gc
 import hashlib
 import http.server as _http_server
 import threading
@@ -339,6 +340,7 @@ def _yield_live_http_harness(tmp_path: Path, backend: str) -> Generator[HttpTest
         srv.server_close()
         thread.join(timeout=1.0)
         time.sleep(0.01)  # allow sockets to close
+        gc.collect()
 
 
 @pytest.fixture(params=LIVE_BACKENDS)

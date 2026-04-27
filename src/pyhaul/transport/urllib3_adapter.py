@@ -109,6 +109,12 @@ class Urllib3TransportResponse(TransportResponse):
         with map_urllib3_transport_errors():
             yield from self._resp.stream(chunk_size, decode_content=False)
 
+    def close(self) -> None:
+        """Close the underlying urllib3 response."""
+        close_fn = getattr(self._resp, "close", None)
+        if callable(close_fn):
+            close_fn()
+
 
 class Urllib3Adapter:
     """Wrap a :class:`urllib3.PoolManager` as a :class:`TransportSession`."""
@@ -135,9 +141,11 @@ class Urllib3Adapter:
                 headers=dict(headers),
                 **kw,
             )
+        transport_resp = Urllib3TransportResponse(resp)
         try:
-            yield Urllib3TransportResponse(resp)
+            yield transport_resp
         finally:
+            transport_resp.close()
             resp.release_conn()
 
 
