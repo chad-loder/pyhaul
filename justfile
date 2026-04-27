@@ -89,7 +89,7 @@ _lint-py:
     set -euo pipefail
     uv run ruff check --quiet .
     uv run ruff format --quiet --check .
-    uv run mypy --no-error-summary src tests examples scripts
+    uv run mypy --no-error-summary src tests examples
     _out=$(uv run pyright 2>&1) || { echo "$_out"; exit 1; }
     uv run ty check --quiet --quiet
     uv run validate-pyproject pyproject.toml > /dev/null
@@ -145,7 +145,7 @@ _lint-docs-fix:
 
 [private]
 _lint-spell:
-    @uv run codespell src tests docs examples scripts *.md *.toml
+    @uv run codespell src tests docs examples *.md *.toml
 
 # Copies tracked hook scripts into .git/hooks, aborting on local edits.
 [private]

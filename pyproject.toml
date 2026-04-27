@@ -238,7 +238,6 @@ known-first-party = ["pyhaul"]
 ]
 "**/conftest.py" = ["D", "ARG", "S101", "SLF001", "A002", "N802", "C901"]
 "examples/**" = ["T20", "INP001", "D", "ASYNC240"]
-"scripts/**" = ["T20", "INP001", "D"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -270,7 +269,7 @@ exclude = '''(?x)(
 pythonVersion = "3.12"
 pythonPlatform = "All"
 typeCheckingMode = "strict"
-include = ["src", "tests", "examples", "scripts"]
+include = ["src", "tests", "examples"]
 exclude = [".venv", "build", "dist", "**/__pycache__"]
 
 # Tests need repo root on the path for ``from tests.…``; relax noisy rules there only.
@@ -294,13 +293,6 @@ extraPaths = ["src"]
 reportUnknownParameterType = false
 reportUnknownArgumentType = false
 reportMissingTypeStubs = false
-
-[[tool.pyright.executionEnvironments]]
-root = "scripts"
-reportMissingTypeStubs = false
-reportUnknownVariableType = false
-reportUnknownMemberType = false
-reportUnknownArgumentType = false
 
 # ---------------------------------------------------------------------------
 # ty  (Astral's Rust-based type checker — scoped to library code only)
@@ -385,11 +377,11 @@ ignore-magic = true
 ignore-private = true
 ignore-semiprivate = true
 fail-under = 100
-exclude = ["tests", "examples", "scripts"]
+exclude = ["tests", "examples"]
 
 # ---------------------------------------------------------------------------
 # codespell
 # ---------------------------------------------------------------------------
 [tool.codespell]
-ignore-words-list = "te"
+ignore-words-list = "te,noth"
 skip = "*.lock,./dist,./build,./.mypy_cache,./.ruff_cache,./.scratch"
