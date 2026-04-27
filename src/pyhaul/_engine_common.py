@@ -9,6 +9,7 @@ finalization.  The only thing each engine owns is the I/O boundary
 
 from __future__ import annotations
 
+import hashlib
 import os
 import time
 from dataclasses import dataclass, field
@@ -62,6 +63,7 @@ class PrepareHaul:
     cursor: int
     stored_etag: ETag
     hashes: list[bytes]
+    tail_hash: bytes | None
     block_size: int
     request_byte: int
     merged_headers: dict[str, str]
@@ -108,6 +110,7 @@ def prepare_haul(url: str, dest: str | Path) -> PrepareHaul:
     cursor = cp.valid_length if cp else 0
     stored_etag = cp.etag if cp else ETag("")
     hashes = cp.hashes if cp else []
+    tail_hash = cp.tail_hash if cp else None
     block_size = cp.block_size if cp else 8 * 1024 * 1024
 
     request_byte = start + cursor
@@ -125,6 +128,7 @@ def prepare_haul(url: str, dest: str | Path) -> PrepareHaul:
         cursor=cursor,
         stored_etag=stored_etag,
         hashes=hashes,
+        tail_hash=tail_hash,
         block_size=block_size,
         request_byte=request_byte,
         merged_headers=merged,
@@ -244,6 +248,13 @@ def _plan_206(
             tail = f.read(bytes_to_re_read)
             if len(tail) != bytes_to_re_read:
                 raise ControlFileError(f"could not re-read {bytes_to_re_read} byte tail for hashing")
+
+            # Verify integrity of re-read tail
+            if prep.tail_hash:
+                actual_tail_hash = hashlib.sha256(tail).digest()
+                if actual_tail_hash != prep.tail_hash:
+                    raise ControlFileError("integrity error: local tail corruption detected")
+
             hb.update(tail)
 
     state.block_size = prep.block_size
@@ -395,6 +406,7 @@ def _reset_checkpoint(ctrl_path: Path, start: int, block_size: int) -> None:
         etag=ETag(""),
         block_size=block_size,
         hashes=[],
+        tail_hash=None,
         resource_length=None,
     )
     write_atomic(ctrl_path, registry.dump(cp))
@@ -409,6 +421,7 @@ def _save_checkpoint(path: Path, plan: StreamPlan, _prep: PrepareHaul) -> None:
         etag=plan.etag,
         block_size=plan.hb.block_size,
         hashes=plan.hb.completed_hashes.copy(),
+        tail_hash=plan.hb.current_digest,
         resource_length=plan.resource_length,
     )
     write_atomic(path, registry.dump(cp))

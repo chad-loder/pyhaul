@@ -34,7 +34,6 @@ testing, etc.), implement the `TransportSession` protocol: a single
 - **In-flight.** Two sidecar files: `<dest>.part` (data) and
   `<dest>.part.ctrl` (binary checkpoint with cursor position, ETag,
   block-level hashes, etc.)
-
 - **Interrupted.** Both files remain. Next `haul()` resumes
   automatically.
 - **Complete.** `.part` is atomically renamed to `dest`; `.ctrl` is
