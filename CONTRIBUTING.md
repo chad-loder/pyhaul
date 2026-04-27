@@ -206,15 +206,23 @@ and [Renovate’s GitHub platform docs](https://docs.renovatebot.com/modules/pla
 One-time setup:
 
 1. [Create a GitHub App](https://github.com/settings/apps/new) with these
-   repository permissions:
-   - **Read+write:** Contents, Pull requests, Checks, Commit statuses,
-     Issues, Workflows
-   - **Read-only:** Administration, Vulnerability alerts, Members
+   repository permissions (must be **at least** what the workflow requests
+   when minting the installation token):
+   - **Read+write:** Contents, Pull requests, Issues, Workflows
+   - **Read:** Administration, Checks, Commit statuses, Vulnerability alerts
+   - **Optional (organizations):** Members (read) if you use org features;
+     the workflow does **not** request `members` so user-only installs avoid
+     `422` from the token step.
 2. **Install the app** on the `chad-loder/pyhaul` repository. If you skip
    this, the `GitHub App installation token` step fails with `404` from
    the [installation
    API](https://docs.github.com/rest/apps/apps#get-a-repository-installation-for-the-authenticated-app)
-   (no installation for the app on that repo).
+   (no installation for the app on that repo). If the install exists but
+   the token step returns **`422` The permissions requested are not granted**,
+   the app’s permissions (or the [installation
+   update](https://github.com/settings/installations)) are missing something
+   the workflow asks for—align them or relax the token inputs in
+   `.github/workflows/renovate.yml`.
 3. Create a GitHub **environment** named `renovate` (Settings →
    Environments). You can require deployment branches or approvers; keep
    secrets in this environment or at repo level consistently with the
