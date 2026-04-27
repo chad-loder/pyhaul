@@ -209,13 +209,10 @@ One-time setup:
    repository permissions (must **match or exceed** what
    `.github/workflows/renovate.yml` passes to the installation token):
    - **Read+write:** Contents, Pull requests, Issues, Workflows
-   - **Read:** Checks, Commit statuses
-   - **Optional (extra Renovate features):** add **Read** for Administration
-     and **Read** for **Vulnerability alerts** (Dependabot) on the app, then
-     add `permission-administration: read` and
-     `permission-vulnerability-alerts: read` to the workflow—otherwise omit
-     both. **Optional (organizations):** Members (read); the workflow does
-     not request it.
+   - **Read:** Administration, Checks, Commit statuses, **Vulnerability alerts**
+     (Dependabot; required for `vulnerabilityAlerts` / OSV in `renovate.json`)
+   - **Optional (organizations):** Members (read); the workflow does not
+     request it.
 2. **Install the app** on the `chad-loder/pyhaul` repository. If you skip
    this, the `GitHub App installation token` step fails with `404` from
    the [installation

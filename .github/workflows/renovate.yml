@@ -51,6 +51,8 @@ jobs:
           permission-statuses: read
           permission-issues: write
           permission-workflows: write
+          permission-administration: read
+          permission-vulnerability-alerts: read
 
       - name: Self-hosted Renovate
         uses: renovatebot/github-action@83ec54fee49ab67d9cd201084c1ff325b4b462e4 # v46.1.10
