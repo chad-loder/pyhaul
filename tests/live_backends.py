@@ -57,11 +57,36 @@ def make_transport(backend: str, native: object) -> TransportSession:
 
 def close_native(native: object) -> None:
     """Shut down a native HTTP client by calling its ``close`` or ``clear`` method."""
+    # PoolManager.clear() historically only dropped pool refs without always closing
+    # sockets (e.g. RecentlyUsedContainer with no dispose_func). Newer releases use
+    # TrafficPolice, which is not dict-like. Close every HTTPConnectionPool explicitly,
+    # then clear.
+    import urllib3
+
+    if isinstance(native, urllib3.PoolManager):
+        pools = native.pools
+        keys = getattr(pools, "keys", None)
+        if callable(keys):
+            for key in list(keys()):
+                try:
+                    pools[key].close()
+                except OSError:
+                    pass
+        else:
+            reg = getattr(pools, "_registry", None)
+            if isinstance(reg, dict):
+                for pool in list(reg.values()):
+                    try:
+                        pool.close()
+                    except OSError:
+                        pass
+        native.clear()
+        return
+
     close = getattr(native, "close", None)
     if callable(close):
         close()
     else:
-        # urllib3 PoolManager might only have clear()
         clear = getattr(native, "clear", None)
         if callable(clear):
             clear()
