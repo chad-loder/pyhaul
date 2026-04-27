@@ -195,27 +195,41 @@ If you edit `renovate.json`, run `just renovate-validate` to check it
 against the official schema before pushing.
 
 <details>
-<summary>Maintainer setup (GitHub App token)</summary>
+<summary>Maintainer setup (GitHub App)</summary>
 
-The Renovate workflow authenticates via a GitHub App to get short-lived
-tokens (no long-lived PATs). One-time setup:
+The Renovate workflow uses a [GitHub App](https://docs.github.com/en/apps) so
+each run gets a **short-lived installation token** (no long-lived PAT).
+This matches the
+[installation-token action README](https://github.com/actions/create-github-app-token#readme)
+and [Renovate’s GitHub platform docs](https://docs.renovatebot.com/modules/platform/github/#running-as-a-github-app).
+
+One-time setup:
 
 1. [Create a GitHub App](https://github.com/settings/apps/new) with these
    repository permissions:
    - **Read+write:** Contents, Pull requests, Checks, Commit statuses,
      Issues, Workflows
    - **Read-only:** Administration, Vulnerability alerts, Members
-2. Install the app on the `chad-loder/pyhaul` repository.
-3. Create a GitHub **environment** named `renovate` in the repository
-   settings (Settings > Environments). Optionally restrict it to the
-   `main` branch.
-4. Add the app's numeric ID as an environment secret named
-   `RENOVATE_APP_ID`.
-5. Generate a private key and add it as an environment secret named
-   `RENOVATE_APP_PRIVATE_KEY`.
+2. **Install the app** on the `chad-loder/pyhaul` repository.
+3. Create a GitHub **environment** named `renovate` (Settings →
+   Environments). You can require deployment branches or approvers; keep
+   secrets in this environment or at repo level consistently with the
+   workflow.
+4. **Client ID (variable, not a secret):** On the app’s **General** page,
+   copy **Client ID** and add a **repository or environment variable** named
+   `RENOVATE_GITHUB_APP_CLIENT_ID`. See the
+   [installation-token action README](https://github.com/actions/create-github-app-token#readme)
+   for the `client-id` input (use **Client ID**, not the numeric “App ID”).
+5. **Private key (secret):** Generate a private key for the app, and add
+   **one** of:
+   - an environment secret `RENOVATE_APP_PRIVATE_KEY` on `renovate`, or
+   - the same name as a **repository** secret,
 
-The workflow runs weekly on Monday mornings and can be triggered manually
-from the Actions tab (with an optional dry-run mode).
+   with the full PEM (including `BEGIN/END` lines). GitHub masks it in
+   logs.
+
+The workflow runs weekly (Monday 04:00 UTC) and can be run manually from
+**Actions → Renovate → Run workflow** (optional dry-run).
 
 </details>
 

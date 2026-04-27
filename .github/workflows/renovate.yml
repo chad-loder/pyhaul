@@ -1,3 +1,12 @@
+# Self-hosted Renovate using a GitHub App (recommended: short-lived installation tokens).
+# See: https://github.com/renovatebot/github-action#token
+# See: https://github.com/actions/create-github-app-token#readme
+# Do not use GITHUB_TOKEN as the Renovate platform token (PRs may not run CI).
+#
+# Required configuration (repository or `renovate` environment):
+#   - Variable: RENOVATE_GITHUB_APP_CLIENT_ID  (App “Client ID” on github.com/settings/apps; not secret)
+#   - Secret:   RENOVATE_APP_PRIVATE_KEY       (PEM; generate once, store only here)
+
 name: Renovate
 
 on:
@@ -27,13 +36,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Generate token
+      - name: GitHub App installation token
         id: token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
-          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          # Client ID (not the numeric “App ID”): see App → General, or actions/create-github-app-token README
+          client-id: ${{ vars.RENOVATE_GITHUB_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-          repositories: ${{ github.event.repository.name }}
+          # Unset `repositories` = token scoped to this repository only (action default)
           permission-contents: write
           permission-pull-requests: write
           permission-checks: write
@@ -52,5 +62,5 @@ jobs:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           RENOVATE_ONBOARDING: "false"
           RENOVATE_REQUIRE_CONFIG: "optional"
-          RENOVATE_DRY_RUN: ${{ inputs.dry-run && 'full' || 'null' }}
+          RENOVATE_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && (inputs.dry-run == 'true' || inputs.dry-run == true)) && 'full' || '' }}
           LOG_LEVEL: info
