@@ -179,6 +179,13 @@ class HashBuilder:
         # starting from some offset.
         self._block_pos = 0  # bytes into the current block
 
+    @property
+    def current_digest(self) -> bytes | None:
+        """Return the digest of the current partial block, if any."""
+        if self._block_pos > 0:
+            return self._current_hash.digest()
+        return None
+
     def update(self, data: bytes) -> list[bytes]:
         """Feed data. Returns any hashes completed during this update."""
         newly_completed: list[bytes] = []

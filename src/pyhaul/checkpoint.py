@@ -31,6 +31,7 @@ class Tag(IntEnum):
 
     ETAG = 1
     RESOURCE_LENGTH = 2
+    TAIL_HASH = 3
 
 
 # --- Domain Model ---
@@ -47,6 +48,7 @@ class Checkpoint:
     etag: ETag
     block_size: int
     hashes: list[bytes] = field(default_factory=list[bytes])
+    tail_hash: bytes | None = None
     resource_length: int | None = None
 
 
@@ -98,6 +100,11 @@ class V4BinaryCodec:
         if cp.resource_length is not None:
             extensions.extend(struct.pack("<BHQ", Tag.RESOURCE_LENGTH, _RL_FIELD_SIZE, cp.resource_length))
 
+        # Tail Hash
+        if cp.tail_hash:
+            extensions.extend(struct.pack("<BH", Tag.TAIL_HASH, len(cp.tail_hash)))
+            extensions.extend(cp.tail_hash)
+
         header_size = self._CORE_SIZE + len(extensions)
 
         # 2. Pack Header
@@ -134,6 +141,7 @@ class V4BinaryCodec:
         # Parse TLV extensions
         etag = ETag("")
         res_len = None
+        tail_hash = None
 
         ptr = self._CORE_SIZE
         while ptr < h_size:
@@ -149,6 +157,8 @@ class V4BinaryCodec:
                 etag = parse_etag(val.decode("utf-8"))
             elif tag_val == Tag.RESOURCE_LENGTH and v_len == _RL_FIELD_SIZE:
                 res_len = struct.unpack("<Q", val)[0]
+            elif tag_val == Tag.TAIL_HASH:
+                tail_hash = val
 
         # Remaining bytes are 32-byte hashes
         hashes_data = data[h_size:]
@@ -165,6 +175,7 @@ class V4BinaryCodec:
             etag=etag,
             block_size=b_size,
             hashes=hashes,
+            tail_hash=tail_hash,
             resource_length=res_len,
         )
 
@@ -195,6 +206,7 @@ class V3LegacyCodec:
                 etag=parse_etag(str(obj.get("etag", ""))),
                 block_size=8 * 1024 * 1024,  # Migrated files adopt the default
                 hashes=[],
+                tail_hash=None,
                 resource_length=obj.get("resource_length"),
             )
         except Exception as e:
@@ -234,6 +246,20 @@ class CheckpointRegistry:
 
     def dump(self, cp: Checkpoint) -> bytes:
         """Serialize Checkpoint using the codec matching its version."""
+        # Ensure we always write the latest version
+        if cp.version != LATEST_VERSION:
+            cp = Checkpoint(
+                version=LATEST_VERSION,
+                start=cp.start,
+                extent=cp.extent,
+                valid_length=cp.valid_length,
+                etag=cp.etag,
+                block_size=cp.block_size,
+                hashes=cp.hashes,
+                tail_hash=cp.tail_hash,
+                resource_length=cp.resource_length,
+            )
+
         codec = self._codecs.get(cp.version)
         if not codec:
             raise ControlFileError(f"no codec registered for version {cp.version}")
