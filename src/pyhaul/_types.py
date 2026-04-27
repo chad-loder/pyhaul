@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import NewType
 from urllib.parse import urlparse
@@ -112,6 +112,8 @@ class HaulState:
     is_complete: bool = False
     bytes_read: int = 0
     valid_length: int = 0
+    block_size: int = 8 * 1024 * 1024
+    hashes: list[bytes] = field(default_factory=list[bytes])
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -124,7 +126,7 @@ class CompleteHaul:
     """
 
     elapsed: float
-    sha256: str
+    sha256: str  # This is the "Tree Hash" result (hash-of-hashes-N)
     etag: ETag
     content_type: str
 
@@ -166,39 +168,64 @@ class PartialHaulError(HaulError):
 
 
 class HashBuilder:
-    """Incremental SHA-256 accumulator fed during sequential writes."""
+    """Incremental SHA-256 block-level accumulator."""
 
-    def __init__(self) -> None:
-        self._h = hashlib.sha256()
-        self._pos = 0
+    def __init__(self, block_size: int, initial_hashes: list[bytes] | None = None) -> None:
+        self.block_size = block_size
+        self.completed_hashes = initial_hashes or []
+        self._current_hash = hashlib.sha256()
+        self._total_pos = sum(len(h) for h in self.completed_hashes) * block_size  # inaccurate if we resumed at 0
+        # Actually, let's keep it simpler. We assume we are fed bytes sequentially
+        # starting from some offset.
+        self._block_pos = 0  # bytes into the current block
 
-    def update(self, offset: int, data: bytes) -> None:
-        """Feed data at the given file offset.
+    def update(self, data: bytes) -> list[bytes]:
+        """Feed data. Returns any hashes completed during this update."""
+        newly_completed: list[bytes] = []
 
-        Writes are always sequential in the cursor model (offset always
-        == self._pos), producing a correct rolling hash.
-        """
-        if offset == self._pos:
-            self._h.update(data)
-            self._pos += len(data)
+        offset = 0
+        to_process = len(data)
 
-    @property
-    def sequential(self) -> bool:
-        """True if every update has been in-order (sequential stream)."""
-        return True
+        while to_process > 0:
+            remaining_in_block = self.block_size - self._block_pos
+            take = min(to_process, remaining_in_block)
 
-    def hexdigest(self) -> str:
-        """Return the accumulated SHA-256 digest as a lowercase hex string."""
-        return self._h.hexdigest()
+            self._current_hash.update(data[offset : offset + take])
+            self._block_pos += take
+            offset += take
+            to_process -= take
+
+            if self._block_pos == self.block_size:
+                h = self._current_hash.digest()
+                self.completed_hashes.append(h)
+                newly_completed.append(h)
+                self._current_hash = hashlib.sha256()
+                self._block_pos = 0
+
+        return newly_completed
+
+    def finalize(self) -> str:
+        """Finish the current block (if any) and return the tree hash."""
+        if self._block_pos > 0:
+            self.completed_hashes.append(self._current_hash.digest())
+            self._block_pos = 0
+
+        if not self.completed_hashes:
+            return "empty-0"
+
+        # Fingerprint: SHA-256 of all binary hashes concatenated
+        h = hashlib.sha256()
+        h.update(b"".join(self.completed_hashes))
+        return f"{h.hexdigest()}-{len(self.completed_hashes)}"
 
     @staticmethod
-    def hash_file(path: str | Path, buf_size: int = 1 << 16) -> str:
-        """Compute SHA-256 of a complete file on disk."""
-        h = hashlib.sha256()
+    def hash_file(path: str | Path, block_size: int = 8 * 1024 * 1024) -> str:
+        """Compute the tree hash of a complete file on disk."""
+        hb = HashBuilder(block_size=block_size)
         with Path(path).open("rb") as f:
             while True:
-                chunk = f.read(buf_size)
+                chunk = f.read(1 << 20)  # 1MB I/O chunks
                 if not chunk:
                     break
-                h.update(chunk)
-        return h.hexdigest()
+                hb.update(chunk)
+        return hb.finalize()
