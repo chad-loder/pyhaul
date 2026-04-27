@@ -35,6 +35,8 @@ def map_urllib3_transport_errors() -> Iterator[None]:
     """Map :mod:`urllib3` failures to :mod:`pyhaul.transport.errors`."""
     try:
         yield
+    except TransportError:
+        raise
     except _urllib3_exceptions.SSLError as e:
         raise TransportTLSError(str(e)) from e
     except _urllib3_exceptions.ProxyError as e:

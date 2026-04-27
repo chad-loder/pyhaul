@@ -9,6 +9,7 @@ from typing import Any
 
 from pyhaul.transport.errors import (
     TransportConnectionError,
+    TransportError,
     TransportHTTPError,
     TransportTLSError,
 )
@@ -24,6 +25,8 @@ def map_requests_like_transport_errors(exc: ModuleType) -> Iterator[None]:
     """Translate *exc* (``niquests.exceptions`` or ``requests.exceptions``) to transport errors."""
     try:
         yield
+    except TransportError:
+        raise
     except exc.HTTPError as e:
         status = _response_status_code(e)
         raise TransportHTTPError(str(e), status_code=status) from e
