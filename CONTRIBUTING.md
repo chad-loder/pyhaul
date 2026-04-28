@@ -32,26 +32,26 @@ group:
 $ just
 Available recipes:
     [build]
-    build             # Regenerate docs/PYPI_README.md then build sdist + wheel
+    build
 
     [ci]
-    ci                # Full CI run (setup + pre-commit + pytest with coverage)
-    renovate-validate # Validate renovate.json against official schema
+    ci
+    renovate-validate
 
     [dev]
-    clean             # Remove caches and build artifacts
-    dev               # Setup environment and run tests (first-time onboarding)
-    run-cli *ARGS     # Run the pyhaul CLI from source tree
-    setup             # Install deps, hooks, and tools
+    clean
+    dev
+    run-cli *ARGS
+    setup
 
     [quality]
-    check             # Lint and test (pre-push sanity check)
-    lint              # Lint code, shell, and docs (contributor-facing)
-    lint-all          # Run all linters (contributor + maintainer)
-    lint-fix          # Auto-fix everything fixable, then check
-    lint-maintainer   # Lint workflows, actions security, and CI config (maintainer-facing)
-    maintain          # uv sync then maintainer lints (workflows, schemas, zizmor)
-    test              # Run test suite
+    check
+    lint              # Lint tracked Python, shell, docs, spelling (contributor-facing)
+    lint-all
+    lint-fix
+    lint-maintainer
+    maintain          # `uv sync`, then workflow / security tooling (matches `maintain` PEP 735 deps)
+    test
 ```
 
 The most common workflow:
@@ -59,7 +59,7 @@ The most common workflow:
 | Command | When to use it |
 |---|---|
 | `just dev` | First-time setup, or after pulling new deps |
-| `just check` | Before pushing (runs lint + test) |
+| `just check` | Before pushing (lint + test) |
 | `just lint` | Quick lint-only pass (code, shell, docs) |
 | `just lint-maintainer` | Lint workflows and CI config (actionlint, zizmor, schemas) |
 | `just maintain` | `uv sync` then same as `lint-maintainer` (refresh env first) |
@@ -78,11 +78,13 @@ standard tools you can run directly:
 ```bash
 uv sync --all-groups              # install deps
 uv run pytest                     # tests
-uv run pytest --cov=pyhaul         # tests + coverage
+uv run coverage run -m pytest     # tests + coverage
 uv run ruff check .               # lint
 uv run ruff format .              # format
-uv run mypy src tests examples scripts  # type-check (mypy)
-uv run pyright                    # type-check (pyright, strict)
+uv run mypy src tests             # type-check (mypy)
+uv run pyright                    # type-check (pyright)
+uv run ty check                   # type-check (ty)
+uv run prek run --all-files       # run all git hooks
 uv build                          # build sdist + wheel
 ```
 
@@ -96,10 +98,11 @@ The `lint` recipe runs Python, shell, and markdown linters together.
 from `just --list` but still directly callable:
 
 ```bash
-just _lint-py         # ruff + mypy + pyright
+just _lint-py         # ruff + mypy + pyright + ty + validate-pyproject + interrogate + semgrep
 just _lint-sh         # shellcheck
 just _lint-docs       # rumdl (markdown)
-just _lint-workflows  # actionlint + check-jsonschema + zizmor
+just _lint-spell      # codespell
+just _lint-workflows  # actionlint + check-jsonschema + zizmor (maintainer)
 ```
 
 </details>
