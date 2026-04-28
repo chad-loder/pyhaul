@@ -99,6 +99,18 @@ build:
     uv run scripts/build/pypi_readme.py
     uv build
 
+# --- Docs ---
+
+[doc('Serve docs site locally with live-reload')]
+[group('docs')]
+docs:
+    uv run --group docs properdocs serve
+
+[doc('Build docs site to site/ directory')]
+[group('docs')]
+docs-build:
+    uv run --group docs properdocs build --strict
+
 # --- Dev ---
 
 [group('dev')]

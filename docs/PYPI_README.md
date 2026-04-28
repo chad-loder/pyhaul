@@ -4,6 +4,7 @@
 [![codecov](https://codecov.io/gh/chad-loder/pyhaul/graph/badge.svg)](https://codecov.io/gh/chad-loder/pyhaul)
 [![PyPI](https://img.shields.io/pypi/v/pyhaul.svg)](https://pypi.org/project/pyhaul/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/chad-loder/pyhaul/blob/main/LICENSE)
+[![Docs](https://img.shields.io/badge/docs-properdocs-blue.svg)](https://chad-loder.github.io/pyhaul/)
 
 Resumable HTTP downloads for Python. **Bring your own client:** pyhaul borrows your existing
 session and handles byte-range negotiation, crash-safe checkpointing, and validation.
@@ -83,6 +84,8 @@ land on disk — works identically in sync and async. See
 adapters, and download lifecycle.
 
 ## Documentation
+
+**[Full documentation →](https://chad-loder.github.io/pyhaul/)**
 
 - **[docs/DESIGN.md](https://github.com/chad-loder/pyhaul/blob/main/docs/DESIGN.md)** — Transport adapters, checkpoint state, and the download lifecycle.
 - **[docs/WHY.md](https://github.com/chad-loder/pyhaul/blob/main/docs/WHY.md)** — Silent failure modes in HTTP range/resume, and how pyhaul compares
