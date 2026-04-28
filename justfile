@@ -101,14 +101,9 @@ build:
 
 # --- Docs ---
 
-[doc('Serve docs site locally with live-reload')]
-[group('docs')]
-docs:
-    uv run --group docs properdocs serve
-
 [doc('Build docs site to site/ directory')]
 [group('docs')]
-docs-build:
+docs:
     uv run --group docs properdocs build --strict
 
 # --- Dev ---
@@ -120,7 +115,6 @@ dev: setup test
 setup:
     uv sync --all-groups
     git config commit.gpgsign true
-    @rm -f .git/hooks/pre-commit
     uv run prek install --install-hooks
     @{{ just_executable() }} _setup-hooks
 
@@ -132,15 +126,7 @@ run-cli *ARGS:
 clean:
     uv run pyclean . --debris all
 
-# --- CI ---
-
-[group('ci')]
-ci: setup
-    uv run prek run --all-files --show-diff-on-failure
-    uv run coverage run -m pytest
-    uv run coverage xml -o coverage.xml
-
-[group('ci')]
+[group('dev')]
 renovate-validate:
     @uv run check-jsonschema --schemafile "https://docs.renovatebot.com/renovate-schema.json" renovate.json
 
@@ -192,7 +178,7 @@ _lint-sh:
     while IFS= read -r _f; do
         targets+=("$_f")
     done < <(git ls-files '*.sh')
-    for hook in .githooks/commit-msg .githooks/pre-commit; do
+    for hook in .githooks/commit-msg .githooks/check-commit-signing.sh; do
         [[ -f "$hook" ]] && targets+=("$hook")
     done
     (( ${#targets[@]} == 0 )) && exit 0

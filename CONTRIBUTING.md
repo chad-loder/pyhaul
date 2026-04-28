@@ -34,15 +34,15 @@ Available recipes:
     [build]
     build
 
-    [ci]
-    ci
-    renovate-validate
-
     [dev]
     clean
     dev
+    renovate-validate
     run-cli *ARGS
     setup
+
+    [docs]
+    docs              # Build docs site to site/ directory
 
     [quality]
     check
@@ -60,12 +60,13 @@ The most common workflow:
 |---|---|
 | `just dev` | First-time setup, or after pulling new deps |
 | `just check` | Before pushing (lint + test) |
-| `just lint` | Quick lint-only pass (code, shell, docs) |
+| `just lint` | Quick lint-only pass (code, shell, docs, spelling) |
 | `just lint-maintainer` | Lint workflows and CI config (actionlint, zizmor, schemas) |
 | `just maintain` | `uv sync` then same as `lint-maintainer` (refresh env first) |
 | `just lint-all` | Both `lint` + `lint-maintainer` |
-| `just lint-fix` | Auto-fix lint issues, then check |
+| `just lint-fix` | Auto-fix lint issues (ruff, rumdl) |
 | `just test` | Run pytest |
+| `just docs` | Build docs site (strict mode) |
 | `just build` | Build sdist + wheel |
 | `just clean` | Remove caches and build artifacts |
 
@@ -112,15 +113,19 @@ just _lint-workflows  # actionlint + check-jsonschema + zizmor (maintainer)
 Hooks are installed automatically by `just dev`. To re-install manually:
 
 ```bash
-uv run prek install
+uv run prek install --install-hooks
 ```
 
-Bulk linting runs as a **pre-push** hook (not pre-commit), so WIP commits
-stay fast and you won't be tempted to `--no-verify`. The hook runs ruff
-(lint + format), actionlint, zizmor (workflow security), schema
-validation, codespell, and structural checks (trailing whitespace, merge
-conflicts, large files) before code is pushed. Commit signing is enforced
-at commit time via a separate `commit-msg` hook.
+Hooks are split into two stages so WIP commits stay fast:
+
+| Stage | Runs when | What it checks | Time |
+|---|---|---|---|
+| **pre-commit** | every `git commit` | ruff (lint + format with auto-fix), trailing whitespace, line endings, merge conflicts, large files, commit signing | <1 s |
+| **pre-push** | every `git push` | YAML / TOML / JSON structure, actionlint, zizmor (workflow security), GitHub workflow schemas, Renovate config | ~5 s |
+
+Heavier project-aware tools (mypy, pyright, codespell, semgrep, etc.)
+run only in CI and in `just lint` — they're not in the hooks, so local
+iteration stays snappy.
 
 ## Commit messages
 
