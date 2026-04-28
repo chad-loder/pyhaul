@@ -21,7 +21,8 @@
   ],
   "packages": {
     ".": {
-      "package-name": "pyhaul"
+      "package-name": "pyhaul",
+      "release-as": "0.5.0"
     }
   }
 }
