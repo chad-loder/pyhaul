@@ -108,7 +108,8 @@ dev: setup test
 setup:
     uv sync --all-groups
     git config commit.gpgsign true
-    uv run pre-commit install --install-hooks
+    @rm -f .git/hooks/pre-commit
+    uv run prek install --install-hooks
     @{{ just_executable() }} _setup-hooks
 
 [group('dev')]
@@ -123,7 +124,7 @@ clean:
 
 [group('ci')]
 ci: setup
-    uv run pre-commit run --all-files --show-diff-on-failure
+    uv run prek run --all-files --show-diff-on-failure
     uv run coverage run -m pytest
     uv run coverage xml -o coverage.xml
 

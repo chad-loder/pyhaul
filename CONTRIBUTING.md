@@ -104,17 +104,20 @@ just _lint-workflows  # actionlint + check-jsonschema + zizmor
 
 </details>
 
-## Pre-commit hooks
+## Git hooks
 
 Hooks are installed automatically by `just dev`. To re-install manually:
 
 ```bash
-uv run pre-commit install
+uv run prek install
 ```
 
-The hook runs ruff (lint + format), rumdl (markdown), actionlint, zizmor
-(workflow security), schema validation, and structural checks (trailing
-whitespace, merge conflicts, large files) on every commit.
+Bulk linting runs as a **pre-push** hook (not pre-commit), so WIP commits
+stay fast and you won't be tempted to `--no-verify`. The hook runs ruff
+(lint + format), actionlint, zizmor (workflow security), schema
+validation, codespell, and structural checks (trailing whitespace, merge
+conflicts, large files) before code is pushed. Commit signing is enforced
+at commit time via a separate `commit-msg` hook.
 
 ## Commit messages
 
