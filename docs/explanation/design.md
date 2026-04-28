@@ -125,7 +125,7 @@ for atomic file replacement: the kernel updates a single directory
 entry, so the operation either fully succeeds or has no effect. There
 is no intermediate state visible to other processes.
 
-### Why same-volume matters
+### Why same-filesystem matters for atomicity
 
 `rename()` is only atomic when source and destination are on the same
 filesystem. A cross-filesystem "rename" is actually copy-then-delete,

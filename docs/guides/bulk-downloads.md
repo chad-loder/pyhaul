@@ -89,8 +89,9 @@ with httpx.Client() as client:
 ```
 
 !!! note
-    `httpx.Client` is thread-safe. `requests.Session` is *not* — create one
-    session per thread, or use `niquests.Session` (thread-safe) instead.
+    `requests.Session` is the only sync client that is *not* thread-safe.
+    Create one session per thread, or switch to `niquests.Session`, `httpx.Client`,
+    or `urllib3.PoolManager` — all of which are thread-safe.
 
 ## Parallel downloads with asyncio
 
