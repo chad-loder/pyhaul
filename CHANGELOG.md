@@ -22,8 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
-* add RFC-style SPEC.md and fix rumdl command in justfile ([#12](https://github.com/chad-loder/pyhaul/issues/12)) ([183eeda](https://github.com/chad-loder/pyhaul/commit/183eeda5cb1b5202ed953bd4ce40aeb8ae9825e6))
-* finalize SPEC.md (alignment + strategy) ([#14](https://github.com/chad-loder/pyhaul/issues/14)) ([734f4c7](https://github.com/chad-loder/pyhaul/commit/734f4c78e08a0d78103b516456d0f19ce9fd5f48))
+* add RFC-style `docs/SPEC.md` and fix rumdl command in justfile ([#12](https://github.com/chad-loder/pyhaul/issues/12)) ([183eeda](https://github.com/chad-loder/pyhaul/commit/183eeda5cb1b5202ed953bd4ce40aeb8ae9825e6))
+* finalize `docs/SPEC.md` (alignment + strategy) ([#14](https://github.com/chad-loder/pyhaul/issues/14)) ([734f4c7](https://github.com/chad-loder/pyhaul/commit/734f4c78e08a0d78103b516456d0f19ce9fd5f48))
 * update checkpoint format description to binary ([#9](https://github.com/chad-loder/pyhaul/issues/9)) ([661de1c](https://github.com/chad-loder/pyhaul/commit/661de1ccd50b8986fa8a201bc44ebb585501d0de))
 
 ## [0.3.0](https://github.com/chad-loder/pyhaul/compare/v0.2.1...v0.3.0) (2026-04-26)

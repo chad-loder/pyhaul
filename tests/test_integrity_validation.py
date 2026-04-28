@@ -96,7 +96,7 @@ def test_resume_tail_corruption_detected(tmp_path: Path) -> None:
         block_size=10,
         hashes=[_get_hash(block1)],
         tail_hash=_get_hash(tail_good),  # We thought it was GOOD when we saved ctrl
-        resource_length=20,
+        reported_length=20,
     )
     write_atomic(ctrl_path, registry.dump(cp))
 

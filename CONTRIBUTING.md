@@ -1,7 +1,7 @@
 # Contributing to pyhaul
 
 Thanks for your interest in contributing. This document covers the dev
-environment, the commit/PR conventions, and the release workflow.
+environment and how we use commits and pull requests.
 
 ## Prerequisites
 
@@ -20,12 +20,8 @@ just dev
 `just dev` runs `just setup` (install deps, git hooks) then `just test`.
 That single command is all you need to go from clone to green test suite.
 
-**Branching:** day-to-day work lands on `main` through pull requests. We do
-not use a long-lived `dev` branch. If a **patch to an old release** is ever
-needed, branch from the **release tag** (or a short-lived `maint-x.y` branch
-forked from that tag), fix, and tag a patch version—this is the usual
-Python-library pattern, not a standing “integrate in dev, promote to main”
-split.
+**Branching:** work on a topic branch and open pull requests to **`main`**. We
+do not use a long-lived `dev` branch.
 
 ## Common commands
 
@@ -36,7 +32,7 @@ group:
 $ just
 Available recipes:
     [build]
-    build             # Generate PyPI README and build sdist + wheel
+    build             # Regenerate docs/PYPI_README.md then build sdist + wheel
 
     [ci]
     ci                # Full CI run (setup + pre-commit + pytest with coverage)
@@ -54,6 +50,7 @@ Available recipes:
     lint-all          # Run all linters (contributor + maintainer)
     lint-fix          # Auto-fix everything fixable, then check
     lint-maintainer   # Lint workflows, actions security, and CI config (maintainer-facing)
+    maintain          # uv sync then maintainer lints (workflows, schemas, zizmor)
     test              # Run test suite
 ```
 
@@ -65,6 +62,7 @@ The most common workflow:
 | `just check` | Before pushing (runs lint + test) |
 | `just lint` | Quick lint-only pass (code, shell, docs) |
 | `just lint-maintainer` | Lint workflows and CI config (actionlint, zizmor, schemas) |
+| `just maintain` | `uv sync` then same as `lint-maintainer` (refresh env first) |
 | `just lint-all` | Both `lint` + `lint-maintainer` |
 | `just lint-fix` | Auto-fix lint issues, then check |
 | `just test` | Run pytest |
@@ -147,105 +145,14 @@ Subject lines should:
 - not end with a period
 - be in the imperative mood (`add`, not `adds` / `added`)
 
-## Release workflow
-
-We don't cut releases manually. The flow is:
-
-1. Merge PRs to `main`. Each PR title is a conventional commit.
-2. On every push to `main`, the **Release** workflow runs
-   [`release-please`](https://github.com/googleapis/release-please),
-   which opens or updates a **"Release PR"** with the next version,
-   updated `CHANGELOG.md`, and bumped `pyproject.toml`.
-3. When ready to release, merge the Release PR. That triggers:
-   - A git tag (e.g. `v0.2.0`) and a GitHub Release.
-   - The `publish` job, which builds via `uv build` and publishes to
-     PyPI using **Trusted Publishing** (OIDC; no API tokens).
-
-### Nightly builds
-
-A scheduled workflow (`nightly.yml`) runs once a day against **`main`**. It
-stamps a `.devYYYYMMDD` suffix on the current `pyproject.toml` version, builds
-sdist + wheel, and publishes to **TestPyPI**. To install a nightly:
-
-```bash
-uv pip install --index-url https://test.pypi.org/simple/ \
-               --extra-index-url https://pypi.org/simple/ \
-               pyhaul
-```
-
 ## Dependency updates
 
-Dependencies are kept current automatically by
-[Renovate](https://docs.renovatebot.com/), running as a self-hosted
-GitHub Actions workflow (no third-party app install). The configuration
-lives in `renovate.json` and applies these policies:
-
-- **7-day cooldown** on all new releases (Python deps, pre-commit hooks,
-  GitHub Actions) to let the community catch malicious or broken packages
-  before we adopt them.
-- **Vulnerability fixes skip the cooldown** and are labeled `security`.
-- **Dev/lint tools** (ruff, mypy, pyright, etc.) and **test deps** (pytest,
-  hypothesis, etc.) are grouped into single PRs and automerged via branch
-  merge on patch/minor bumps if CI passes. Pre-1.0 packages are excluded
-  from automerge.
-- **Lock file maintenance** runs weekly.
-- **OSV vulnerability summary** appears on the Dependency Dashboard issue.
-
-If you edit `renovate.json`, run `just renovate-validate` to check it
-against the official schema before pushing.
-
-<details>
-<summary>Maintainer setup (GitHub App)</summary>
-
-The Renovate workflow uses a [GitHub App](https://docs.github.com/en/apps) so
-each run gets a **short-lived installation token** (no long-lived PAT).
-This matches the
-[installation-token action README](https://github.com/actions/create-github-app-token#readme)
-and [Renovate’s GitHub platform docs](https://docs.renovatebot.com/modules/platform/github/#running-as-a-github-app).
-
-One-time setup:
-
-1. [Create a GitHub App](https://github.com/settings/apps/new) with these
-   repository permissions (must **match or exceed** what
-   `.github/workflows/renovate.yml` passes to the installation token):
-   - **Read+write:** Contents, Pull requests, Issues, Workflows
-   - **Read:** Administration, Checks, Commit statuses, **Vulnerability alerts**
-     (Dependabot; required for `vulnerabilityAlerts` / OSV in `renovate.json`)
-   - **Optional (organizations):** Members (read); the workflow does not
-     request it.
-2. **Install the app** on the `chad-loder/pyhaul` repository. If you skip
-   this, the `GitHub App installation token` step fails with `404` from
-   the [installation
-   API](https://docs.github.com/rest/apps/apps#get-a-repository-installation-for-the-authenticated-app)
-   (no installation for the app on that repo). If the install exists but
-   the token step returns **`422` The permissions requested are not granted**,
-   the app’s permissions (or the [installation
-   update](https://github.com/settings/installations)) are missing something
-   the workflow asks for—align them or relax the token inputs in
-   `.github/workflows/renovate.yml`.
-3. Create a GitHub **environment** named `renovate` (Settings →
-   Environments). You can require deployment branches or approvers; keep
-   secrets in this environment or at repo level consistently with the
-   workflow.
-4. **Client ID (variable, not a secret):** On the app’s **General** page,
-   copy **Client ID** and add a **repository or environment variable** named
-   `RENOVATE_GITHUB_APP_CLIENT_ID`. See the
-   [installation-token action README](https://github.com/actions/create-github-app-token#readme)
-   for the `client-id` input (use **Client ID**, not the numeric “App ID”).
-5. **Private key (secret):** Generate a private key for the app, and add
-   **one** of:
-   - an environment secret `RENOVATE_APP_PRIVATE_KEY` on `renovate`, or
-   - the same name as a **repository** secret,
-
-   with the full PEM (including `BEGIN/END` lines). GitHub masks it in
-   logs.
-
-The workflow runs weekly (Monday 04:00 UTC) and can be run manually from
-**Actions → Renovate → Run workflow** (optional dry-run).
-
-</details>
+Dependency bumps are usually handled by a scheduled [Renovate](https://docs.renovatebot.com/)
+workflow; its configuration is in `renovate.json`. If you edit that file,
+run `just renovate-validate` to check it against the official schema before
+you push.
 
 ## Reporting security issues
 
-See [`SECURITY.md`](SECURITY.md). Please do **not** file public issues
-for vulnerabilities.
+See [`SECURITY.md`](SECURITY.md) for scope and how to report (including
+**public PRs or issues** if you prefer an open fix).

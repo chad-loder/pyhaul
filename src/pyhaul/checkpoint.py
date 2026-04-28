@@ -1,8 +1,9 @@
-"""Thread-safe, versioned checkpoint codecs and migration management.
+"""Thread-safe, versioned checkpoint encoding for the control file.
 
-This module follows a registry pattern for format versions.  All codecs are
-stateless and thread-safe.  The Registry handles dispatching and transparent
-migration from legacy formats (like the original JSON V3).
+The registry holds one :class:`CheckpointCodec` per supported on-disk
+version.  Today only *v1* (binary ``HAUL``) exists; the version byte
+in the header is the literal ``1``.  A future *v2* would add another
+codec and bump :data:`LATEST_VERSION`.
 """
 
 from __future__ import annotations
@@ -16,14 +17,12 @@ from typing import Final, Protocol, runtime_checkable
 
 from pyhaul._types import ControlFileError, ETag, parse_etag
 
-# --- Version Constants ---
-
-V3_JSON: Final = 3
-V4_BINARY: Final = 4
-LATEST_VERSION: Final = V4_BINARY
+# On-disk / wire version (v1 is the only format today).
+V1_BINARY: Final = 1
+LATEST_VERSION: Final = V1_BINARY
 
 _MIN_BINARY_SIZE: Final = 5
-_RL_FIELD_SIZE: Final = 8
+_REPORTED_LEN_U64_SIZE: Final = 8
 _CRC_SIZE: Final = 4
 _ALIGNMENT: Final = 8
 
@@ -33,7 +32,7 @@ class Tag(IntEnum):
     """TLV tags for variable-length metadata in the binary format."""
 
     ETAG = 1
-    RESOURCE_LENGTH = 2
+    REPORTED_LENGTH = 2
     TAIL_HASH = 3
 
 
@@ -52,40 +51,39 @@ class Checkpoint:
     block_size: int
     hashes: list[bytes] = field(default_factory=list[bytes])
     tail_hash: bytes | None = None
-    resource_length: int | None = None
+    reported_length: int | None = None
 
 
-# --- Codec Interface ---
+# --- Codec interface ---
 
 
 @runtime_checkable
 class CheckpointCodec(Protocol):
-    """Protocol for version-specific serialization logic."""
+    """Stateless, version-tagged (de)serialization. Subclass for each on-disk version."""
 
     @property
     def version(self) -> int:
-        """The format version number this codec handles."""
+        """The format version number in the binary header (byte index 4 of ``HAUL`` files)."""
         ...
 
     def encode(self, cp: Checkpoint) -> bytes:
-        """Serialize a Checkpoint into raw bytes."""
+        """Serialize a checkpoint into the wire format for :attr:`version`."""
         ...
 
     def decode(self, data: bytes) -> Checkpoint:
-        """Parse raw bytes into a Checkpoint."""
+        """Parse bytes for this codec's format into a :class:`Checkpoint`."""
         ...
 
 
-# --- V4 Binary Implementation ---
+# --- v1 (binary) ---
 
 
-class V4BinaryCodec:
-    """Binary format with framed TLVs and 8-byte payload alignment."""
+class V1BinaryCodec:
+    """Framed TLVs and 8-byte hash payload alignment."""
 
-    version: int = V4_BINARY
+    version: int = V1_BINARY
 
     # Magic(4s), Ver(B), Reserved(B), HeaderSize(H), Cursor(Q), BlockSize(Q), Extent(Q), Start(Q)
-    # Total fixed size = 40 bytes
     _CORE_FORMAT: Final = "<4sBBHQQQQ"
     _CORE_SIZE: Final = struct.calcsize(_CORE_FORMAT)
     _MAGIC: Final = b"HAUL"
@@ -98,36 +96,28 @@ class V4BinaryCodec:
         return payload + struct.pack("<I", crc)
 
     def encode(self, cp: Checkpoint) -> bytes:
-        """Serialize Checkpoint to V4 binary format."""
-        # 1. Build Framed TLV Extensions
+        """Serialize checkpoint to bytes."""
         extensions = bytearray()
 
-        # ETag
         if cp.etag:
             extensions.extend(self._pack_tlv(Tag.ETAG, cp.etag.encode("utf-8")))
 
-        # Resource Length
-        if cp.resource_length is not None:
-            extensions.extend(self._pack_tlv(Tag.RESOURCE_LENGTH, struct.pack("<Q", cp.resource_length)))
+        if cp.reported_length is not None:
+            extensions.extend(self._pack_tlv(Tag.REPORTED_LENGTH, struct.pack("<Q", cp.reported_length)))
 
-        # Tail Hash
         if cp.tail_hash:
             extensions.extend(self._pack_tlv(Tag.TAIL_HASH, cp.tail_hash))
 
-        # --- Alignment Padding ---
-        # Calculate padding to ensure hashes start on an 8-byte boundary
         unaligned_header_size = self._CORE_SIZE + len(extensions)
         padding_needed = (_ALIGNMENT - (unaligned_header_size % _ALIGNMENT)) % _ALIGNMENT
         extensions.extend(b"\x00" * padding_needed)
 
-        # Tail Hash
         if cp.tail_hash:
             extensions.extend(struct.pack("<BH", Tag.TAIL_HASH, len(cp.tail_hash)))
             extensions.extend(cp.tail_hash)
 
         header_size = self._CORE_SIZE + len(extensions)
 
-        # 2. Pack Header
         core = struct.pack(
             self._CORE_FORMAT,
             self._MAGIC,
@@ -140,7 +130,6 @@ class V4BinaryCodec:
             cp.start,
         )
 
-        # 3. Assemble full payload
         payload = bytearray(core)
         payload.extend(extensions)
         for h in cp.hashes:
@@ -149,7 +138,7 @@ class V4BinaryCodec:
         return bytes(payload)
 
     def decode(self, data: bytes) -> Checkpoint:
-        """Parse V4 binary bytes into a Checkpoint."""
+        """Parse bytes in this format into a :class:`Checkpoint`."""
         if len(data) < self._CORE_SIZE:
             raise ControlFileError("file too small for binary header")
 
@@ -158,10 +147,8 @@ class V4BinaryCodec:
         if magic != self._MAGIC:
             raise ControlFileError(f"invalid magic bytes: {magic!r}")
 
-        # 2. Safely Parse Framed TLVs
-        etag, res_len, tail_hash = self._parse_extensions(data, h_size)
+        etag, reported_len, tail_hash = self._parse_extensions(data, h_size)
 
-        # 3. Slice the Hashes Payload (guaranteed to be 8-byte aligned)
         hashes_data = data[h_size:]
         if len(hashes_data) % 32 != 0:
             raise ControlFileError("corrupt hash payload: not a multiple of 32 bytes")
@@ -177,18 +164,16 @@ class V4BinaryCodec:
             block_size=b_size,
             hashes=hashes,
             tail_hash=tail_hash,
-            resource_length=res_len,
+            reported_length=reported_len,
         )
 
     def _parse_extensions(self, data: bytes, header_size: int) -> tuple[ETag, int | None, bytes | None]:
-        """Parse TLV chunks from the header area."""
         etag = ETag("")
-        res_len = None
-        tail_hash = None
+        reported_len: int | None = None
+        tail_hash: bytes | None = None
 
         ptr = self._CORE_SIZE
         while ptr < header_size:
-            # Check if we hit padding (Tag 0x00)
             if data[ptr] == 0:
                 break
 
@@ -201,7 +186,6 @@ class V4BinaryCodec:
             if ptr + chunk_total_len > header_size:
                 raise ControlFileError(f"TLV {tag_val} length {v_len} exceeds header bounds")
 
-            # Extract data and CRC for validation
             chunk_data = data[ptr : ptr + 3 + v_len]
             stored_crc = struct.unpack("<I", data[ptr + 3 + v_len : ptr + chunk_total_len])[0]
 
@@ -212,83 +196,45 @@ class V4BinaryCodec:
 
             if tag_val == Tag.ETAG:
                 etag = parse_etag(value.decode("utf-8"))
-            elif tag_val == Tag.RESOURCE_LENGTH and v_len == _RL_FIELD_SIZE:
-                res_len = struct.unpack("<Q", value)[0]
+            elif tag_val == Tag.REPORTED_LENGTH and v_len == _REPORTED_LEN_U64_SIZE:
+                reported_len = struct.unpack("<Q", value)[0]
             elif tag_val == Tag.TAIL_HASH:
                 tail_hash = value
 
             ptr += chunk_total_len
 
-        return etag, res_len, tail_hash
+        return etag, reported_len, tail_hash
 
 
-# --- Legacy V3 JSON Codec ---
-
-
-class V3LegacyCodec:
-    """Minimal shim for migrating from old JSON checkpoints."""
-
-    version: int = V3_JSON
-
-    def encode(self, cp: Checkpoint) -> bytes:
-        """V3 is read-only."""
-        raise NotImplementedError("V3 is read-only; use V4 for writing")
-
-    def decode(self, data: bytes) -> Checkpoint:
-        """Parse legacy JSON bytes into a modern Checkpoint."""
-        import json
-
-        try:
-            obj = json.loads(data.decode("utf-8"))
-            return Checkpoint(
-                version=self.version,
-                start=obj.get("start", 0),
-                extent=obj.get("extent"),
-                valid_length=obj.get("valid_length", 0),
-                etag=parse_etag(str(obj.get("etag", ""))),
-                block_size=8 * 1024 * 1024,  # Migrated files adopt the default
-                hashes=[],
-                tail_hash=None,
-                resource_length=obj.get("resource_length"),
-            )
-        except Exception as e:
-            raise ControlFileError(f"corrupt legacy JSON: {e}") from e
-
-
-# --- Registry and Dispatch ---
+# --- Registry ---
 
 
 class CheckpointRegistry:
-    """Thread-safe dispatcher for checkpoint serialization."""
+    """Dispatch :meth:`load` / :meth:`dump` to the codec for each format version."""
 
     def __init__(self, codecs: Mapping[int, CheckpointCodec]) -> None:
         self._codecs = dict(codecs)
+        for v, c in self._codecs.items():
+            if c.version != v:
+                msg = f"codec map mismatch: key {v} != codec.version {c.version}"
+                raise ValueError(msg)
 
     def load(self, data: bytes) -> Checkpoint:
-        """Decode any supported version into a modern Checkpoint."""
+        """Decode raw control-file bytes to a :class:`Checkpoint` using the known codec version."""
         if not data:
             raise ControlFileError("checkpoint file is empty")
-
-        # 1. Probe for Binary Magic
-        if data.startswith(b"HAUL"):
-            if len(data) < _MIN_BINARY_SIZE:
-                raise ControlFileError("binary header truncated")
-            version = data[4]
-        # 2. Probe for JSON (Legacy V3)
-        elif data.startswith(b"{"):
-            version = V3_JSON
-        else:
+        if not data.startswith(b"HAUL"):
             raise ControlFileError("unrecognized checkpoint format")
-
+        if len(data) < _MIN_BINARY_SIZE:
+            raise ControlFileError("binary header truncated")
+        version = data[4]
         codec = self._codecs.get(version)
-        if not codec:
+        if codec is None:
             raise ControlFileError(f"unsupported checkpoint version: {version}")
-
         return codec.decode(data)
 
     def dump(self, cp: Checkpoint) -> bytes:
-        """Serialize Checkpoint using the codec matching its version."""
-        # Ensure we always write the latest version
+        """Serialize a :class:`Checkpoint` to the wire format of :data:`LATEST_VERSION`."""
         if cp.version != LATEST_VERSION:
             cp = Checkpoint(
                 version=LATEST_VERSION,
@@ -299,19 +245,16 @@ class CheckpointRegistry:
                 block_size=cp.block_size,
                 hashes=cp.hashes,
                 tail_hash=cp.tail_hash,
-                resource_length=cp.resource_length,
+                reported_length=cp.reported_length,
             )
-
         codec = self._codecs.get(cp.version)
-        if not codec:
+        if codec is None:
             raise ControlFileError(f"no codec registered for version {cp.version}")
         return codec.encode(cp)
 
 
-# Global stateless registry instance
 registry: Final = CheckpointRegistry(
     {
-        V3_JSON: V3LegacyCodec(),
-        V4_BINARY: V4BinaryCodec(),
+        V1_BINARY: V1BinaryCodec(),
     }
 )

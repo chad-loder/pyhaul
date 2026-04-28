@@ -137,6 +137,33 @@ class TestAsyncFresh206KnownTotal:
         assert not ctrl_path_for(dest.with_suffix(dest.suffix + ".part")).exists()
 
     @pytest.mark.anyio
+    async def test_on_progress_per_chunk(self, tmp_path: Path) -> None:
+        from pyhaul.async_engine import haul_async
+
+        body = b"Hello, async world!"
+        session = AsyncMockSession()
+        session.add_response(_make_206(body, start=0, total=len(body)))
+
+        dest = tmp_path / "out.bin"
+        state = HaulState()
+        seen: list[int] = []
+
+        def on_progress(s: HaulState) -> None:
+            seen.append(s.valid_length)
+
+        await haul_async(
+            _TEST_URL,
+            session,
+            dest=str(dest),
+            state=state,
+            chunk_size=4,
+            on_progress=on_progress,
+        )
+        assert len(seen) >= 2
+        assert seen[-1] == len(body)
+        assert state.reported_length == len(body)
+
+    @pytest.mark.anyio
     async def test_sends_range_header(self, tmp_path: Path) -> None:
         from pyhaul.async_engine import haul_async
 
@@ -214,7 +241,7 @@ class TestAsyncResume206:
                     etag=ETag('"test"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=10,
+                    reported_length=10,
                 )
             ),
         )
@@ -257,7 +284,7 @@ class TestAsyncResumeEtagChanged:
                     etag=ETag('"old-etag"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=5,
+                    reported_length=5,
                 )
             ),
         )
@@ -293,7 +320,7 @@ class TestAsyncResume416AlreadyComplete:
                     etag=ETag('"test"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=len(body),
+                    reported_length=len(body),
                 )
             ),
         )
@@ -339,7 +366,7 @@ class TestAsyncCrashRecovery:
                     etag=ETag('"test"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=len(full_body),
+                    reported_length=len(full_body),
                 )
             ),
         )

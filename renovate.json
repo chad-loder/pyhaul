@@ -25,6 +25,14 @@
       "minimumReleaseAge": "7 days"
     },
     {
+      "description": "PEP 735: bump >= for maintainer tooling",
+      "matchManagers": ["pep621"],
+      "matchJsonata": [
+        "depType = 'dependency-groups' and managerData.depGroup in ['lint', 'test', 'dev', 'maintainer']"
+      ],
+      "rangeStrategy": "bump"
+    },
+    {
       "description": "Group lint/dev tool updates into a single PR",
       "groupName": "lint tools",
       "matchManagers": ["pep621"],

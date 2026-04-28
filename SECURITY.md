@@ -2,13 +2,16 @@
 
 ## Reporting a vulnerability
 
-If you discover a security issue in `pyhaul`, please report it privately
-via GitHub's security advisory workflow:
+We prefer **transparency**: if you find a security problem in `pyhaul`, you are
+welcome to open a **pull request** (or a public **issue** if a PR is not
+practical) so the fix and any discussion can happen in the open.
+
+If you need **private coordination** first—for example, you believe disclosure
+should wait until a patch is ready—use GitHub’s security advisory flow:
 
 **<https://github.com/chad-loder/pyhaul/security/advisories/new>**
 
-Do **not** open a public GitHub issue, pull request, or discussion for a
-vulnerability. We aim to acknowledge reports within 72 hours.
+In either case, we aim to acknowledge reports within 72 hours.
 
 ## Supported versions
 
@@ -29,6 +32,6 @@ In scope:
 
 Out of scope:
 
-- Issues in dependencies (report to `bitarray`, `niquests`, etc. directly).
+- Issues in dependencies (report to `httpx`, `niquests`, etc. directly).
 - Attacks that require local filesystem access or a compromised host.
 - Self-DoS from passing absurd inputs to the API.
