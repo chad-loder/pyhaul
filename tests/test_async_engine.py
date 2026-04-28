@@ -378,3 +378,106 @@ class TestAsyncCrashRecovery:
 
         assert isinstance(result, CompleteHaul)
         assert dest.read_bytes() == full_body
+
+
+# ---------------------------------------------------------------------------
+# Executor offloading
+# ---------------------------------------------------------------------------
+
+
+class TestAsyncExecutorOffload:
+    """Verify periodic flushes and final datasync are offloaded off the event loop."""
+
+    @pytest.mark.anyio
+    async def test_periodic_flush_uses_executor(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When bytes_since_flush >= flush_every, _sync_flush runs via run_in_executor."""
+        import asyncio
+        from collections.abc import Callable
+        from typing import Any
+
+        from pyhaul._engine_common import datasync
+        from pyhaul.async_engine import _sync_flush, haul_async
+
+        body = b"A" * 200
+        session = AsyncMockSession()
+        session.add_response(_make_206(body, start=0, total=len(body)))
+
+        dest = tmp_path / "out.bin"
+
+        offloaded_fns: list[Callable[..., Any]] = []
+        real_run_in_executor = asyncio.get_running_loop().run_in_executor
+
+        def tracking_run_in_executor(executor: Any, fn: Callable[..., Any], /, *args: Any) -> Any:
+            offloaded_fns.append(fn)
+            return real_run_in_executor(executor, fn, *args)
+
+        monkeypatch.setattr(asyncio.get_running_loop(), "run_in_executor", tracking_run_in_executor)
+
+        await haul_async(
+            _TEST_URL,
+            session,
+            dest=str(dest),
+            flush_every=50,
+            chunk_size=60,
+        )
+
+        assert dest.read_bytes() == body
+        assert len(offloaded_fns) >= 2, f"expected >=2 executor calls, got {len(offloaded_fns)}"
+        assert _sync_flush in offloaded_fns, "periodic flush should be offloaded"
+        assert datasync in offloaded_fns, "final datasync should be offloaded"
+
+    @pytest.mark.anyio
+    async def test_correctness_with_aggressive_flushing(self, tmp_path: Path) -> None:
+        """Small flush_every + small chunk_size still produces correct output."""
+        from pyhaul.async_engine import haul_async
+
+        body = b"The quick brown fox jumps over the lazy dog."
+        session = AsyncMockSession()
+        session.add_response(_make_206(body, start=0, total=len(body)))
+
+        dest = tmp_path / "out.bin"
+        state = HaulState()
+        result = await haul_async(
+            _TEST_URL,
+            session,
+            dest=str(dest),
+            state=state,
+            flush_every=8,
+            chunk_size=5,
+        )
+
+        assert isinstance(result, CompleteHaul)
+        assert dest.read_bytes() == body
+        assert state.bytes_read == len(body)
+        assert state.valid_length == len(body)
+        assert state.is_complete is True
+
+    @pytest.mark.anyio
+    async def test_checkpoint_written_during_flush(self, tmp_path: Path) -> None:
+        """Periodic executor flush actually persists a checkpoint file."""
+        from pyhaul.async_engine import haul_async
+
+        body = b"X" * 300
+        session = AsyncMockSession()
+        session.add_response(_make_206(body, start=0, total=len(body)))
+
+        dest = tmp_path / "out.bin"
+        part_path = dest.with_suffix(dest.suffix + ".part")
+        ctrl = ctrl_path_for(part_path)
+
+        checkpoints_seen: list[bool] = []
+
+        def spy_progress(st: HaulState) -> None:
+            checkpoints_seen.append(ctrl.exists())
+
+        await haul_async(
+            _TEST_URL,
+            session,
+            dest=str(dest),
+            flush_every=50,
+            chunk_size=60,
+            on_progress=spy_progress,
+        )
+
+        assert dest.read_bytes() == body
+        assert any(checkpoints_seen), "checkpoint should have been written at least once during download"

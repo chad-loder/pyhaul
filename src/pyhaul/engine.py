@@ -25,8 +25,8 @@ from pyhaul._engine_common import (
     write_chunk,
 )
 from pyhaul._session_dispatch import coerce_sync_session
-from pyhaul._types import CompleteHaul, HaulState
-from pyhaul.transport.errors import TransportError
+from pyhaul._types import CompleteHaul, HaulState, PartialHaulError
+from pyhaul.transport.errors import TransportConnectionError, TransportError
 from pyhaul.transport.protocols import TransportSession
 
 logger = logging.getLogger(__name__)
@@ -87,15 +87,17 @@ def haul(
                     if on_progress is not None:
                         on_progress(state)
                 datasync(fd)
-            except TransportError:
+            except TransportError as exc:
                 flush_dirty(fd, plan, prep)
                 os.close(fd)
-                raise
+                raise PartialHaulError("connection lost during stream") from exc
             finally:
                 with contextlib.suppress(OSError):
                     os.close(fd)
 
             return after_stream(plan, prep, state)
+    except TransportConnectionError as ce:
+        raise PartialHaulError("connection error") from ce
     except TransportError as te:
         original = te.__cause__
         if original is not None:
