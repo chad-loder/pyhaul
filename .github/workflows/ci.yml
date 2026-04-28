@@ -48,6 +48,10 @@ jobs:
               - 'uv.lock'
             ci:
               - '.github/workflows/**'
+            docs:
+              - 'docs/**'
+              - 'properdocs.yml'
+              - '**/*.md'
       - name: Decide matrix scope
         id: decide
         env:
@@ -138,6 +142,8 @@ jobs:
         run: uv run interrogate src/pyhaul/
       - name: semgrep
         run: uv run semgrep scan --config=auto --quiet --emacs --error src/
+      - name: prek hooks
+        run: uv run prek run --all-files --show-diff-on-failure
 
   build:
     name: Build & inspect package

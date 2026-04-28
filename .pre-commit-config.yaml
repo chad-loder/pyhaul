@@ -1,8 +1,21 @@
-default_install_hook_types: [pre-push]
+default_install_hook_types: [pre-commit, pre-push]
 
 repos:
+  # --- Pre-commit stage: fast auto-fixers (lockfile version via uv run) ---
   - repo: local
     hooks:
+      - id: ruff-check
+        name: ruff check --fix
+        entry: uv run ruff check --fix --force-exclude
+        language: system
+        types: [python]
+        stages: [pre-commit]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --force-exclude
+        language: system
+        types: [python]
+        stages: [pre-commit]
       - id: check-commit-signing
         name: Require signed commits
         entry: .githooks/check-commit-signing.sh
@@ -13,49 +26,46 @@ repos:
 
   - repo: builtin
     hooks:
-      - id: check-yaml
-      - id: check-toml
-      - id: check-json
-      - id: check-added-large-files
-        args: [--maxkb=512]
-      - id: check-merge-conflict
       - id: end-of-file-fixer
+        stages: [pre-commit]
       - id: trailing-whitespace
+        stages: [pre-commit]
       - id: mixed-line-ending
         args: [--fix=lf]
+        stages: [pre-commit]
+      - id: check-merge-conflict
+        stages: [pre-commit]
+      - id: check-added-large-files
+        args: [--maxkb=512]
+        stages: [pre-commit]
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: b831c3dc5d27d9da294ae4e915773b99aa24a7c5  # frozen: v0.15.10
+  # --- Pre-push stage: heavier validation (prek-managed, SHA-pinned) ---
+  - repo: builtin
     hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
+      - id: check-yaml
+        stages: [pre-push]
+      - id: check-toml
+        stages: [pre-push]
+      - id: check-json
+        stages: [pre-push]
 
   - repo: https://github.com/rhysd/actionlint
     rev: 914e7df21a07ef503a81201c76d2b11c789d3fca  # frozen: v1.7.12
     hooks:
       - id: actionlint
+        stages: [pre-push]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
     rev: ed81924a8b1cecdaa570b072528fa80c9c4d6ccd  # frozen: 0.37.1
     hooks:
       - id: check-github-workflows
+        stages: [pre-push]
       - id: check-renovate
         additional_dependencies: ["pyjson5"]
-
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
-    hooks:
-      - id: codespell
-        additional_dependencies: [tomli]
-        exclude: ^\.scratch/
-
-  - repo: https://github.com/abravalheri/validate-pyproject
-    rev: v0.25
-    hooks:
-      - id: validate-pyproject
+        stages: [pre-push]
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
     rev: a4727cbbcd26d7098e96b9cb738169b59711ae51  # frozen: v1.24.1
     hooks:
       - id: zizmor
+        stages: [pre-push]
