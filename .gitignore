@@ -4,7 +4,8 @@ __pycache__/
 *.pyo
 *.egg-info/
 dist/
-build/
+# Root only — avoid ignoring ``scripts/build/`` (e.g. PyPI README generator).
+/build/
 
 # Tool caches
 .venv/
