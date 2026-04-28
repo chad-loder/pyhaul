@@ -17,6 +17,12 @@ from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
 
 def headers_from_requests_response(resp: requests.Response) -> TransportHeaders:
     """Build :class:`TransportHeaders` from a requests response."""
+    # resp.headers is CaseInsensitiveDict (collapses multi-value headers).
+    # Reach through to the urllib3 raw response for multi-value fidelity;
+    # order is grouped-by-name (HTTPHeaderDict limitation).
+    raw_headers = getattr(resp.raw, "headers", None)
+    if raw_headers is not None and hasattr(raw_headers, "iteritems"):
+        return TransportHeaders.from_pairs(transport_header_pairs(raw_headers.iteritems()))
     return TransportHeaders.from_pairs(transport_header_pairs(resp.headers.items()))
 
 

@@ -25,6 +25,7 @@ from pyhaul._types import (
     HaulState,
     PartialHaulError,
     ServerMisconfiguredError,
+    UnexpectedStatusError,
     Url,
     parse_etag,
     parse_url,
@@ -162,8 +163,8 @@ def handle_response(
 
     Raises :class:`PartialHaulError` for the 416-reset path.
     """
-    resp_etag = parse_etag(headers.get("ETag"))
-    resp_ct = headers.get("Content-Type")
+    resp_etag = parse_etag(headers.get("ETag", ""))
+    resp_ct = headers.get("Content-Type", "")
 
     logger.debug(
         "HTTP response",
@@ -182,7 +183,7 @@ def handle_response(
     if status == _HTTP_200:
         return _plan_200(headers, state, resp_etag=resp_etag, content_type=resp_ct)
 
-    raise ServerMisconfiguredError(f"unexpected HTTP {status}")
+    raise UnexpectedStatusError(status, headers)
 
 
 def _on_416(

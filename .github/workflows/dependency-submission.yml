@@ -1,0 +1,26 @@
+name: Dependency submission
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "uv.lock"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: rmuir/uv-dependency-submission@a3a7623508859966d229ca99a16b91b262e6f8c4 # v1.0.1

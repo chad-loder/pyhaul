@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import NewType
 from urllib.parse import urlparse
 
+from pyhaul.transport._headers import TransportHeaders
+
 ByteOffset = NewType("ByteOffset", int)
 """Absolute byte offset from the start of the download target."""
 
@@ -144,6 +146,45 @@ class HaulError(Exception):
 
 class ServerMisconfiguredError(HaulError):
     """The server violated protocol in a way that prevents safe download."""
+
+
+class UnexpectedStatusError(HaulError):
+    """Server returned a non-download HTTP status code.
+
+    Carries structured metadata so callers can branch on status codes,
+    inspect headers (e.g. ``Retry-After``), or log the server's reason
+    phrase without parsing the message string.
+    """
+
+    status_code: int
+    """The HTTP status code (e.g. 429, 503, 404)."""
+
+    headers: TransportHeaders
+    """Response headers — immutable, case-insensitive."""
+
+    reason: str
+    """Human-readable summary, e.g. ``"unexpected HTTP 429"``."""
+
+    def __init__(
+        self,
+        status_code: int,
+        headers: TransportHeaders,
+        reason: str = "",
+    ) -> None:
+        self.status_code = status_code
+        self.headers = headers
+        self.reason = reason or f"unexpected HTTP {status_code}"
+        super().__init__(self.reason)
+
+    @property
+    def is_transient(self) -> bool:
+        """``True`` for 429 (Too Many Requests) and 503 (Service Unavailable)."""
+        return self.status_code in {429, 503}
+
+    @property
+    def retry_after(self) -> str | None:
+        """Value of the ``Retry-After`` header, if present."""
+        return self.headers.get("Retry-After")
 
 
 class ContentRangeError(HaulError):

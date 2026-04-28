@@ -111,6 +111,7 @@ async def test_aiohttp_adapter_stream_get() -> None:
         str(url),
         headers={"Range": "bytes=0-1"},
         auto_decompress=False,
+        raise_for_status=False,
         timeout=aiohttp.ClientTimeout(total=30.0),
         allow_redirects=True,
         ssl=False,
@@ -146,3 +147,59 @@ async def test_aiohttp_dispatch_coercion() -> None:
     session = MagicMock(spec=aiohttp.ClientSession)
     adapter = coerce_async_session(session)
     assert type(adapter).__name__ == "AsyncAiohttpAdapter"
+
+
+class _AutoRaiseResponse(_FakeResponse):
+    """Simulates aiohttp's raise_for_status=True behavior on the session.
+
+    When a session is created with ``raise_for_status=True``, aiohttp calls
+    ``response.raise_for_status()`` automatically inside ``__aenter__`` —
+    *unless* the per-request ``raise_for_status=False`` override is set.
+    This mock faithfully reproduces that precedence.
+    """
+
+    def __init__(self, *, status: int = 206, chunks: tuple[bytes, ...] = (b"z",), auto_raise: bool = True) -> None:
+        super().__init__(status=status, chunks=chunks)
+        self._auto_raise = auto_raise
+
+    async def __aenter__(self) -> _AutoRaiseResponse:
+        if self._auto_raise:
+            self.raise_for_status()
+        return self
+
+
+def _make_auto_raise_session(status: int) -> MagicMock:
+    """Build a mock session that honors the per-request raise_for_status kwarg.
+
+    When the adapter passes ``raise_for_status=False``, the returned response
+    skips the auto-raise — exactly like real aiohttp.
+    """
+    session = MagicMock(spec=aiohttp.ClientSession)
+
+    def _get(*args: object, **kwargs: object) -> _AutoRaiseResponse:
+        per_request = bool(kwargs.get("raise_for_status", True))
+        return _AutoRaiseResponse(status=status, auto_raise=per_request)
+
+    session.get.side_effect = _get
+    return session
+
+
+@pytest.mark.anyio
+async def test_aiohttp_raise_for_status_true_must_not_block_416() -> None:
+    """Adapter must suppress session-level raise_for_status for 416.
+
+    416 (Range Not Satisfiable) is part of pyhaul's normal resume protocol —
+    the engine reads the status code and decides what to do.  If the aiohttp
+    session was created with ``raise_for_status=True``, the auto-raise fires
+    inside ``__aenter__`` *before* the engine ever sees the response, silently
+    breaking resume.
+
+    The adapter must override this per-request so the engine always gets the
+    raw response.
+    """
+    session = _make_auto_raise_session(status=416)
+    adapter = AsyncAiohttpAdapter(session)
+    url = Url("https://example.test/file")
+
+    async with adapter.stream_get(url, headers={"Range": "bytes=0-"}) as resp:
+        assert resp.status_code == 416

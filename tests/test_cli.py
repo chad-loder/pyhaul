@@ -15,6 +15,7 @@ from pyhaul._types import (
     HaulState,
     PartialHaulError,
     ServerMisconfiguredError,
+    UnexpectedStatusError,
 )
 from pyhaul.cli import (
     ByteStandard,
@@ -29,6 +30,7 @@ from pyhaul.cli import (
     resolve_destination,
     resolve_timeout,
 )
+from pyhaul.transport._headers import TransportHeaders
 
 
 def _make_complete_haul() -> CompleteHaul:
@@ -333,6 +335,17 @@ class TestMainServerMisconfigured:
     def test_server_misconfigured_returns_one(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         def mock_haul(dest: Path, client: object, url: str, state: HaulState) -> CompleteHaul:
             raise ServerMisconfiguredError("no ranges")
+
+        monkeypatch.setattr("pyhaul.cli._run_haul", mock_haul)
+        monkeypatch.setattr("pyhaul.cli._build_client", lambda _args: MagicMock())
+        result = main(["https://example.com/f.bin", "-o", str(tmp_path / "out.bin"), "-q"])
+        assert result == 1
+
+
+class TestMainUnexpectedStatus:
+    def test_unexpected_status_returns_one(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        def mock_haul(dest: Path, client: object, url: str, state: HaulState) -> CompleteHaul:
+            raise UnexpectedStatusError(429, TransportHeaders.from_pairs([("Retry-After", "60")]))
 
         monkeypatch.setattr("pyhaul.cli._run_haul", mock_haul)
         monkeypatch.setattr("pyhaul.cli._build_client", lambda _args: MagicMock())

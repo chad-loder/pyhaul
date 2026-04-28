@@ -1,60 +1,488 @@
-"""Tests for CDN-safe headers and ETag churn validation."""
+"""Comprehensive tests for :class:`TransportHeaders`."""
 
 from __future__ import annotations
 
-from pyhaul._types import EMPTY_ETAG, ServerMeta, parse_etag
-from pyhaul.headers import DEFAULT_HEADERS, is_file_changed
+import copy
+import pickle
+from collections.abc import Mapping
+from typing import assert_type
+
+import pytest
+
+from pyhaul.transport._headers import TransportHeaders
+
+# ======================================================================
+# Construction
+# ======================================================================
 
 
-def test_default_headers_has_no_transform() -> None:
-    assert "no-transform" in DEFAULT_HEADERS["Cache-Control"]
+class TestFromPairs:
+    def test_basic(self) -> None:
+        h = TransportHeaders.from_pairs([("Content-Type", "text/html"), ("ETag", '"abc"')])
+        assert h["content-type"] == "text/html"
+        assert h["etag"] == '"abc"'
+
+    def test_preserves_duplicates(self) -> None:
+        h = TransportHeaders.from_pairs(
+            [
+                ("Set-Cookie", "a=1"),
+                ("Set-Cookie", "b=2"),
+            ]
+        )
+        assert h.get_all("set-cookie") == ("a=1", "b=2")
+
+    def test_strips_names_and_values(self) -> None:
+        h = TransportHeaders.from_pairs([("  ETag  ", '  "y"  ')])
+        assert h["etag"] == '"y"'
+
+    def test_empty(self) -> None:
+        h = TransportHeaders.from_pairs([])
+        assert len(h) == 0
+        assert not h
+
+    def test_wire_order(self) -> None:
+        h = TransportHeaders.from_pairs(
+            [
+                ("X-A", "1"),
+                ("X-B", "2"),
+                ("X-A", "3"),
+            ]
+        )
+        assert h.get_all("x-a") == ("1", "3")
+        assert list(h) == ["x-a", "x-b"]
 
 
-def test_default_headers_identity_encoding() -> None:
-    assert DEFAULT_HEADERS["Accept-Encoding"] == "identity"
+class TestFromMapping:
+    def test_round_trip(self) -> None:
+        h = TransportHeaders.from_mapping({"Content-Length": "42", "ETag": '"z"'})
+        assert h["content-length"] == "42"
+        assert h.get_all("etag") == ('"z"',)
+
+    def test_case_variants_stack(self) -> None:
+        h = TransportHeaders.from_mapping({"ETag": "first", "etag": "second"})
+        assert h["etag"] == "first"
+        assert h.get_all("etag") == ("first", "second")
 
 
-def test_default_headers_no_cache_absent() -> None:
-    assert "no-cache" not in DEFAULT_HEADERS.get("Cache-Control", "")
-    assert "Pragma" not in DEFAULT_HEADERS
+class TestBuild:
+    def test_from_dict(self) -> None:
+        h = TransportHeaders.build({"Content-Type": "text/html"})
+        assert h["content-type"] == "text/html"
+
+    def test_from_pairs_iterable(self) -> None:
+        h = TransportHeaders.build([("A", "1"), ("B", "2")])
+        assert h["a"] == "1"
+        assert h["b"] == "2"
+
+    def test_kwargs_underscore_to_dash(self) -> None:
+        h = TransportHeaders.build(x_request_id="abc-123")
+        assert h["x-request-id"] == "abc-123"
+
+    def test_combined(self) -> None:
+        h = TransportHeaders.build({"A": "1"}, x_extra="val")
+        assert h["a"] == "1"
+        assert h["x-extra"] == "val"
+
+    def test_none_source(self) -> None:
+        h = TransportHeaders.build(None, x_only="yes")
+        assert h["x-only"] == "yes"
+
+    def test_empty(self) -> None:
+        h = TransportHeaders.build()
+        assert len(h) == 0
 
 
-# -----------------------------------------------------------------------
-# is_file_changed
-# -----------------------------------------------------------------------
+# ======================================================================
+# Mapping protocol — bracket access, get, contains, len, iter
+# ======================================================================
 
 
-def test_same_etag_means_unchanged() -> None:
-    old = ServerMeta(etag=parse_etag('"abc"'), total_length=100)
-    new = ServerMeta(etag=parse_etag('"abc"'), total_length=100)
-    assert not is_file_changed(old, new)
+class TestMappingProtocol:
+    @pytest.fixture
+    def h(self) -> TransportHeaders:
+        return TransportHeaders.from_pairs(
+            [
+                ("Content-Type", "text/plain"),
+                ("ETag", '"v1"'),
+                ("Set-Cookie", "a=1"),
+                ("Set-Cookie", "b=2"),
+            ]
+        )
+
+    def test_getitem_first_value(self, h: TransportHeaders) -> None:
+        assert h["set-cookie"] == "a=1"
+
+    def test_getitem_case_insensitive(self, h: TransportHeaders) -> None:
+        assert h["ETAG"] == '"v1"'
+        assert h["etag"] == '"v1"'
+        assert h["ETag"] == '"v1"'
+
+    def test_getitem_missing_raises(self, h: TransportHeaders) -> None:
+        with pytest.raises(KeyError, match="X-Missing"):
+            h["X-Missing"]
+
+    def test_get_returns_value(self, h: TransportHeaders) -> None:
+        assert h.get("etag") == '"v1"'
+
+    def test_get_missing_returns_none(self, h: TransportHeaders) -> None:
+        assert h.get("x-missing") is None
+
+    def test_get_with_default(self, h: TransportHeaders) -> None:
+        assert h.get("x-missing", "fallback") == "fallback"
+
+    def test_contains(self, h: TransportHeaders) -> None:
+        assert "etag" in h
+        assert "ETAG" in h
+        assert "ETag" in h
+        assert "x-missing" not in h
+
+    def test_contains_non_string(self, h: TransportHeaders) -> None:
+        assert 42 not in h  # type: ignore[comparison-overlap]
+
+    def test_len_counts_unique_names(self, h: TransportHeaders) -> None:
+        assert len(h) == 3
+
+    def test_iter_unique_first_seen_order(self, h: TransportHeaders) -> None:
+        assert list(h) == ["content-type", "etag", "set-cookie"]
+
+    def test_keys_values_items(self, h: TransportHeaders) -> None:
+        assert list(h.keys()) == ["content-type", "etag", "set-cookie"]
+        assert list(h.values()) == ["text/plain", '"v1"', "a=1"]
+        assert list(h.items()) == [
+            ("content-type", "text/plain"),
+            ("etag", '"v1"'),
+            ("set-cookie", "a=1"),
+        ]
+
+    def test_is_mapping(self, h: TransportHeaders) -> None:
+        assert isinstance(h, Mapping)
 
 
-def test_different_etag_same_length_and_mtime_means_unchanged() -> None:
-    old = ServerMeta(etag=parse_etag('"abc"'), total_length=100, last_modified="Wed, 01 Jan 2025 00:00:00 GMT")
-    new = ServerMeta(etag=parse_etag('"xyz"'), total_length=100, last_modified="Wed, 01 Jan 2025 00:00:00 GMT")
-    assert not is_file_changed(old, new)
+# ======================================================================
+# Multi-value access
+# ======================================================================
 
 
-def test_different_etag_different_length_means_changed() -> None:
-    old = ServerMeta(etag=parse_etag('"abc"'), total_length=100)
-    new = ServerMeta(etag=parse_etag('"xyz"'), total_length=200)
-    assert is_file_changed(old, new)
+class TestGetAll:
+    def test_returns_all(self) -> None:
+        h = TransportHeaders.from_pairs(
+            [
+                ("Set-Cookie", "a=1"),
+                ("ETag", '"x"'),
+                ("Set-Cookie", "b=2"),
+            ]
+        )
+        assert h.get_all("Set-Cookie") == ("a=1", "b=2")
+
+    def test_missing_returns_empty_tuple(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        assert h.get_all("missing") == ()
 
 
-def test_different_etag_same_length_no_mtime_means_changed() -> None:
-    old = ServerMeta(etag=parse_etag('"abc"'), total_length=100)
-    new = ServerMeta(etag=parse_etag('"xyz"'), total_length=100)
-    assert is_file_changed(old, new)
+# ======================================================================
+# Boolean / emptiness
+# ======================================================================
 
 
-def test_both_empty_etags_same_length_no_mtime_means_changed() -> None:
-    old = ServerMeta(etag=EMPTY_ETAG, total_length=100)
-    new = ServerMeta(etag=EMPTY_ETAG, total_length=100)
-    assert is_file_changed(old, new)
+class TestBool:
+    def test_empty_is_falsy(self) -> None:
+        assert not TransportHeaders.from_pairs([])
+
+    def test_nonempty_is_truthy(self) -> None:
+        assert TransportHeaders.from_pairs([("A", "1")])
 
 
-def test_one_empty_etag_falls_through_to_length_mtime() -> None:
-    old = ServerMeta(etag=parse_etag('"abc"'), total_length=100, last_modified="x")
-    new = ServerMeta(etag=EMPTY_ETAG, total_length=100, last_modified="x")
-    assert not is_file_changed(old, new)
+# ======================================================================
+# Equality and hashing
+# ======================================================================
+
+
+class TestEqualityAndHashing:
+    def test_equal_instances(self) -> None:
+        a = TransportHeaders.from_pairs([("A", "1"), ("B", "2")])
+        b = TransportHeaders.from_pairs([("A", "1"), ("B", "2")])
+        assert a == b
+        assert hash(a) == hash(b)
+
+    def test_order_matters(self) -> None:
+        a = TransportHeaders.from_pairs([("A", "1"), ("B", "2")])
+        b = TransportHeaders.from_pairs([("B", "2"), ("A", "1")])
+        assert a != b
+
+    def test_hashable_as_dict_key(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        d = {h: "value"}
+        assert d[h] == "value"
+
+    def test_hashable_in_set(self) -> None:
+        a = TransportHeaders.from_pairs([("A", "1")])
+        b = TransportHeaders.from_pairs([("A", "1")])
+        assert len({a, b}) == 1
+
+    def test_eq_with_plain_dict(self) -> None:
+        h = TransportHeaders.from_pairs([("content-type", "text/html")])
+        assert h == {"content-type": "text/html"}
+
+    def test_ne_with_non_mapping(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        assert h != 42
+        assert h != "not a mapping"
+
+
+# ======================================================================
+# Merge via |
+# ======================================================================
+
+
+class TestMerge:
+    def test_or_headers(self) -> None:
+        a = TransportHeaders.from_pairs([("A", "1")])
+        b = TransportHeaders.from_pairs([("B", "2")])
+        merged = a | b
+        assert merged["a"] == "1"
+        assert merged["b"] == "2"
+        assert len(merged) == 2
+
+    def test_or_dict(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        merged = h | {"B": "2"}
+        assert merged["b"] == "2"
+        assert isinstance(merged, TransportHeaders)
+
+    def test_ror_dict(self) -> None:
+        h = TransportHeaders.from_pairs([("B", "2")])
+        merged = {"A": "1"} | h
+        assert isinstance(merged, TransportHeaders)
+        assert merged["a"] == "1"
+        assert merged["b"] == "2"
+
+    def test_or_preserves_order(self) -> None:
+        a = TransportHeaders.from_pairs([("X", "1")])
+        b = TransportHeaders.from_pairs([("Y", "2")])
+        assert list((a | b).items()) == [("x", "1"), ("y", "2")]
+
+    def test_or_from_iterable_of_pairs(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        merged = h | [("B", "2"), ("C", "3")]
+        assert merged["b"] == "2"
+        assert merged["c"] == "3"
+
+    def test_or_type_error(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        with pytest.raises(TypeError):
+            _ = h | 42
+
+    def test_ror_type_error(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        with pytest.raises(TypeError):
+            _ = 42 | h
+
+    def test_or_bad_iterable_type_error(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        with pytest.raises(TypeError):
+            _ = h | [1, 2, 3]
+
+
+# ======================================================================
+# Functional update
+# ======================================================================
+
+
+class TestFunctionalUpdate:
+    def test_with_added(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        h2 = h.with_added("B", "2")
+        assert "b" in h2
+        assert "b" not in h
+
+    def test_without(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1"), ("B", "2"), ("A", "3")])
+        h2 = h.without("A")
+        assert "a" not in h2
+        assert h2["b"] == "2"
+        assert len(h2) == 1
+
+    def test_replace(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1"), ("B", "2"), ("A", "old")])
+        h2 = h.replace("A", "new")
+        assert h2["a"] == "new"
+        assert h2.get_all("a") == ("new",)
+        assert h2["b"] == "2"
+
+
+# ======================================================================
+# Multi-value extras
+# ======================================================================
+
+
+class TestMultiValueExtras:
+    def test_getlist_alias(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1"), ("A", "2")])
+        assert h.getlist("a") == ("1", "2")
+
+    def test_multi_items(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1"), ("B", "2"), ("A", "3")])
+        assert list(h.multi_items()) == [("a", "1"), ("b", "2"), ("a", "3")]
+
+
+# ======================================================================
+# Immutability
+# ======================================================================
+
+
+class TestImmutability:
+    def test_setattr_blocked(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        with pytest.raises(AttributeError, match="immutable"):
+            h.x = "nope"
+
+    def test_delattr_blocked(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        with pytest.raises(AttributeError, match="immutable"):
+            del h._items
+
+
+# ======================================================================
+# Repr — sensitive header redaction
+# ======================================================================
+
+
+class TestRepr:
+    def test_basic_repr(self) -> None:
+        h = TransportHeaders.from_pairs([("Content-Type", "text/html")])
+        r = repr(h)
+        assert "content-type" in r
+        assert "text/html" in r
+
+    def test_redacts_authorization(self) -> None:
+        h = TransportHeaders.from_pairs(
+            [
+                ("Authorization", "Bearer sk-secret-key"),
+                ("Content-Type", "text/html"),
+            ]
+        )
+        r = repr(h)
+        assert "sk-secret-key" not in r
+        assert "[redacted]" in r
+        assert "text/html" in r
+
+    def test_redacts_proxy_authorization(self) -> None:
+        h = TransportHeaders.from_pairs([("Proxy-Authorization", "Basic dXNlcjpwYXNz")])
+        r = repr(h)
+        assert "dXNlcjpwYXNz" not in r
+        assert "[redacted]" in r
+
+    def test_redacts_cookie(self) -> None:
+        h = TransportHeaders.from_pairs([("Cookie", "session=abc123secret")])
+        r = repr(h)
+        assert "abc123secret" not in r
+        assert "[redacted]" in r
+
+    def test_redacts_set_cookie(self) -> None:
+        h = TransportHeaders.from_pairs([("Set-Cookie", "sid=xyz; HttpOnly; Secure")])
+        r = repr(h)
+        assert "xyz" not in r
+        assert "[redacted]" in r
+
+
+# ======================================================================
+# Raw access
+# ======================================================================
+
+
+class TestToSafeDict:
+    def test_redacts_sensitive(self) -> None:
+        h = TransportHeaders.from_pairs(
+            [
+                ("Authorization", "Bearer sk-secret"),
+                ("Content-Type", "text/html"),
+                ("Proxy-Authorization", "Basic creds"),
+                ("Cookie", "session=abc"),
+                ("Set-Cookie", "sid=xyz"),
+            ]
+        )
+        safe = h.to_safe_dict()
+        assert safe["authorization"] == "[redacted]"
+        assert safe["proxy-authorization"] == "[redacted]"
+        assert safe["cookie"] == "[redacted]"
+        assert safe["set-cookie"] == "[redacted]"
+        assert safe["content-type"] == "text/html"
+
+    def test_empty(self) -> None:
+        assert TransportHeaders.from_pairs([]).to_safe_dict() == {}
+
+    def test_multi_value_last_wins(self) -> None:
+        h = TransportHeaders.from_pairs([("X-A", "1"), ("X-A", "2")])
+        assert h.to_safe_dict() == {"x-a": "2"}
+
+
+class TestRawItems:
+    def test_returns_tuple_of_tuples(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1"), ("B", "2")])
+        assert h.raw_items == (("a", "1"), ("b", "2"))
+
+
+# ======================================================================
+# Wire / pickle / copy / match
+# ======================================================================
+
+
+class TestWire:
+    def test_to_wire(self) -> None:
+        h = TransportHeaders.from_pairs([("Content-Type", "text/html"), ("ETag", '"v1"')])
+        assert h.to_wire() == b'content-type: text/html\r\netag: "v1"\r\n'
+
+
+class TestPickle:
+    def test_round_trip(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1"), ("B", "2")])
+        h2 = pickle.loads(pickle.dumps(h))  # noqa: S301
+        assert h == h2
+        assert isinstance(h2, TransportHeaders)
+
+
+class TestCopy:
+    def test_copy_returns_self(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        assert copy.copy(h) is h
+
+    def test_deepcopy_returns_self(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        assert copy.deepcopy(h) is h
+
+
+class TestMatch:
+    def test_match_args(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        match h:
+            case TransportHeaders(items):
+                assert items == (("a", "1"),)
+            case _:
+                pytest.fail("match failed")
+
+
+# ======================================================================
+# Type safety — assert_type checks (verified by type checkers, not runtime)
+# ======================================================================
+
+
+class TestTypeSafety:
+    def test_get_returns_str_or_none(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        result = h.get("A")
+        assert_type(result, str | None)
+
+    def test_get_with_str_default_returns_str(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        result = h.get("A", "default")
+        assert_type(result, str)
+
+    def test_getitem_returns_str(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        result = h["A"]
+        assert_type(result, str)
+
+    def test_get_all_returns_tuple_of_str(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        result = h.get_all("A")
+        assert_type(result, tuple[str, ...])

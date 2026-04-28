@@ -38,7 +38,7 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/chad-loder/pyhaul"
-Documentation = "https://github.com/chad-loder/pyhaul#readme"
+Documentation = "https://chad-loder.github.io/pyhaul/"
 Issues = "https://github.com/chad-loder/pyhaul/issues"
 Source = "https://github.com/chad-loder/pyhaul"
 Changelog = "https://github.com/chad-loder/pyhaul/blob/main/CHANGELOG.md"
@@ -109,6 +109,12 @@ dev = [
 ]
 # Maintainer / CI-surface tools (workflows, Renovate, markdown policy). Includes `dev`
 # (pyclean) so `just clean` and maintainer lints share one resolved set.
+docs = [
+    "properdocs>=1.6.5",
+    "mkdocs-material>=9.6",
+    "mkdocstrings[python]>=0.29",
+    "mkdocs-code-validator>=0.2.1",
+]
 maintainer = [
     { include-group = "dev" },
     "rumdl>=0.1.76",
@@ -189,6 +195,9 @@ compact-paths = true
 terms = ["TODO", "FIXME", "XXX", "HACK"]
 
 # --- Per-file overrides ---
+[tool.rumdl.per-file-flavor]
+"docs/**/*.md" = "mkdocs"
+
 [tool.rumdl.per-file-ignores]
 ".github/PULL_REQUEST_TEMPLATE.md" = ["MD041"]
 "SECURITY.md" = ["MD036"]
@@ -402,6 +411,7 @@ directory = "htmlcov"
 [tool.interrogate]
 ignore-init-method = true
 ignore-magic = true
+ignore-overloaded-functions = true
 ignore-private = true
 ignore-semiprivate = true
 fail-under = 100

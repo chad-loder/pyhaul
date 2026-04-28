@@ -27,6 +27,7 @@ from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
 
 def headers_from_httpx_response(resp: httpx.Response) -> TransportHeaders:
     """Build :class:`TransportHeaders` from an httpx response (multi-value safe)."""
+    # multi_items() preserves both multi-value headers and wire order.
     return TransportHeaders.from_pairs(transport_header_pairs(resp.headers.multi_items()))
 
 

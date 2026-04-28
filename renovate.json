@@ -28,7 +28,7 @@
       "description": "PEP 735: bump >= for maintainer tooling",
       "matchManagers": ["pep621"],
       "matchJsonata": [
-        "depType = 'dependency-groups' and managerData.depGroup in ['lint', 'test', 'dev', 'maintainer']"
+        "depType = 'dependency-groups' and managerData.depGroup in ['lint', 'test', 'dev', 'docs', 'maintainer']"
       ],
       "rangeStrategy": "bump"
     },
@@ -62,6 +62,17 @@
       "matchManagers": ["pre-commit"]
     },
     {
+      "description": "Group docs tool updates into a single PR",
+      "groupName": "docs tools",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": [
+        "properdocs",
+        "mkdocs-material",
+        "mkdocstrings",
+        "mkdocs-code-validator"
+      ]
+    },
+    {
       "description": "Group GitHub Actions updates into a single PR",
       "groupName": "github actions",
       "matchManagers": ["github-actions"]
@@ -80,7 +91,11 @@
         "hypothesis",
         "anyio",
         "types-requests",
-        "tenacity"
+        "tenacity",
+        "properdocs",
+        "mkdocs-material",
+        "mkdocstrings",
+        "mkdocs-code-validator"
       ],
       "matchCurrentVersion": "!/^0/",
       "matchUpdateTypes": ["minor", "patch"],

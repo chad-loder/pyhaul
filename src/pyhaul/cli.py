@@ -35,6 +35,7 @@ from pyhaul._types import (
     HaulState,
     PartialHaulError,
     ServerMisconfiguredError,
+    UnexpectedStatusError,
     parse_url,
 )
 from pyhaul._version import __version__
@@ -503,7 +504,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _close_client(client)
 
 
-def _download_loop(  # noqa: PLR0911
+def _download_loop(  # noqa: C901, PLR0911
     url: str,
     client: object,
     dest: Path,
@@ -533,6 +534,9 @@ def _download_loop(  # noqa: PLR0911
             continue
         except KeyboardInterrupt:
             return EXIT_INTERRUPTED
+        except UnexpectedStatusError as exc:
+            _print_err(f"unexpected HTTP {exc.status_code}: {exc.reason}")
+            return EXIT_ERROR
         except ServerMisconfiguredError as exc:
             _print_err(f"server misconfigured: {exc}")
             return EXIT_ERROR

@@ -4,6 +4,7 @@
 [![codecov](https://codecov.io/gh/chad-loder/pyhaul/graph/badge.svg)](https://codecov.io/gh/chad-loder/pyhaul)
 [![PyPI](https://img.shields.io/pypi/v/pyhaul.svg)](https://pypi.org/project/pyhaul/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-properdocs-blue.svg)](https://chad-loder.github.io/pyhaul/)
 
 Resumable HTTP downloads for Python. **Bring your own client:** pyhaul borrows your existing
 session and handles byte-range negotiation, crash-safe checkpointing, and validation.
@@ -19,12 +20,20 @@ pip install pyhaul[httpx]   # or: niquests, requests, urllib3, aiohttp
 ```
 
 ```python
-import httpx  # or: requests, niquests, urllib3, aiohttp
-from pyhaul import haul
+import httpx
+from pathlib import Path
+from pyhaul import haul, PartialHaulError
 
+dest = Path("big.zip")
 with httpx.Client() as client:
-    result = haul("https://example.com/big.zip", client, dest="big.zip")
-    print(f"done: sha256={result.sha256[:16]}…")
+    for _ in range(10):
+        try:
+            result = haul("https://example.com/big.zip", client, dest=dest)
+            break
+        except PartialHaulError:
+            pass  # only retryable error; others propagate
+
+print(f"done: {dest.stat().st_size:,} bytes")
 ```
 
 ---
@@ -83,6 +92,8 @@ land on disk — works identically in sync and async. See
 adapters, and download lifecycle.
 
 ## Documentation
+
+**[Full documentation →](https://chad-loder.github.io/pyhaul/)**
 
 - **[docs/DESIGN.md](docs/DESIGN.md)** — Transport adapters, checkpoint state, and the download lifecycle.
 - **[docs/WHY.md](docs/WHY.md)** — Silent failure modes in HTTP range/resume, and how pyhaul compares
