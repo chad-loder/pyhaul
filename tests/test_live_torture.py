@@ -86,7 +86,7 @@ def _write_synthetic_ctrl(http: HttpTest, *, valid_length: int, extent: int, eta
         etag=ETag(etag),
         block_size=8 * 1024 * 1024,
         hashes=[],
-        resource_length=extent,
+        reported_length=extent,
     )
     http.ctrl_path.parent.mkdir(parents=True, exist_ok=True)
     write_atomic(http.ctrl_path, registry.dump(cp))

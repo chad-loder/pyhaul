@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -28,7 +27,7 @@ def _make_checkpoint(**overrides: object) -> Checkpoint:
         "etag": ETag('"abc123"'),
         "block_size": 8 * 1024 * 1024,
         "hashes": [],
-        "resource_length": 104857600,
+        "reported_length": 104857600,
     }
     defaults.update(overrides)
     return Checkpoint(**defaults)  # type: ignore[arg-type]
@@ -68,11 +67,11 @@ class TestRoundTrip:
         assert restored.extent is None
         assert restored == cp
 
-    def test_null_resource_length(self) -> None:
-        cp = _make_checkpoint(resource_length=None)
+    def test_null_reported_length(self) -> None:
+        cp = _make_checkpoint(reported_length=None)
         raw = registry.dump(cp)
         restored = registry.load(raw)
-        assert restored.resource_length is None
+        assert restored.reported_length is None
 
     def test_empty_etag(self) -> None:
         cp = _make_checkpoint(etag=ETag(""))
@@ -111,7 +110,7 @@ class TestDeserializeErrors:
         with pytest.raises(ControlFileError, match="empty"):
             registry.load(b"")
 
-    def test_not_binary_nor_json(self) -> None:
+    def test_unrecognized_not_haul(self) -> None:
         with pytest.raises(ControlFileError, match="unrecognized"):
             registry.load(b"INVALID")
 
@@ -122,27 +121,6 @@ class TestDeserializeErrors:
     def test_wrong_version(self) -> None:
         with pytest.raises(ControlFileError, match="unsupported"):
             registry.load(b"HAUL" + b"\xff" + b"\x00" * 32)
-
-
-class TestV3Migration:
-    def test_migrates_v3_json(self) -> None:
-        v3_data = {
-            "version": 3,
-            "start": 100,
-            "extent": 1000,
-            "valid_length": 500,
-            "etag": '"migrated"',
-            "resource_length": 1000,
-        }
-        raw = json.dumps(v3_data).encode("utf-8")
-        cp = registry.load(raw)
-
-        assert cp.version == 3
-        assert cp.start == 100
-        assert cp.valid_length == 500
-        assert cp.etag == '"migrated"'
-        assert cp.block_size == 8 * 1024 * 1024
-        assert cp.hashes == []
 
 
 # ---------------------------------------------------------------------------

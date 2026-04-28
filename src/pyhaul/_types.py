@@ -107,11 +107,18 @@ class HaulState:
     ``valid_length`` is **not monotonic across attempts**: a server
     response that invalidates prior progress rewinds the cursor to
     zero.
+
+    ``reported_length`` is the total size of the resource as claimed by
+    the server, derived from the ``Content-Range`` (complete-length) or
+    ``Content-Length`` headers.  It may be ``None`` if the server omits
+    the total, and may not match the final on-disk size if the server
+    misbehaves.  (Useful for progress UIs.)
     """
 
     is_complete: bool = False
     bytes_read: int = 0
     valid_length: int = 0
+    reported_length: int | None = None
     block_size: int = 8 * 1024 * 1024
     hashes: list[bytes] = field(default_factory=list[bytes])
 

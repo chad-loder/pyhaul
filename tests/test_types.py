@@ -150,6 +150,7 @@ def test_download_state_is_mutable() -> None:
     assert state.is_complete is False
     assert state.bytes_read == 0
     assert state.valid_length == 0
+    assert state.reported_length is None
 
     state.is_complete = True
     state.bytes_read = 100

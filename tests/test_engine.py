@@ -134,6 +134,33 @@ class TestFreshDownload206KnownTotal:
         assert state.valid_length == len(body)
         assert dest.read_bytes() == body
         assert not ctrl_path_for(dest.with_suffix(dest.suffix + ".part")).exists()
+        assert state.reported_length == len(body)
+
+    def test_on_progress_per_chunk(self, tmp_path: Path) -> None:
+        from pyhaul.engine import haul
+
+        body = b"Hello, world! This is test data."
+        session = MockSession()
+        session.add_response(_make_206_response(body, start=0, total=len(body)))
+
+        dest = tmp_path / "out.bin"
+        state = HaulState()
+        seen: list[int] = []
+
+        def on_progress(s: HaulState) -> None:
+            seen.append(s.valid_length)
+
+        haul(
+            _TEST_URL,
+            session,
+            dest=str(dest),
+            state=state,
+            chunk_size=8,
+            on_progress=on_progress,
+        )
+        assert len(seen) >= 2
+        assert seen[-1] == len(body)
+        assert state.reported_length == len(body)
 
     def test_sends_range_header(self, tmp_path: Path) -> None:
         from pyhaul.engine import haul
@@ -211,7 +238,7 @@ class TestResume206:
                     etag=ETag('"test"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=10,
+                    reported_length=10,
                 )
             ),
         )
@@ -253,7 +280,7 @@ class TestResumeEtagChanged:
                     etag=ETag('"old-etag"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=5,
+                    reported_length=5,
                 )
             ),
         )
@@ -292,7 +319,7 @@ class TestResumeEtagChanged:
                     etag=ETag('"old"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=10,
+                    reported_length=10,
                 )
             ),
         )
@@ -330,7 +357,7 @@ class TestResume416AlreadyComplete:
                     etag=ETag('"test"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=len(body),
+                    reported_length=len(body),
                 )
             ),
         )
@@ -374,7 +401,7 @@ class TestResumeNoEtag:
                     etag=ETag(""),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=10,
+                    reported_length=10,
                 )
             ),
         )
@@ -414,7 +441,7 @@ class TestResume416ResourceShrank:
                     etag=ETag('"test"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=10,
+                    reported_length=10,
                 )
             ),
         )
@@ -455,7 +482,7 @@ class TestRestart200SizeChange:
                     etag=ETag('"old"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=5,
+                    reported_length=5,
                 )
             ),
         )
@@ -490,7 +517,7 @@ class TestRestart200SizeChange:
                     etag=ETag('"old"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=12,
+                    reported_length=12,
                 )
             ),
         )
@@ -525,7 +552,7 @@ class TestRestart200SizeChange:
                     etag=ETag('"old"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=20,
+                    reported_length=20,
                 )
             ),
         )
@@ -566,7 +593,7 @@ class TestCrashRecovery:
                     etag=ETag('"test"'),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
-                    resource_length=len(full_body),
+                    reported_length=len(full_body),
                 )
             ),
         )

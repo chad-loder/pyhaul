@@ -10,6 +10,7 @@ finalization.  The only thing each engine owns is the I/O boundary
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import time
 from dataclasses import dataclass, field
@@ -42,6 +43,8 @@ from pyhaul.transport.types import TransportHeaders
 DEFAULT_CHUNK = 1 << 16  # 64 KiB
 DEFAULT_FLUSH = 1 << 20  # 1 MiB
 datasync = getattr(os, "fdatasync", os.fsync)
+
+logger = logging.getLogger(__name__)
 
 _HTTP_200 = 200
 _HTTP_206 = 206
@@ -78,7 +81,7 @@ class StreamPlan:
     cursor: int
     extent: int | None
     etag: ETag
-    resource_length: int | None
+    reported_length: int | None
     content_type: str
     hb: HashBuilder
     bytes_since_flush: int = field(default=0, init=False)
@@ -119,6 +122,16 @@ def prepare_haul(url: str, dest: str | Path) -> PrepareHaul:
         req_hdrs["If-Range"] = str(stored_etag)
     merged = merge_headers({}, {**DEFAULT_HEADERS, **req_hdrs})
 
+    logger.debug(
+        "Prepared download request",
+        extra={
+            "pyhaul_url": str(parsed_url),
+            "pyhaul_dest": str(dest_path),
+            "pyhaul_resume_valid_length": cursor,
+            "pyhaul_request_byte": request_byte,
+        },
+    )
+
     return PrepareHaul(
         dest_path=dest_path,
         parsed_url=parsed_url,
@@ -151,6 +164,14 @@ def handle_response(
     """
     resp_etag = parse_etag(headers.get("ETag"))
     resp_ct = headers.get("Content-Type")
+
+    logger.debug(
+        "HTTP response",
+        extra={
+            "pyhaul_status": status,
+            "pyhaul_etag": str(resp_etag) if resp_etag else "",
+        },
+    )
 
     if status == _HTTP_416:
         return _on_416(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
@@ -227,6 +248,13 @@ def _plan_206(
 
     # BUG FIX: Verify ETag if server sent one.
     if resp_etag and prep.stored_etag and resp_etag != prep.stored_etag:
+        logger.debug(
+            "ETag mismatch on 206, aborting",
+            extra={
+                "pyhaul_etag_stored": str(prep.stored_etag),
+                "pyhaul_etag_response": str(resp_etag),
+            },
+        )
         raise ServerMisconfiguredError(f"ETag mismatch on 206: server={resp_etag} stored={prep.stored_etag}")
 
     new_etag = resp_etag or prep.stored_etag
@@ -259,13 +287,23 @@ def _plan_206(
 
     state.block_size = prep.block_size
     state.hashes = hb.completed_hashes.copy()
+    state.reported_length = new_rl
+
+    logger.debug(
+        "Using 206 Partial Content (range response)",
+        extra={
+            "pyhaul_range_start": cr.start,
+            "pyhaul_reported_length": new_rl,
+            "pyhaul_extent": new_extent,
+        },
+    )
 
     return StreamPlan(
         start=prep.start,
         cursor=prep.cursor,
         extent=new_extent,
         etag=new_etag,
-        resource_length=new_rl,
+        reported_length=new_rl,
         content_type=content_type,
         hb=hb,
     )
@@ -283,13 +321,19 @@ def _plan_200(
 
     state.valid_length = 0
     state.hashes = []
+    state.reported_length = resp_cl
+
+    logger.debug(
+        "Using 200 full representation (ignoring range)",
+        extra={"pyhaul_content_length": resp_cl},
+    )
 
     return StreamPlan(
         start=0,
         cursor=0,
         extent=resp_cl,
         etag=resp_etag,
-        resource_length=resp_cl,
+        reported_length=resp_cl,
         content_type=content_type,
         hb=HashBuilder(block_size=state.block_size),
     )
@@ -407,7 +451,7 @@ def _reset_checkpoint(ctrl_path: Path, start: int, block_size: int) -> None:
         block_size=block_size,
         hashes=[],
         tail_hash=None,
-        resource_length=None,
+        reported_length=None,
     )
     write_atomic(ctrl_path, registry.dump(cp))
 
@@ -422,7 +466,7 @@ def _save_checkpoint(path: Path, plan: StreamPlan, _prep: PrepareHaul) -> None:
         block_size=plan.hb.block_size,
         hashes=plan.hb.completed_hashes.copy(),
         tail_hash=plan.hb.current_digest,
-        resource_length=plan.resource_length,
+        reported_length=plan.reported_length,
     )
     write_atomic(path, registry.dump(cp))
 
