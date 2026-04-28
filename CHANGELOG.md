@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/chad-loder/pyhaul/compare/v0.4.0...v0.5.0) (2026-04-28)
+
+
+### Documentation
+
+* add ProperDocs documentation site with CI/CD pipeline ([#28](https://github.com/chad-loder/pyhaul/issues/28)) ([1a21ad9](https://github.com/chad-loder/pyhaul/commit/1a21ad91022ad6e0855ea971264cd970afae182d))
+* **contributing:** note GitHub App must be installed or token step 404s ([#18](https://github.com/chad-loder/pyhaul/issues/18)) ([82b6d5b](https://github.com/chad-loder/pyhaul/commit/82b6d5b9743c5698c845b9c4191edb5567b28930))
+* refresh CONTRIBUTING.md for prek and current lint targets ([#27](https://github.com/chad-loder/pyhaul/issues/27)) ([de5d756](https://github.com/chad-loder/pyhaul/commit/de5d756a95fa1559ee93b42b81b9069ed02a6281))
+
+
+### Chores
+
+* override release version to 0.5.0 ([#30](https://github.com/chad-loder/pyhaul/issues/30)) ([a601b04](https://github.com/chad-loder/pyhaul/commit/a601b043605a49169489e680ae14e6d6989ce6de))
+
 ## [0.4.0](https://github.com/chad-loder/pyhaul/compare/v0.3.0...v0.4.0) (2026-04-27)
 
 
