@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
+import pytest
+
 from pyhaul._types import HaulError
 from pyhaul.transport import (
     TransportConnectionError,
@@ -40,9 +42,9 @@ class TestTransportHeadersFromPairs:
         assert h.get_all("SET-COOKIE") == ("a=1", "b=2")
         assert h.get_all("etag") == ('"v1"',)
 
-    def test_get_missing_returns_empty_string(self) -> None:
+    def test_get_missing_returns_none(self) -> None:
         h = TransportHeaders.from_pairs([("A", "1")])
-        assert h.get("missing") == ""
+        assert h.get("missing") is None
 
     def test_get_all_missing_returns_empty_tuple(self) -> None:
         h = TransportHeaders.from_pairs([("A", "1")])
@@ -57,13 +59,10 @@ class TestTransportHeadersFromPairs:
         h = TransportHeaders.from_pairs([("  ETag  ", '  "y"  ')])
         assert h.get("etag") == '"y"'
 
-    def test_direct_construction_is_rejected(self) -> None:
-        try:
-            TransportHeaders(object(), ())
-        except TypeError as exc:
-            assert "from_pairs" in str(exc)
-        else:
-            raise AssertionError("expected TypeError")
+    def test_is_final_and_immutable(self) -> None:
+        h = TransportHeaders.from_pairs([("A", "1")])
+        with pytest.raises(AttributeError):
+            h.x = "nope"
 
 
 class TestTransportHeadersFromMapping:

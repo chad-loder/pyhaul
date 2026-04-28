@@ -102,19 +102,26 @@ The most straightforward approach — no dependencies:
 ## tenacity
 
 [tenacity](https://tenacity.readthedocs.io/) is the standard Python retry
-library. It works well with pyhaul because `PartialHaulError` is a normal
-exception you can filter on:
+library. A custom predicate lets you retry on partial downloads *and*
+transient HTTP status errors in one decorator:
 
 === "httpx"
 
     ```python
-    from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential_jitter
+    from tenacity import (
+        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+    )
     import httpx
-    from pyhaul import haul, PartialHaulError
+    from pyhaul import haul, PartialHaulError, UnexpectedStatusError
+
+    def _retryable(exc: BaseException) -> bool:
+        if isinstance(exc, (PartialHaulError, httpx.TransportError)):
+            return True
+        return isinstance(exc, UnexpectedStatusError) and exc.is_transient
 
     @retry(
-        retry=retry_if_exception_type((PartialHaulError, httpx.TransportError)),
-        wait=wait_exponential_jitter(initial=2, max=30),
+        retry=retry_if_exception(_retryable),
+        wait=wait_exponential_jitter(initial=2, max=60),
         stop=stop_after_attempt(10),
     )
     def download(client, url, dest):
@@ -124,13 +131,20 @@ exception you can filter on:
 === "aiohttp"
 
     ```python
-    from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential_jitter
+    from tenacity import (
+        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+    )
     import aiohttp
-    from pyhaul import haul_async, PartialHaulError
+    from pyhaul import haul_async, PartialHaulError, UnexpectedStatusError
+
+    def _retryable(exc: BaseException) -> bool:
+        if isinstance(exc, (PartialHaulError, aiohttp.ClientError)):
+            return True
+        return isinstance(exc, UnexpectedStatusError) and exc.is_transient
 
     @retry(
-        retry=retry_if_exception_type((PartialHaulError, aiohttp.ClientError)),
-        wait=wait_exponential_jitter(initial=2, max=30),
+        retry=retry_if_exception(_retryable),
+        wait=wait_exponential_jitter(initial=2, max=60),
         stop=stop_after_attempt(10),
     )
     async def download(session, url, dest):
@@ -140,13 +154,20 @@ exception you can filter on:
 === "requests"
 
     ```python
-    from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential_jitter
+    from tenacity import (
+        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+    )
     import requests
-    from pyhaul import haul, PartialHaulError
+    from pyhaul import haul, PartialHaulError, UnexpectedStatusError
+
+    def _retryable(exc: BaseException) -> bool:
+        if isinstance(exc, (PartialHaulError, requests.ConnectionError, requests.Timeout)):
+            return True
+        return isinstance(exc, UnexpectedStatusError) and exc.is_transient
 
     @retry(
-        retry=retry_if_exception_type((PartialHaulError, requests.ConnectionError, requests.Timeout)),
-        wait=wait_exponential_jitter(initial=2, max=30),
+        retry=retry_if_exception(_retryable),
+        wait=wait_exponential_jitter(initial=2, max=60),
         stop=stop_after_attempt(10),
     )
     def download(session, url, dest):
@@ -156,13 +177,20 @@ exception you can filter on:
 === "niquests"
 
     ```python
-    from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential_jitter
+    from tenacity import (
+        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+    )
     import niquests
-    from pyhaul import haul, PartialHaulError
+    from pyhaul import haul, PartialHaulError, UnexpectedStatusError
+
+    def _retryable(exc: BaseException) -> bool:
+        if isinstance(exc, (PartialHaulError, niquests.ConnectionError, niquests.Timeout)):
+            return True
+        return isinstance(exc, UnexpectedStatusError) and exc.is_transient
 
     @retry(
-        retry=retry_if_exception_type((PartialHaulError, niquests.ConnectionError, niquests.Timeout)),
-        wait=wait_exponential_jitter(initial=2, max=30),
+        retry=retry_if_exception(_retryable),
+        wait=wait_exponential_jitter(initial=2, max=60),
         stop=stop_after_attempt(10),
     )
     def download(session, url, dest):
@@ -177,6 +205,7 @@ tenacity's async support works transparently with `haul_async`.
 | --- | --- | --- |
 | [`PartialHaulError`][pyhaul._types.PartialHaulError] | Yes | Stream ended early; progress saved to checkpoint |
 | Transport errors (timeout, connection reset) | Yes | Transient network issue — see table below |
+| [`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError] | Caller decides | `exc.is_transient` is True for 429/503, False for 404/403/etc. |
 | [`ServerMisconfiguredError`][pyhaul._types.ServerMisconfiguredError] | No | Server violates HTTP in a way that prevents safe resume |
 | [`DestinationError`][pyhaul._types.DestinationError] | No | Path problem — retrying won't fix it |
 | [`ControlFileError`][pyhaul._types.ControlFileError] | Auto-recovers | Corrupt checkpoint is discarded; next attempt starts fresh |
@@ -194,30 +223,32 @@ never wraps them. The retryable base class varies by library:
 
 ## Transient HTTP status errors
 
-pyhaul raises [`ServerMisconfiguredError`][pyhaul._types.ServerMisconfiguredError] for any HTTP status that isn't
-200, 206, or 416. This includes both permanent errors (404, 403) and transient
-ones (429, 503). If you need to retry on transient status codes — for example,
-to honor a `Retry-After` header — catch `ServerMisconfiguredError` alongside
-your client's status exception:
+When the server returns a non-download status (anything other than 200, 206, or
+416), pyhaul raises [`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError]
+with structured metadata — `status_code`, `headers`, and a convenience
+`is_transient` property — so you can branch on status codes and honour
+`Retry-After` without parsing strings:
 
 === "httpx"
 
     ```python
     import time
     import httpx
-    from pyhaul import haul, PartialHaulError, ServerMisconfiguredError
+    from pyhaul import haul, PartialHaulError, UnexpectedStatusError
 
-    for attempt in range(1, 11):
-        try:
-            result = haul(url, client, dest="file.bin")
-            break
-        except PartialHaulError:
-            time.sleep(min(2**attempt, 30))
-        except ServerMisconfiguredError as exc:
-            if "429" in str(exc) or "503" in str(exc):
+    with httpx.Client() as client:
+        for attempt in range(1, 11):
+            try:
+                result = haul(url, client, dest="file.bin")
+                break
+            except PartialHaulError:
                 time.sleep(min(2**attempt, 30))
-            else:
-                raise
+            except UnexpectedStatusError as exc:
+                if exc.is_transient:
+                    wait = int(exc.retry_after or 0) or min(2**attempt, 60)
+                    time.sleep(wait)
+                else:
+                    raise  # 404, 403, etc. — not retryable
     ```
 
 === "aiohttp"
@@ -225,27 +256,81 @@ your client's status exception:
     ```python
     import asyncio
     import aiohttp
-    from pyhaul import haul_async, PartialHaulError, ServerMisconfiguredError
+    from pyhaul import haul_async, PartialHaulError, UnexpectedStatusError
 
-    for attempt in range(1, 11):
-        try:
-            result = await haul_async(url, session, dest="file.bin")
-            break
-        except PartialHaulError:
-            await asyncio.sleep(min(2**attempt, 30))
-        except ServerMisconfiguredError as exc:
-            if "429" in str(exc) or "503" in str(exc):
-                await asyncio.sleep(min(2**attempt, 30))
-            else:
-                raise
+    async def main():
+        async with aiohttp.ClientSession() as session:
+            for attempt in range(1, 11):
+                try:
+                    result = await haul_async(url, session, dest="file.bin")
+                    break
+                except PartialHaulError:
+                    await asyncio.sleep(min(2**attempt, 30))
+                except UnexpectedStatusError as exc:
+                    if exc.is_transient:
+                        wait = int(exc.retry_after or 0) or min(2**attempt, 60)
+                        await asyncio.sleep(wait)
+                    else:
+                        raise  # 404, 403, etc. — not retryable
+
+    asyncio.run(main())
     ```
 
-!!! tip
-    If your HTTP client is configured to raise on non-2xx status codes
-    (e.g., `httpx.Client(event_hooks=...)` or `response.raise_for_status()`),
-    the client's own exception will surface *before* pyhaul sees the status.
-    In that case, catch the client's exception type directly instead of
-    `ServerMisconfiguredError`.
+=== "requests"
+
+    ```python
+    import time
+    import requests
+    from pyhaul import haul, PartialHaulError, UnexpectedStatusError
+
+    with requests.Session() as session:
+        for attempt in range(1, 11):
+            try:
+                result = haul(url, session, dest="file.bin")
+                break
+            except PartialHaulError:
+                time.sleep(min(2**attempt, 30))
+            except UnexpectedStatusError as exc:
+                if exc.is_transient:
+                    wait = int(exc.retry_after or 0) or min(2**attempt, 60)
+                    time.sleep(wait)
+                else:
+                    raise  # 404, 403, etc. — not retryable
+    ```
+
+=== "niquests"
+
+    ```python
+    import time
+    import niquests
+    from pyhaul import haul, PartialHaulError, UnexpectedStatusError
+
+    with niquests.Session() as session:
+        for attempt in range(1, 11):
+            try:
+                result = haul(url, session, dest="file.bin")
+                break
+            except PartialHaulError:
+                time.sleep(min(2**attempt, 30))
+            except UnexpectedStatusError as exc:
+                if exc.is_transient:
+                    wait = int(exc.retry_after or 0) or min(2**attempt, 60)
+                    time.sleep(wait)
+                else:
+                    raise  # 404, 403, etc. — not retryable
+    ```
+
+!!! note
+    pyhaul reads the HTTP status code directly from the streaming response
+    before your client has a chance to raise its own status exception.
+    A 429 or 503 always surfaces as `UnexpectedStatusError` with
+    `is_transient == True`, regardless of your client's `raise_for_status`
+    configuration.
+
+`exc.headers` is a [`TransportHeaders`](../reference/headers.md) — an
+immutable, case-insensitive mapping you can query for `Retry-After` and other
+response metadata. Sensitive headers like `Authorization` are automatically
+redacted in logs and tracebacks.
 
 ## Backoff strategies
 

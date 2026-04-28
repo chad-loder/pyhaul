@@ -9,6 +9,7 @@ pass through **unwrapped** — you catch the types you already know.
 ```text
 HaulError
 ├── PartialHaulError
+├── UnexpectedStatusError
 ├── ServerMisconfiguredError
 ├── ContentRangeError
 ├── ControlFileError
@@ -20,6 +21,7 @@ HaulError
 | Exception | When | Retryable? |
 | --- | --- | --- |
 | `PartialHaulError` | Stream ended before all bytes arrived. | Yes — call `haul()` again; progress is saved |
+| `UnexpectedStatusError` | Server returned a non-download status (429, 503, 404, …). | Lets caller decide — check `exc.is_transient` |
 | `ServerMisconfiguredError` | Server violated HTTP in a way that prevents safe resume. | No |
 | `ContentRangeError` | 206 `Content-Range` doesn't match the requested range. | Often yes |
 | `ControlFileError` | `.part.ctrl` is corrupt or version-mismatched. | Auto-recovers — corrupt checkpoint is discarded on next attempt |
@@ -35,6 +37,14 @@ HaulError
 ::: pyhaul._types.PartialHaulError
     options:
       show_source: false
+
+::: pyhaul._types.UnexpectedStatusError
+    options:
+      show_source: false
+
+The `.headers` attribute is a [`TransportHeaders`](headers.md) — an immutable,
+case-insensitive mapping with multi-value support and automatic redaction of
+sensitive values in logs.
 
 ::: pyhaul._types.ServerMisconfiguredError
     options:

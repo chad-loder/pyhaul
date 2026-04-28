@@ -24,6 +24,7 @@ from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
 
 def headers_from_aiohttp_response(resp: aiohttp.ClientResponse) -> TransportHeaders:
     """Build :class:`TransportHeaders` from an aiohttp response (multi-value safe)."""
+    # CIMultiDictProxy.items() preserves both multi-value headers and wire order.
     return TransportHeaders.from_pairs(transport_header_pairs(resp.headers.items()))
 
 
@@ -163,6 +164,7 @@ class AsyncAiohttpAdapter:
                 str(url),
                 headers=dict(headers),
                 auto_decompress=False,
+                raise_for_status=False,
                 **kwargs,
             ) as resp,
         ):

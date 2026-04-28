@@ -44,9 +44,8 @@ def haul(
 ) -> CompleteHaul:
     """Download a single byte range to *dest*, resumably.
 
-    *client* can be a :class:`~pyhaul.transport.protocols.TransportSession` or
-    a raw HTTP client (``requests.Session``, ``niquests.Session``,
-    ``httpx.Client``, ``urllib3.PoolManager``).  Raw clients are auto-wrapped.
+    *client* is your HTTP session — ``requests.Session``,
+    ``httpx.Client``, ``niquests.Session``, or ``urllib3.PoolManager``.
 
     *url* is validated on entry; invalid schemes or missing hosts raise
     :class:`ValueError`.

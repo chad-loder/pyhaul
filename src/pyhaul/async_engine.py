@@ -45,9 +45,8 @@ async def haul_async(
 ) -> CompleteHaul:
     """Async equivalent of :func:`pyhaul.engine.haul`.
 
-    *client* can be an :class:`~pyhaul.transport.protocols.AsyncTransportSession`
-    or a raw async HTTP client (``niquests.AsyncSession``, ``httpx.AsyncClient``).
-    Raw clients are auto-wrapped.
+    *client* is your async HTTP session — ``httpx.AsyncClient``,
+    ``niquests.AsyncSession``, or ``aiohttp.ClientSession``.
 
     *url* is validated on entry; invalid schemes or missing hosts raise
     :class:`ValueError`.

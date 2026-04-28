@@ -8,13 +8,16 @@ import pytest
 from pyhaul import (
     CompleteHaul,
     ETag,
+    HaulError,
     HaulState,
     PartialHaulError,
+    UnexpectedStatusError,
     Url,
     parse_etag,
     parse_url,
 )
 from pyhaul._types import EMPTY_ETAG, EMPTY_URL
+from pyhaul.transport._headers import TransportHeaders
 
 
 @pytest.mark.parametrize(
@@ -158,3 +161,70 @@ def test_download_state_is_mutable() -> None:
     assert state.is_complete is True
     assert state.bytes_read == 100
     assert state.valid_length == 500
+
+
+# ── UnexpectedStatusError ──────────────────────────────────────────
+
+
+class TestUnexpectedStatusError:
+    """Tests for the structured HTTP status exception."""
+
+    def _make(
+        self,
+        status: int = 429,
+        headers: TransportHeaders | None = None,
+        reason: str = "",
+    ) -> UnexpectedStatusError:
+        h = TransportHeaders.from_pairs([("Retry-After", "120")]) if headers is None else headers
+        return UnexpectedStatusError(status, h, reason)
+
+    def test_is_haul_error(self) -> None:
+        exc = self._make()
+        assert isinstance(exc, HaulError)
+
+    def test_status_code(self) -> None:
+        exc = self._make(503)
+        assert exc.status_code == 503
+
+    def test_headers_attached(self) -> None:
+        exc = self._make()
+        assert exc.headers["retry-after"] == "120"
+
+    def test_default_reason(self) -> None:
+        exc = self._make(404)
+        assert str(exc) == "unexpected HTTP 404"
+        assert exc.reason == "unexpected HTTP 404"
+
+    def test_custom_reason(self) -> None:
+        exc = self._make(429, reason="rate limited")
+        assert str(exc) == "rate limited"
+        assert exc.reason == "rate limited"
+
+    def test_is_transient_429(self) -> None:
+        assert self._make(429).is_transient is True
+
+    def test_is_transient_503(self) -> None:
+        assert self._make(503).is_transient is True
+
+    def test_is_not_transient_404(self) -> None:
+        assert self._make(404).is_transient is False
+
+    def test_is_not_transient_500(self) -> None:
+        assert self._make(500).is_transient is False
+
+    def test_retry_after_present(self) -> None:
+        exc = self._make()
+        assert exc.retry_after == "120"
+
+    def test_retry_after_absent(self) -> None:
+        exc = self._make(headers=TransportHeaders())
+        assert exc.retry_after is None
+
+    def test_catchable_as_haul_error(self) -> None:
+        with pytest.raises(HaulError):
+            raise self._make()
+
+    def test_headers_immutable(self) -> None:
+        exc = self._make()
+        with pytest.raises(AttributeError):
+            exc.headers.x = "nope"

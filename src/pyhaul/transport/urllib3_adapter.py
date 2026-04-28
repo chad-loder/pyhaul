@@ -26,6 +26,8 @@ _HTTP_400 = 400
 def headers_from_urllib3_response(resp: urllib3.HTTPResponse) -> TransportHeaders:
     """Build :class:`TransportHeaders` from a urllib3 response (multi-value safe)."""
     h = resp.headers
+    # getlist() preserves multi-value headers; order is grouped-by-name
+    # (HTTPHeaderDict doesn't track interleaved wire order).
     pairs = transport_header_pairs((name, val) for name in h for val in h.getlist(name))
     return TransportHeaders.from_pairs(pairs)
 

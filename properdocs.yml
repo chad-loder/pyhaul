@@ -30,6 +30,9 @@ theme:
     - navigation.expand
     - toc.follow
 
+extra_css:
+  - stylesheets/extra.css
+
 exclude_docs: |
   DESIGN.md
   WHY.md
@@ -86,6 +89,7 @@ nav:
       - Design & Architecture: explanation/design.md
   - Reference:
       - API: reference/api.md
+      - Headers: reference/headers.md
       - Exceptions: reference/exceptions.md
       - Control File Spec: reference/spec.md
       - CLI: reference/cli.md

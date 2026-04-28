@@ -25,6 +25,13 @@ def headers_from_niquests_response(
     resp: niquests.Response | niquests.AsyncResponse,
 ) -> TransportHeaders:
     """Build :class:`TransportHeaders` from a niquests sync or async response."""
+    # resp.headers is CaseInsensitiveDict (collapses multi-value headers).
+    # Reach through to the urllib3(-future) raw response for multi-value
+    # fidelity; order is grouped-by-name (HTTPHeaderDict limitation).
+    raw = getattr(resp, "raw", None)
+    raw_headers = getattr(raw, "headers", None) if raw is not None else None
+    if raw_headers is not None and hasattr(raw_headers, "iteritems"):
+        return TransportHeaders.from_pairs(transport_header_pairs(raw_headers.iteritems()))
     hdr = resp.headers
     pairs = transport_header_pairs((k, hdr[k]) for k in hdr)
     return TransportHeaders.from_pairs(pairs)

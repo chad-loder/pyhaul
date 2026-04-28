@@ -43,6 +43,8 @@ left it.
 
 ### httpx (sync)
 
+[![Built with HTTPX](https://img.shields.io/badge/built%20with-HTTPX-blue)](https://www.python-httpx.org/)
+
 ```python
 import httpx
 from pyhaul import haul
@@ -104,6 +106,8 @@ asyncio.run(main())
 ```
 
 ### aiohttp
+
+[![Built with aiohttp](https://img.shields.io/badge/built%20with-aiohttp-blue)](https://github.com/aio-libs/aiohttp)
 
 ```python
 import asyncio
