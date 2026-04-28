@@ -33,19 +33,15 @@ def _get_expected_hash(payload: bytes, block_size: int = 8 * 1024 * 1024) -> str
 # ---------------------------------------------------------------------------
 
 
-def test_short_read_on_206_is_not_complete(http: HttpTest) -> None:
+def test_short_read_on_206_raises_partial(http: HttpTest) -> None:
     """Server sends headers claiming full range, then closes the socket
-    halfway through.  The download must not report CompleteHaul."""
+    halfway through.  Must raise PartialHaulError (not a raw transport exception)."""
     data = deterministic(4 * 1024, seed=3)
     http.serve(data).truncate_206_body_after(len(data) // 2)
 
-    did_raise = False
-    try:
+    with pytest.raises(PartialHaulError):
         http.haul()
-    except Exception:  # noqa: BLE001
-        did_raise = True
 
-    assert did_raise, "truncated 206 should raise, not return CompleteHaul"
     assert not http.dest.exists(), "dest must not exist after truncated 206"
 
 
@@ -54,19 +50,81 @@ def test_short_read_on_206_is_not_complete(http: HttpTest) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_200_truncated_mid_stream_is_not_complete(http: HttpTest) -> None:
-    """Server returns 200 (Range ignored) then closes mid-body."""
+def test_200_truncated_mid_stream_raises_partial(http: HttpTest) -> None:
+    """Server returns 200 (Range ignored) then closes mid-body.
+    Must raise PartialHaulError (not a raw transport exception)."""
     data = deterministic(8 * 1024, seed=5)
     http.serve(data).force_200().truncate_200_body_after(len(data) // 2)
 
-    did_raise = False
-    try:
+    with pytest.raises(PartialHaulError):
         http.haul()
-    except Exception:  # noqa: BLE001
-        did_raise = True
 
-    assert did_raise, "truncated 200 should raise, not return DownloadComplete"
     assert not http.dest.exists()
+
+
+# ---------------------------------------------------------------------------
+# Pathology 2b: Truncate-then-resume round trip (206)
+# ---------------------------------------------------------------------------
+
+
+def test_206_truncation_then_resume_completes(http: HttpTest) -> None:
+    """Server truncates the first request mid-body.  Second call resumes
+    from the checkpoint and completes.  This is the core retry contract:
+    callers only need ``except PartialHaulError``."""
+    data = deterministic(16 * 1024, seed=42)
+    http.serve(data).truncate_206_body_after(len(data) // 2)
+
+    with pytest.raises(PartialHaulError):
+        http.haul()
+
+    assert not http.dest.exists()
+    assert http.part_path.exists(), ".part file should survive for resume"
+
+    # Remove truncation; second call should resume and complete.
+    http._state.truncate_206_body_at = None
+    http.serve(data)
+    result = http.haul()
+    assert isinstance(result, CompleteHaul)
+    assert result.sha256 == _get_expected_hash(data)
+    assert http.output == data
+
+
+def test_206_repeated_truncation_then_resume(http: HttpTest) -> None:
+    """Server truncates the first *two* requests.  Third call succeeds.
+    Validates that the checkpoint advances across multiple partial hauls."""
+    data = deterministic(16 * 1024, seed=99)
+    http.serve(data).truncate_206_body_after(len(data) // 4)
+
+    for _ in range(2):
+        with pytest.raises(PartialHaulError):
+            http.haul()
+        assert not http.dest.exists()
+        assert http.part_path.exists()
+
+    http._state.truncate_206_body_at = None
+    http.serve(data)
+    result = http.haul()
+    assert isinstance(result, CompleteHaul)
+    assert result.sha256 == _get_expected_hash(data)
+    assert http.output == data
+
+
+def test_200_truncation_restarts_from_zero(http: HttpTest) -> None:
+    """When the server ignores Range (200 fallback) and truncates, no
+    checkpoint can be reused — the retry must restart from zero and still
+    complete."""
+    data = deterministic(8 * 1024, seed=77)
+    http.serve(data).force_200().truncate_200_body_after(len(data) // 2)
+
+    with pytest.raises(PartialHaulError):
+        http.haul()
+    assert not http.dest.exists()
+
+    http._state.truncate_200_body_at = None
+    result = http.haul()
+    assert isinstance(result, CompleteHaul)
+    assert result.sha256 == _get_expected_hash(data)
+    assert http.output == data
 
 
 # ---------------------------------------------------------------------------

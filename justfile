@@ -25,6 +25,7 @@ _shell_export := 'export JUST_SHOW_RUNNING=' + quote(_show_running)
 _bash_lint_helpers := '''
   JUST_DIM=$'\033[2m'
   JUST_GREEN=$'\033[32m'
+  JUST_RED=$'\033[31m'
   JUST_RST=$'\033[0m'
   lint_running() {
     [[ "${JUST_SHOW_RUNNING:-}" == "yes" ]] || return 0
@@ -32,6 +33,20 @@ _bash_lint_helpers := '''
   }
   lint_ok() {
     printf '%s  ok%s  %s\n' "$JUST_GREEN" "$JUST_RST" "$1" >&2
+  }
+  lint_fail() {
+    printf '%sFAIL%s  %s\n' "$JUST_RED" "$JUST_RST" "$1" >&2
+  }
+  # run_quiet NAME CMD [ARGS…]  — run quietly; on failure, re-run loud.
+  run_quiet() {
+    local _name="$1"; shift
+    lint_running "$_name"
+    local _out _code
+    _out=$("$@" 2>&1) && { lint_ok "$_name"; return 0; }
+    _code=$?
+    lint_fail "$_name"
+    printf '%s\n' "$_out" >&2
+    return "$_code"
   }
   run_semgrep() {
     lint_running "semgrep"
@@ -137,27 +152,13 @@ _lint-py:
     #!/usr/bin/env bash
     set -euo pipefail
     {{ _lint_bundle }}
-    lint_running "ruff check"
-    uv run ruff check --quiet .
-    lint_ok "ruff check"
-    lint_running "ruff format"
-    uv run ruff format --quiet --check .
-    lint_ok "ruff format"
-    lint_running "mypy"
-    uv run mypy --no-error-summary src tests examples scripts
-    lint_ok "mypy"
-    lint_running "pyright"
-    _out=$(uv run pyright 2>&1) || { echo "$_out"; exit 1; }
-    lint_ok "pyright"
-    lint_running "ty"
-    uv run ty check --quiet --quiet
-    lint_ok "ty"
-    lint_running "validate-pyproject"
-    uv run validate-pyproject pyproject.toml > /dev/null
-    lint_ok "validate-pyproject"
-    lint_running "interrogate"
-    uv run interrogate --quiet src/pyhaul/
-    lint_ok "interrogate"
+    run_quiet "ruff check"        uv run ruff check --quiet .
+    run_quiet "ruff format"       uv run ruff format --quiet --check .
+    run_quiet "mypy"              uv run mypy --no-error-summary src tests examples scripts
+    run_quiet "pyright"           uv run pyright
+    run_quiet "ty"                uv run ty check --quiet --quiet
+    run_quiet "validate-pyproject" uv run validate-pyproject pyproject.toml
+    run_quiet "interrogate"       uv run interrogate --quiet src/pyhaul/
     run_semgrep
 
 [private]
@@ -182,9 +183,7 @@ _lint-sh:
         [[ -f "$hook" ]] && targets+=("$hook")
     done
     (( ${#targets[@]} == 0 )) && exit 0
-    lint_running "shellcheck"
-    shellcheck -f quiet -x "${targets[@]}"
-    lint_ok "shellcheck"
+    run_quiet "shellcheck" shellcheck -f quiet -x "${targets[@]}"
 
 [private]
 _lint-sh-fix:
@@ -195,9 +194,7 @@ _lint-docs:
     #!/usr/bin/env bash
     set -euo pipefail
     {{ _lint_bundle }}
-    lint_running "rumdl"
-    uv run rumdl check --quiet .
-    lint_ok "rumdl"
+    run_quiet "rumdl" uv run rumdl check --quiet .
 
 [private]
 _lint-workflows:
@@ -208,15 +205,9 @@ _lint-workflows:
       exit 1
     }
     {{ _lint_bundle }}
-    lint_running "actionlint"
-    actionlint -no-color
-    lint_ok "actionlint"
-    lint_running "check-jsonschema (renovate.json)"
-    uv run check-jsonschema --schemafile "https://docs.renovatebot.com/renovate-schema.json" renovate.json
-    lint_ok "check-jsonschema (renovate.json)"
-    lint_running "zizmor"
-    uv run zizmor -q .
-    lint_ok "zizmor"
+    run_quiet "actionlint"                  actionlint -no-color
+    run_quiet "check-jsonschema (renovate.json)" uv run check-jsonschema --schemafile "https://docs.renovatebot.com/renovate-schema.json" renovate.json
+    run_quiet "zizmor"                      uv run zizmor -q .
 
 [private]
 _lint-docs-fix:
@@ -227,9 +218,7 @@ _lint-spell:
     #!/usr/bin/env bash
     set -euo pipefail
     {{ _lint_bundle }}
-    lint_running "codespell"
-    uv run codespell src tests docs examples scripts *.md *.toml
-    lint_ok "codespell"
+    run_quiet "codespell" uv run codespell src tests docs examples scripts *.md *.toml
 
 [private]
 _safe-install src dest:

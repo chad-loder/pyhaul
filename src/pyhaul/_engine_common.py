@@ -385,14 +385,14 @@ def write_chunk(
 
     if plan.bytes_since_flush >= flush_every:
         datasync(fd)
-        _save_checkpoint(prep.ctrl_path, plan, prep)
+        save_checkpoint(prep.ctrl_path, plan, prep)
         plan.bytes_since_flush = 0
 
 
 def after_stream(plan: StreamPlan, prep: PrepareHaul, state: HaulState) -> CompleteHaul:
     """Post-loop: check completeness, trim junk tail, finalize or raise partial."""
     if plan.extent is not None and plan.cursor < plan.extent:
-        _save_checkpoint(prep.ctrl_path, plan, prep)
+        save_checkpoint(prep.ctrl_path, plan, prep)
         raise PartialHaulError("stream ended before extent reached")
 
     actual = prep.part_path.stat().st_size
@@ -457,7 +457,8 @@ def _reset_checkpoint(ctrl_path: Path, start: int, block_size: int) -> None:
     write_atomic(ctrl_path, registry.dump(cp))
 
 
-def _save_checkpoint(path: Path, plan: StreamPlan, _prep: PrepareHaul) -> None:
+def save_checkpoint(path: Path, plan: StreamPlan, _prep: PrepareHaul) -> None:
+    """Atomically persist the current download checkpoint to *path*."""
     cp = Checkpoint(
         version=LATEST_VERSION,
         start=plan.start,
@@ -480,5 +481,5 @@ def flush_dirty(fd: int, plan: StreamPlan, prep: PrepareHaul) -> None:
     """
     if plan.bytes_since_flush > 0:
         datasync(fd)
-        _save_checkpoint(prep.ctrl_path, plan, prep)
+        save_checkpoint(prep.ctrl_path, plan, prep)
         plan.bytes_since_flush = 0
