@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: write
     outputs:
       run-tests: ${{ steps.decide.outputs.run-tests }}
       os-matrix: ${{ steps.decide.outputs.os-matrix }}
@@ -71,6 +72,35 @@ jobs:
             echo 'os-matrix=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
             echo "coverage-floor=80" >> "$GITHUB_OUTPUT"
           fi
+      - name: Label PR from conventional commit type
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const match = title.match(/^(\w+)(?:\(.*?\))?!?:/);
+            if (!match) return;
+            const typeToLabel = {
+              feat: 'enhancement',
+              fix: 'bug',
+              docs: 'documentation',
+              perf: 'performance',
+              ci: 'ci',
+              refactor: 'refactor',
+              test: 'testing',
+            };
+            const label = typeToLabel[match[1]];
+            if (!label) return;
+            const { data: current } = await github.rest.issues.listLabelsOnIssue({
+              ...context.repo,
+              issue_number: context.issue.number,
+            });
+            if (current.some(l => l.name === label)) return;
+            await github.rest.issues.addLabels({
+              ...context.repo,
+              issue_number: context.issue.number,
+              labels: [label],
+            });
 
   lint:
     name: Lint & type check
