@@ -6,18 +6,124 @@ pyhaul borrows your existing HTTP session and handles byte-range negotiation,
 crash-safe checkpointing, and validation. One call to [`haul()`][pyhaul.engine.haul] = one request.
 It either succeeds, or it saves progress so the next call resumes.
 
-```bash
-pip install pyhaul[httpx]   # or: niquests, requests, urllib3, aiohttp
-```
+=== "httpx"
 
-```python
-import httpx
-from pyhaul import haul
+    ```bash
+    pip install pyhaul[httpx]
+    ```
 
-with httpx.Client() as client:
-    result = haul("https://example.com/big.zip", client, dest="big.zip")
-    print(f"done: sha256={result.sha256[:16]}…")
-```
+    ```python
+    import httpx
+    from pathlib import Path
+    from pyhaul import haul, PartialHaulError
+
+    dest = Path("big.zip")
+    with httpx.Client() as client:
+        for _ in range(10):
+            try:
+                result = haul("https://example.com/big.zip", client, dest=dest)
+                break
+            except PartialHaulError:
+                pass  # only retryable error; others propagate
+
+    print(f"done: {dest.stat().st_size:,} bytes")
+    ```
+
+=== "aiohttp"
+
+    ```bash
+    pip install pyhaul[aiohttp]
+    ```
+
+    ```python
+    import asyncio
+    import aiohttp
+    from pathlib import Path
+    from pyhaul import haul_async, PartialHaulError
+
+    async def main():
+        dest = Path("big.zip")
+        async with aiohttp.ClientSession() as session:
+            for _ in range(10):
+                try:
+                    result = await haul_async("https://example.com/big.zip", session, dest=dest)
+                    break
+                except PartialHaulError:
+                    pass
+        print(f"done: {dest.stat().st_size:,} bytes")
+
+    asyncio.run(main())
+    ```
+
+=== "requests"
+
+    ```bash
+    pip install pyhaul[requests]
+    ```
+
+    ```python
+    import requests
+    from pathlib import Path
+    from pyhaul import haul, PartialHaulError
+
+    dest = Path("big.zip")
+    with requests.Session() as session:
+        for _ in range(10):
+            try:
+                result = haul("https://example.com/big.zip", session, dest=dest)
+                break
+            except PartialHaulError:
+                pass
+
+    print(f"done: {dest.stat().st_size:,} bytes")
+    ```
+
+=== "niquests"
+
+    ```bash
+    pip install pyhaul[niquests]
+    ```
+
+    ```python
+    import niquests
+    from pathlib import Path
+    from pyhaul import haul, PartialHaulError
+
+    dest = Path("big.zip")
+    with niquests.Session() as session:
+        for _ in range(10):
+            try:
+                result = haul("https://example.com/big.zip", session, dest=dest)
+                break
+            except PartialHaulError:
+                pass
+
+    print(f"done: {dest.stat().st_size:,} bytes")
+    ```
+
+=== "urllib3"
+
+    ```bash
+    pip install pyhaul[urllib3]
+    ```
+
+    ```python
+    import urllib3
+    from pathlib import Path
+    from pyhaul import haul, PartialHaulError
+
+    dest = Path("big.zip")
+    pool = urllib3.PoolManager()
+    for _ in range(10):
+        try:
+            result = haul("https://example.com/big.zip", pool, dest=dest)
+            break
+        except PartialHaulError:
+            pass
+
+    print(f"done: {dest.stat().st_size:,} bytes")
+    pool.clear()
+    ```
 
 ## Guarantees
 

@@ -1,6 +1,6 @@
 """Case-insensitive, immutable, multi-value HTTP response headers.
 
-Implements :class:`collections.abc.Mapping[str, str]` so bracket access,
+Implements `collections.abc.Mapping[str, str]` so bracket access,
 ``in``, ``len()``, iteration, ``.keys()``, ``.values()``, and
 ``.items()`` all work out of the box.
 
@@ -50,7 +50,7 @@ class TransportHeaders(Mapping[str, str]):
     Field names are matched case-insensitively per HTTP semantics.
     Duplicate names are preserved in wire order.
 
-    Construct via :meth:`build`, :meth:`from_pairs`, or :meth:`from_mapping`.
+    Construct via `build`, `from_pairs`, or `from_mapping`.
     """
 
     __slots__ = ("_hash", "_index", "_items")
@@ -110,7 +110,7 @@ class TransportHeaders(Mapping[str, str]):
     def from_pairs(cls, pairs: Iterable[Pair]) -> Self:
         """Build from an ordered ``(name, value)`` iterable.
 
-        Preserves duplicate names and wire order for :meth:`get_all`.
+        Preserves duplicate names and wire order for `get_all`.
         """
         return cls(tuple((_norm_name(n), _norm_value(v)) for n, v in pairs))
 
@@ -151,7 +151,7 @@ class TransportHeaders(Mapping[str, str]):
         return tuple(self._items[i][1] for i in idx) if idx else ()
 
     getlist = get_all
-    """Alias for :meth:`get_all` (werkzeug / multidict naming)."""
+    """Alias for `get_all` (werkzeug / multidict naming)."""
 
     def multi_items(self) -> Iterator[Pair]:
         """Yield every ``(name, value)`` pair, including duplicates."""
