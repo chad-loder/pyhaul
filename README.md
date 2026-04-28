@@ -1,6 +1,6 @@
 # pyhaul
 
-[![CI](https://github.com/chad-loder/pyhaul/actions/workflows/ci.yml/badge.svg)](https://github.com/chad-loder/pyhaul/actions/workflows/ci.yml)
+[![CI](https://github.com/chad-loder/pyhaul/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/chad-loder/pyhaul/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/chad-loder/pyhaul/graph/badge.svg)](https://codecov.io/gh/chad-loder/pyhaul)
 [![PyPI](https://img.shields.io/pypi/v/pyhaul.svg)](https://pypi.org/project/pyhaul/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -59,6 +59,35 @@ Each call to `haul()` upholds these guarantees:
   creates, configures, or closes sessions.
 - **Transport errors pass through unwrapped.** `httpx.ReadTimeout`
   stays `httpx.ReadTimeout`. You catch the types you already know.
+
+## How it fits into your code
+
+One `haul()` = one HTTP request. It either succeeds and returns
+`CompleteHaul`, or it throws — possibly after saving progress
+to a `.part` file that allows the next call to resume. `pyhaul` never
+creates sessions, connections, or clients. Your HTTP library's native
+exceptions propagate through unwrapped, so you can drop `haul()`
+into existing code without changing your error handling. Retries are
+your call — a for-loop, `tenacity`, or nothing. Concurrency limiting
+(e.g. `asyncio.Semaphore`) is also yours — `pyhaul` downloads one
+file per call and doesn't manage parallelism.
+
+```python
+def haul(url, client, *, dest, state=None) -> CompleteHaul: ...
+async def haul_async(url, client, *, dest, state=None) -> CompleteHaul: ...
+```
+
+`state` is an optional `HaulState` bag, updated in-place as bytes
+land on disk — works identically in sync and async. See
+[docs/DESIGN.md](docs/DESIGN.md) for the exception hierarchy, transport
+adapters, and download lifecycle.
+
+## Documentation
+
+- **[docs/DESIGN.md](docs/DESIGN.md)** — Transport adapters, checkpoint state, and the download lifecycle.
+- **[docs/WHY.md](docs/WHY.md)** — Silent failure modes in HTTP range/resume, and how pyhaul compares
+  to `curl`, `wget`, and `aria2c`.
+- **[docs/SPEC.md](docs/SPEC.md)** — Control file and checkpoint format (implementers / compatible tools).
 
 <!-- pypi-end -->
 
@@ -140,28 +169,6 @@ state.
 
 <!-- See doc_todo.md for future README section ideas. -->
 
-## How it fits into your code
-
-One `haul()` = one HTTP request. It either succeeds and returns
-`CompleteHaul`, or it throws — possibly after saving progress
-to a `.part` file that allows the next call to resume. `pyhaul` never
-creates sessions, connections, or clients. Your HTTP library's native
-exceptions propagate through unwrapped, so you can drop `haul()`
-into existing code without changing your error handling. Retries are
-your call — a for-loop, `tenacity`, or nothing. Concurrency limiting
-(e.g. `asyncio.Semaphore`) is also yours — `pyhaul` downloads one
-file per call and doesn't manage parallelism.
-
-```python
-def haul(url, client, *, dest, state=None) -> CompleteHaul: ...
-async def haul_async(url, client, *, dest, state=None) -> CompleteHaul: ...
-```
-
-`state` is an optional `HaulState` bag, updated in-place as bytes
-land on disk — works identically in sync and async. See
-[DESIGN.md](DESIGN.md) for the exception hierarchy, transport
-adapters, and download lifecycle.
-
 ## Why this exists
 
 You probably already know that resuming an HTTP download isn't just
@@ -169,7 +176,7 @@ You probably already know that resuming an HTTP download isn't just
 than most people expect — servers that return 200 instead of 206,
 resources that change between retries (`curl -C -` and `aria2c` both
 miss this), compression that corrupts resumed streams, and ordering
-guarantees needed for crash safety. See [WHY.md](WHY.md) for the
+guarantees needed for crash safety. See [docs/WHY.md](docs/WHY.md) for the
 deep-dive and a comparison with `curl`, `wget`, and `aria2c`.
 
 ## Install
@@ -186,16 +193,11 @@ pip install pyhaul[aiohttp]    # aiohttp (async)
 
 No hard dependency on any HTTP library. Pick one (or several) as extras.
 
-## Documentation
-
-- **[DESIGN.md](DESIGN.md)** — Transport adapters, checkpoint state, and the download lifecycle.
-- **[WHY.md](WHY.md)** — Silent failure modes in HTTP range/resume, and how pyhaul compares
-  to `curl`, `wget`, and `aria2c`.
-- **[docs/SPEC.md](docs/SPEC.md)** — Control file and checkpoint format (implementers / compatible tools).
-
 ---
 
 ## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branches, commit style, and full tooling.
 
 ```bash
 git clone https://github.com/chad-loder/pyhaul.git && cd pyhaul
