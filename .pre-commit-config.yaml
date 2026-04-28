@@ -1,5 +1,4 @@
-default_language_version:
-  python: python3.12
+default_install_hook_types: [pre-push]
 
 repos:
   - repo: local
@@ -10,9 +9,9 @@ repos:
         language: script
         pass_filenames: false
         always_run: true
+        stages: [pre-commit]
 
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: cef0300fd0fc4d2a87a85fa2093c6b283ea36f4b  # frozen: v5.0.0
+  - repo: builtin
     hooks:
       - id: check-yaml
       - id: check-toml

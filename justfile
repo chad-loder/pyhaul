@@ -108,6 +108,7 @@ dev: setup test
 setup:
     uv sync --all-groups
     git config commit.gpgsign true
+    @rm -f .git/hooks/pre-commit
     uv run prek install --install-hooks
     @{{ just_executable() }} _setup-hooks
 
