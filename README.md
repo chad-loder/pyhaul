@@ -20,12 +20,20 @@ pip install pyhaul[httpx]   # or: niquests, requests, urllib3, aiohttp
 ```
 
 ```python
-import httpx  # or: requests, niquests, urllib3, aiohttp
-from pyhaul import haul
+import httpx
+from pathlib import Path
+from pyhaul import haul, PartialHaulError
 
+dest = Path("big.zip")
 with httpx.Client() as client:
-    result = haul("https://example.com/big.zip", client, dest="big.zip")
-    print(f"done: sha256={result.sha256[:16]}…")
+    for _ in range(10):
+        try:
+            result = haul("https://example.com/big.zip", client, dest=dest)
+            break
+        except PartialHaulError:
+            pass  # only retryable error; others propagate
+
+print(f"done: {dest.stat().st_size:,} bytes")
 ```
 
 ---
