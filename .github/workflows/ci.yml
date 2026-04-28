@@ -18,8 +18,63 @@ env:
   FORCE_COLOR: "1"
 
 jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      run-tests: ${{ steps.decide.outputs.run-tests }}
+      os-matrix: ${{ steps.decide.outputs.os-matrix }}
+      coverage-floor: ${{ steps.decide.outputs.coverage-floor }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
+        id: changes
+        with:
+          filters: |
+            src:
+              - 'src/pyhaul/**'
+            tests:
+              - 'tests/**'
+            os_sensitive:
+              - 'src/pyhaul/alloc.py'
+              - 'src/pyhaul/fs.py'
+            deps:
+              - 'pyproject.toml'
+              - 'uv.lock'
+            ci:
+              - '.github/workflows/**'
+      - name: Decide matrix scope
+        id: decide
+        env:
+          ALWAYS_FULL: ${{ github.event_name == 'push' || github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' }}
+          CHANGED_SRC: ${{ steps.changes.outputs.src }}
+          CHANGED_TESTS: ${{ steps.changes.outputs.tests }}
+          CHANGED_OS: ${{ steps.changes.outputs.os_sensitive }}
+          CHANGED_DEPS: ${{ steps.changes.outputs.deps }}
+          CHANGED_CI: ${{ steps.changes.outputs.ci }}
+        shell: bash
+        run: |
+          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_SRC" == "true" || "$CHANGED_TESTS" == "true" || "$CHANGED_DEPS" == "true" || "$CHANGED_CI" == "true" ]]; then
+            echo "run-tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run-tests=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_OS" == "true" || "$CHANGED_DEPS" == "true" || "$CHANGED_CI" == "true" ]]; then
+            echo 'os-matrix=["ubuntu-latest","windows-latest","macos-latest"]' >> "$GITHUB_OUTPUT"
+            echo "coverage-floor=85" >> "$GITHUB_OUTPUT"
+          else
+            echo 'os-matrix=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+            echo "coverage-floor=80" >> "$GITHUB_OUTPUT"
+          fi
+
   lint:
     name: Lint & type check
+    needs: [plan]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -71,14 +126,15 @@ jobs:
 
   test-stable:
     name: Test (${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'macos-latest' && 'macos' || 'ubuntu' }} / Python ${{ matrix.python-version }})
-    needs: [build]
+    needs: [plan, build]
+    if: needs.plan.outputs.run-tests == 'true'
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJson(needs.plan.outputs.os-matrix) }}
         python-version: ${{ fromJson(needs.build.outputs.python-versions) }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -137,8 +193,8 @@ jobs:
 
   coverage:
     name: Ensure combined coverage threshold
-    needs: [test-stable]
-    if: always()
+    needs: [plan, test-stable]
+    if: needs.plan.outputs.run-tests == 'true' && !cancelled()
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -160,11 +216,13 @@ jobs:
           pattern: coverage-data-*
           merge-multiple: true
       - name: Combine and report
+        env:
+          COVERAGE_FLOOR: ${{ needs.plan.outputs.coverage-floor }}
         run: |
           uv run coverage combine
           uv run coverage html --skip-covered --skip-empty
           uv run coverage report --format=markdown >> "${GITHUB_STEP_SUMMARY}"
-          uv run coverage report --fail-under=85
+          uv run coverage report --fail-under="$COVERAGE_FLOOR"
           uv run coverage xml -o coverage.xml
       - name: Upload HTML report if check failed
         if: failure()
@@ -181,7 +239,8 @@ jobs:
 
   test-prospective:
     name: Test (ubuntu / Python 3.15-dev, experimental)
-    needs: [lint]
+    needs: [plan, lint]
+    if: needs.plan.outputs.run-tests == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -232,4 +291,5 @@ jobs:
       - uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
         with:
           allowed-failures: test-prospective
+          allowed-skips: test-stable, test-prospective, coverage
           jobs: ${{ toJSON(needs) }}
