@@ -123,7 +123,7 @@ clean:
 
 [group('ci')]
 ci: setup
-    uv run pre-commit run --all-files --show-diff-on-failure
+    uv run prek run --all-files --show-diff-on-failure
     uv run coverage run -m pytest
     uv run coverage xml -o coverage.xml
 
