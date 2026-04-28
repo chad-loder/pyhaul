@@ -1,12 +1,12 @@
 [build-system]
-requires = ["uv_build>=0.11,<0.12"]
+requires = ["uv_build>=0.11.7,<0.12"]
 build-backend = "uv_build"
 
 [project]
 name = "pyhaul"
 version = "0.4.0"
 description = "Resumable, cursor-based, CDN-safe HTTP downloads for Python"
-readme = "PYPI_README.md"
+readme = "docs/PYPI_README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
@@ -74,11 +74,8 @@ source-exclude = [
 
 [dependency-groups]
 # PEP 735 — not published as installable extras; for contributors / CI only.
-test = [
-    "pytest>=8",
-    "pytest-cov>=6",
-    "hypothesis>=6",
-    "anyio>=4",
+# All optional HTTP stacks for the test suite (mirrors optional-extras version floors).
+compat-all = [
     "niquests>=3.14",
     "requests>=2.32",
     "types-requests>=2.33.0.20260408",
@@ -86,24 +83,45 @@ test = [
     "urllib3>=2.0",
     "aiohttp>=3.10",
 ]
+test = [
+    { include-group = "compat-all" },
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "hypothesis>=6.152.1",
+    "anyio>=4.13.0",
+]
 lint = [
-    "ruff>=0.15",
-    "mypy>=1.13,<1.20",
-    "pre-commit>=4",
-    "pyright>=1.1.400",
-    "tenacity>=9",
-    "markdown-it-py>=4,<5",
-    "ty>=0.0.1",
-    "codespell>=2.4",
+    "ruff>=0.15.11",
+    "mypy>=1.19.1,<1.20",
+    "pre-commit>=4.5.1",
+    "pyright>=1.1.408",
+    "tenacity>=9.1.4",
+    "markdown-it-py>=4.0.0,<5",
+    "ty>=0.0.31",
+    "codespell>=2.4.2",
     "validate-pyproject[all]>=0.25",
-    "semgrep>=1",
-    "interrogate>=1.7",
+    "semgrep>=1.160.0",
+    "interrogate>=1.7.0",
+]
+# Extra tooling (not needed for the library at runtime) — pyclean for cache cleaning.
+dev = [
+    "pyclean>=3.6.0",
+]
+# Maintainer / CI-surface tools (workflows, Renovate, markdown policy). Includes `dev`
+# (pyclean) so `just clean` and maintainer lints share one resolved set.
+maintainer = [
+    { include-group = "dev" },
+    "rumdl>=0.1.76",
+    "check-jsonschema>=0.37.1",
+    "zizmor>=1.24.1",
 ]
 
 [tool.uv]
-default-groups = ["test", "lint"]
+default-groups = ["test", "lint", "maintainer"]
 # Resolver cutoff: ignore PyPI uploads newer than this (relative to lock/sync resolve time).
-exclude-newer = "48h"
+# 72h balances fast incident response on PyPI with a buffer past typical detection and
+# weekend-drop windows. For an urgent CVE fix: `uv lock --exclude-newer=0h --upgrade-package <name>`.
+exclude-newer = "72h"
 
 # ---------------------------------------------------------------------------
 # Tool configuration
@@ -175,7 +193,9 @@ terms = ["TODO", "FIXME", "XXX", "HACK"]
 ".github/PULL_REQUEST_TEMPLATE.md" = ["MD041"]
 "SECURITY.md" = ["MD036"]
 "README.md" = ["MD044", "MD061"]
-"PYPI_README.md" = ["MD044", "MD061"]
+"docs/PYPI_README.md" = ["MD044", "MD061"]
+# release-please output: list style / blank lines differ from repo-wide markdown rules
+"CHANGELOG.md" = ["MD004", "MD012"]
 
 [tool.ruff]
 line-length = 120
@@ -238,6 +258,7 @@ known-first-party = ["pyhaul"]
 ]
 "**/conftest.py" = ["D", "ARG", "S101", "SLF001", "A002", "N802", "C901"]
 "examples/**" = ["T20", "INP001", "D", "ASYNC240"]
+"scripts/**" = ["T20", "INP001", "D"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -269,7 +290,7 @@ exclude = '''(?x)(
 pythonVersion = "3.12"
 pythonPlatform = "All"
 typeCheckingMode = "strict"
-include = ["src", "tests", "examples"]
+include = ["src", "tests", "examples", "scripts"]
 exclude = [".venv", "build", "dist", "**/__pycache__"]
 
 # Tests need repo root on the path for ``from tests.…``; relax noisy rules there only.
@@ -293,6 +314,13 @@ extraPaths = ["src"]
 reportUnknownParameterType = false
 reportUnknownArgumentType = false
 reportMissingTypeStubs = false
+
+[[tool.pyright.executionEnvironments]]
+root = "scripts"
+reportMissingTypeStubs = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
 
 # ---------------------------------------------------------------------------
 # ty  (Astral's Rust-based type checker — scoped to library code only)
