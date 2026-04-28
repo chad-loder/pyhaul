@@ -1,5 +1,7 @@
 # Why pyhaul exists
 
+**See also:** [Design](DESIGN.md) · [Specification](SPEC.md) · [README](../README.md)
+
 I wanted something that made resuming HTTP downloads easy. Not just
 "add a Range header" easy — actually easy, where you call a function,
 it either finishes or it doesn't, and in both cases the state on disk

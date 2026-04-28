@@ -1,6 +1,6 @@
 # pyhaul
 
-[![CI](https://github.com/chad-loder/pyhaul/actions/workflows/ci.yml/badge.svg)](https://github.com/chad-loder/pyhaul/actions/workflows/ci.yml)
+[![CI](https://github.com/chad-loder/pyhaul/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/chad-loder/pyhaul/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/chad-loder/pyhaul/graph/badge.svg)](https://codecov.io/gh/chad-loder/pyhaul)
 [![PyPI](https://img.shields.io/pypi/v/pyhaul.svg)](https://pypi.org/project/pyhaul/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/chad-loder/pyhaul/blob/main/LICENSE)
@@ -32,27 +32,30 @@ with httpx.Client() as client:
 ## What is it?
 
 A small, pure-Python library that makes HTTP downloads **resumable**.
-Call `haul()` with your existing HTTP client, a URL, and a destination
-path — it handles byte-range negotiation, ETag validation, crash-safe
-checkpointing, and atomic file completion. Sync and async; works with
-requests, httpx, niquests, urllib3, and **aiohttp** (async).
+To download a file, call `haul()` with a URL, your existing HTTP
+client, and a destination path. **pyhaul** handles byte-range
+negotiation for resume, ETag validation, crash-safe
+checkpointing, and atomic file completion. Supports both sync and
+async across multiple HTTP client libraries.
 
 Each call to `haul()` upholds these guarantees:
 
-- **The destination file is either complete or absent.** There is no
-  state where a partially-written file sits at the final path.
-  Incomplete data lives in a temporary `.part` file; on completion
+- **One `haul()` makes one request**. You are responsible for
+  retry loops, but retry just means call `haul()` again.
+- **The destination file will not exist until download is complete.**
+  There is no state where a partially-written file sits at the final
+  path. Incomplete data lives in a temporary `.part` file; on completion
   it is atomically moved into place.
-- **Interrupted downloads resume, not restart.** Checkpoint state
+- **Interrupted downloads resume when possible.** Checkpoint state
   lives on disk, not in memory. Kill the process, lose the network,
   get a 503 — the next `haul()` picks up from the last durable
   byte. Zero re-downloaded data if the resource hasn't changed.
-- **Changed resources are detected, not silently corrupted.** If
+- **If the remote resource changes, retry will not corrupt.** If
   the remote file changes between attempts, `pyhaul` detects the
   mismatch via ETag (a server-side fingerprint) and starts over
   cleanly instead of gluing mismatched halves together.
 - **Your HTTP client is borrowed, not owned.** `pyhaul` sets
-  per-request headers and returns the session untouched. It never
+  per-request headers and returns your session untouched. It never
   creates, configures, or closes sessions.
 - **Transport errors pass through unwrapped.** `httpx.ReadTimeout`
   stays `httpx.ReadTimeout`. You catch the types you already know.
@@ -76,11 +79,12 @@ async def haul_async(url, client, *, dest, state=None) -> CompleteHaul: ...
 
 `state` is an optional `HaulState` bag, updated in-place as bytes
 land on disk — works identically in sync and async. See
-[DESIGN.md](https://github.com/chad-loder/pyhaul/blob/main/DESIGN.md) for the exception hierarchy, transport
+[docs/DESIGN.md](https://github.com/chad-loder/pyhaul/blob/main/docs/DESIGN.md) for the exception hierarchy, transport
 adapters, and download lifecycle.
 
 ## Documentation
 
-- **[Design](https://github.com/chad-loder/pyhaul/blob/main/DESIGN.md)** — transport adapters, checkpoint state, download lifecycle
-- **[Why this exists](https://github.com/chad-loder/pyhaul/blob/main/WHY.md)** — failure modes and comparison with `curl` / `wget` / `aria2c`
-- **[Specification](https://github.com/chad-loder/pyhaul/blob/main/docs/SPEC.md)** — control file format
+- **[docs/DESIGN.md](https://github.com/chad-loder/pyhaul/blob/main/docs/DESIGN.md)** — Transport adapters, checkpoint state, and the download lifecycle.
+- **[docs/WHY.md](https://github.com/chad-loder/pyhaul/blob/main/docs/WHY.md)** — Silent failure modes in HTTP range/resume, and how pyhaul compares
+  to `curl`, `wget`, and `aria2c`.
+- **[docs/SPEC.md](https://github.com/chad-loder/pyhaul/blob/main/docs/SPEC.md)** — Control file and checkpoint format (implementers / compatible tools).

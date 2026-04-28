@@ -1,5 +1,7 @@
 # Design
 
+**See also:** [Specification (on-disk format)](SPEC.md) · [Why pyhaul exists](WHY.md) · [README](../README.md)
+
 ## Exceptions
 
 | Exception | When | Retryable? |
@@ -52,8 +54,8 @@ testing, etc.), implement the `TransportSession` protocol: a single
 4. **200 OK** — server ignores the range (resource changed, or server
    doesn't support ranges). Cursor resets to 0; stream overwrites from
    the beginning.
-5. **416 Range Not Satisfiable** — cursor equals resource length
-   (already complete) or resource shrank (checkpoint reset, next call
-   restarts).
+5. **416 Range Not Satisfiable** — the server’s reported total matches
+   the cursor (already complete) or the representation shrank (checkpoint
+   reset, next call restarts).
 
 The engine handles each case without caller intervention.

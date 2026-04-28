@@ -1,10 +1,11 @@
-# pyhaul Specification v1.0
+# pyhaul Control File Format Specification, Version 1.0
 
-## Status of this Memo
-
-This document specifies the binary format and operational rules for the
-pyhaul resumable downloader. It is intended for implementers of the
-pyhaul protocol and compatible tools.
+This specification defines **version 1** of the on-disk control file: the
+one-byte `Version` field in the header is the unsigned value `1` (octet
+`0x01`). It specifies
+binary layout, TLV metadata, and operational requirements for the pyhaul
+resumable downloader. The intended audience is implementers and authors of
+compatible tools.
 
 ## 1. Introduction
 
@@ -21,7 +22,7 @@ For a destination file `dest.bin`, the following artifacts are managed:
 - `dest.bin.part.ctrl`: The binary checkpoint (the "Control File").
 - `dest.bin`: The final, verified product (only exists upon success).
 
-## 3. Control File Binary Format (v4)
+## 3. Control File Binary Format (v1)
 
 All multi-byte integers are encoded in Little-Endian byte order.
 
@@ -36,7 +37,7 @@ framed TLV extensions, null padding for alignment, and finally the hash payload.
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                      Magic (b"HAUL")                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|  Version (4)  |  Reserved (0) |         HeaderSize            |
+|  Ver. (=1)    |  Reserved (0) |         HeaderSize            |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                         Cursor (64-bit)                       +
@@ -65,7 +66,7 @@ framed TLV extensions, null padding for alignment, and finally the hash payload.
 ### 3.2. Field Definitions
 
 - **Magic (4 bytes):** The literal ASCII string `b"HAUL"`.
-- **Version (1 byte):** Unsigned integer. Currently `4`.
+- **Version (1 byte):** Unsigned integer. Currently `1` (the only defined format).
 - **Reserved (1 byte):** Must be `0`.
 - **HeaderSize (2 bytes):** Total offset in bytes from the start of the file to
   the beginning of the Hashes Payload. This pointer allows parsers to jump to
@@ -100,7 +101,7 @@ control file from causing the parser to misinterpret lengths or ETag strings.
 Supported Tags:
 
 - `1`: ETag (UTF-8 string)
-- `2`: Resource Length (64-bit unsigned integer — the full remote file size)
+- `2`: Reported length (64-bit unsigned integer — server-claimed full size)
 - `3`: Tail Hash (32-byte SHA-256 binary digest of the current partial block)
 
 ### 3.4. Hashes Payload
