@@ -51,7 +51,20 @@ class TransportResponse(Protocol):
 
 @runtime_checkable
 class TransportSession(Protocol):
-    """Sync session: one method (``stream_get``), no lifecycle, no mutation."""
+    """Sync transport: ``prepare_headers`` then ``stream_get``; no lifecycle ownership."""
+
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        """Optionally mutate headers before they are sent.
+
+        The engine calls this after merging user headers and pyhaul structural
+        requirements.  Adapters can use this to suppress headers (e.g. for
+        conformance testing) or add session-specific metadata.
+
+        .. warning::
+           Removing structural headers like ``Range`` or ``If-Range`` may
+           break pyhaul's resume logic.
+        """
+        ...
 
     # CPD-OFF: mirror AsyncTransportSession; keep protocols flat (no inheritance)
     def stream_get(
@@ -79,7 +92,7 @@ class AsyncTransportResponse(Protocol):
     # CPD-OFF: mirror TransportResponse; keep protocols flat (no inheritance)
     @property
     def status_code(self) -> int:
-        """HTTP status line code (e.g. 200, 206, 416)."""
+        """HTTP status code of the response."""
         ...
 
     @property
@@ -100,7 +113,11 @@ class AsyncTransportResponse(Protocol):
 
 @runtime_checkable
 class AsyncTransportSession(Protocol):
-    """Async equivalent of :class:`TransportSession`."""
+    """Async transport: ``prepare_headers`` then ``stream_get`` (async context manager)."""
+
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        """Optionally mutate headers before they are sent (see sync version)."""
+        ...
 
     # CPD-OFF: mirror TransportSession; keep protocols flat (no inheritance)
     def stream_get(

@@ -32,10 +32,11 @@
     options:
       heading_level: 3
 
-::: pyhaul.transport._headers.TransportHeaders
-    options:
-      heading_level: 3
-      members: false
+### TransportHeaders {#transport-headers-type}
+
+The immutable header type used for normalized responses and for merged outbound
+requests inside adapters. Full constructors and methods are documented on the
+dedicated [TransportHeaders](headers.md) page — duplicated here it would collide with that reference.
 
 ## Utility functions
 
@@ -76,5 +77,17 @@
       heading_level: 3
 
 ::: pyhaul.transport.protocols.AsyncTransportResponse
+    options:
+      heading_level: 3
+
+## Transport session proxy
+
+Layer header policy around an existing adapter without subclassing each backend:
+
+::: pyhaul.transport.proxy_transport_session.transport_session_proxy
+    options:
+      heading_level: 3
+
+::: pyhaul.transport.proxy_transport_session.async_transport_session_proxy
     options:
       heading_level: 3

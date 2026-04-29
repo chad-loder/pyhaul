@@ -67,7 +67,26 @@ opening any network connection or creating any files.
 
 `haul()` and `haul_async()` auto-detect supported client types and
 wrap them internally via a registry of adapter factories. The adapter
-protocol is deliberately minimal: a single `stream_get()` context manager.
+protocol stays small: [`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers]
+(optional policy hook) plus [`stream_get()`][pyhaul.transport.protocols.TransportSession.stream_get].
+
+### Request headers
+
+Before each GET, the engine merges headers in order:
+
+1. **Caller-supplied** — optional `headers=` on [`haul()`][pyhaul.engine.haul] /
+   [`haul_async()`][pyhaul.async_engine.haul_async] (same mapping type the adapters receive).
+2. **Structural defaults** — range negotiation (`Range`, `If-Range` when applicable),
+   plus pyhaul's cache and encoding defaults (`Accept-Encoding`, `Cache-Control`), merged so
+   structural requirements win on conflict.
+3. **Adapter policy** — [`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers]
+   receives the merged set as [`TransportHeaders`][pyhaul.transport.types.TransportHeaders]
+   and returns the headers passed to `stream_get`. Built-in adapters use a no-op; custom code
+   can normalize or annotate for tests or telemetry. Removing `Range` / `If-Range` here can
+   break resume — treat those as advanced use only.
+
+For layered debugging or cross-cutting header rules without subclassing every adapter, see
+[Writing a Custom Adapter: session proxy](../guides/custom-transport.md#layering-headers-with-a-session-proxy).
 
 This design means:
 
@@ -76,7 +95,7 @@ This design means:
   pools — everything passes through unchanged.
 - **Transport errors propagate unwrapped.** `httpx.ReadTimeout` stays
   `httpx.ReadTimeout`. You catch the types you already know.
-- **Custom transports are easy.** Implement [`TransportSession`][pyhaul.transport.protocols.TransportSession] (one method)
+- **Custom transports are easy.** Implement [`TransportSession`][pyhaul.transport.protocols.TransportSession] (`prepare_headers` + `stream_get`)
   and register it. See [Writing a Custom Adapter](../guides/custom-transport.md).
 
 For the supported client types and per-adapter notes, see

@@ -148,6 +148,10 @@ class AsyncAiohttpAdapter:
     def __init__(self, session: aiohttp.ClientSession) -> None:
         self._session = session
 
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        """Optionally mutate headers before they are sent (noop)."""
+        return headers
+
     @asynccontextmanager
     async def stream_get(
         self,

@@ -13,6 +13,7 @@ import hashlib
 import logging
 import os
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -39,7 +40,7 @@ from pyhaul.persist import (
     ctrl_path_for,
     write_atomic,
 )
-from pyhaul.transport.types import TransportHeaders
+from pyhaul.transport._headers import TransportHeaders
 
 DEFAULT_CHUNK = 1 << 16  # 64 KiB
 DEFAULT_FLUSH = 1 << 20  # 1 MiB
@@ -70,7 +71,7 @@ class PrepareHaul:
     tail_hash: bytes | None
     block_size: int
     request_byte: int
-    merged_headers: dict[str, str]
+    merged_headers: TransportHeaders
     t0: float
 
 
@@ -91,7 +92,12 @@ class StreamPlan:
 # ─── Preparation ──────────────────────────────────────────────────
 
 
-def prepare_haul(url: str, dest: str | Path) -> PrepareHaul:
+def prepare_haul(
+    url: str,
+    dest: str | Path,
+    *,
+    user_headers: Mapping[str, str] | None = None,
+) -> PrepareHaul:
     """Read checkpoint, build request headers, return immutable context."""
     t0 = time.monotonic()
     dest_path = Path(dest)
@@ -121,7 +127,9 @@ def prepare_haul(url: str, dest: str | Path) -> PrepareHaul:
     req_hdrs: dict[str, str] = {"Range": f"bytes={request_byte}-"}
     if stored_etag:
         req_hdrs["If-Range"] = str(stored_etag)
-    merged = merge_headers({}, {**DEFAULT_HEADERS, **req_hdrs})
+
+    merged = merge_headers(dict(user_headers or {}), {**DEFAULT_HEADERS, **req_hdrs})
+    th = TransportHeaders.from_mapping(merged)
 
     logger.debug(
         "Prepared download request",
@@ -145,7 +153,7 @@ def prepare_haul(url: str, dest: str | Path) -> PrepareHaul:
         tail_hash=tail_hash,
         block_size=block_size,
         request_byte=request_byte,
-        merged_headers=merged,
+        merged_headers=th,
         t0=t0,
     )
 

@@ -127,6 +127,10 @@ class HttpxAdapter:
     def __init__(self, client: httpx.Client) -> None:
         self._client = client
 
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        """Optionally mutate headers before they are sent (noop)."""
+        return headers
+
     @contextmanager
     def stream_get(
         self,
@@ -194,6 +198,10 @@ class AsyncHttpxAdapter:
 
     def __init__(self, client: httpx.AsyncClient) -> None:
         self._client = client
+
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        """Optionally mutate headers before they are sent (noop)."""
+        return headers
 
     @asynccontextmanager
     async def stream_get(

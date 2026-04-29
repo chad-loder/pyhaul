@@ -7,7 +7,9 @@ It requires at least one HTTP client extra to be installed.
     The CLI exists for demonstration and quick smoke-testing. It is **not**
     intended for scripting or automation. Options, output format, and exit
     code semantics may change at any time without notice. For programmatic
-    use, depend on the [`haul()`][pyhaul.engine.haul] / [`haul_async()`][pyhaul.async_engine.haul_async] Python API instead.
+    use, depend on the [`haul()`][pyhaul.engine.haul] /
+    [`haul_async()`][pyhaul.async_engine.haul_async] Python API instead (including the optional
+    `headers=` keyword, which mirrors `-H` / `-A` here).
 
 ## Usage
 

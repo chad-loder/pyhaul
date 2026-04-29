@@ -498,8 +498,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_ERROR
 
     client = _build_client(args)
+    headers = dict(args.header)
+    if args.user_agent:
+        headers["User-Agent"] = args.user_agent
+
     try:
-        return _download_loop(url, client, dest, printer)
+        return _download_loop(url, client, dest, printer, headers=headers)
     finally:
         _close_client(client)
 
@@ -509,6 +513,8 @@ def _download_loop(  # noqa: C901, PLR0911
     client: object,
     dest: Path,
     printer: Printer,
+    *,
+    headers: dict[str, str],
 ) -> int:
     interrupt = _InterruptState()
     _install_signal_handlers(interrupt)
@@ -526,7 +532,7 @@ def _download_loop(  # noqa: C901, PLR0911
         state.bytes_read = 0
 
         try:
-            result = _run_haul(dest, client, url, state)
+            result = _run_haul(dest, client, url, state, headers=headers)
         except PartialHaulError as exc:
             printer.info(f"partial (attempt {attempt}/{_MAX_RETRIES}): {exc.reason}; resuming…")
             if state.bytes_read == 0:
@@ -569,11 +575,12 @@ def _run_haul(
     client: object,
     url: str,
     state: HaulState,
+    headers: dict[str, str],
 ) -> CompleteHaul:
     """Call engine.haul.  Exceptions propagate to the caller."""
     from pyhaul.engine import haul
 
-    return haul(url, client, dest=dest, state=state)
+    return haul(url, client, dest=dest, state=state, headers=headers)
 
 
 def _print_err(msg: str) -> None:
