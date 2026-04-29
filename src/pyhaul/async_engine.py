@@ -25,7 +25,6 @@ from pyhaul._engine_common import (
     StreamPlan,
     after_stream,
     datasync,
-    flush_dirty,
     handle_response,
     open_part_file,
     prepare_haul,
@@ -45,7 +44,43 @@ def _sync_flush(fd: int, plan: StreamPlan, prep: PrepareHaul) -> None:
     save_checkpoint(prep.ctrl_path, plan, prep)
 
 
-async def haul_async(
+def _datasync_and_close(fd: int) -> None:
+    """Final fdatasync then close fd, atomically inside the executor.
+
+    Bundling the datasync and close into a single executor function
+    eliminates the cancellation race where the event-loop thread closes
+    *fd* while an in-flight ``datasync(fd)`` is still running in a worker
+    thread (which surfaces as ``OSError: [Errno 9] Bad file descriptor``).
+    Both syscalls now run serially on the same thread.
+    """
+    try:
+        datasync(fd)
+    finally:
+        with contextlib.suppress(OSError):
+            os.close(fd)
+
+
+def _flush_dirty_and_close(fd: int, plan: StreamPlan, prep: PrepareHaul) -> None:
+    """Best-effort dirty flush + checkpoint, then close fd.
+
+    Used on the ``TransportError`` path.  Same atomicity story as
+    :func:`_datasync_and_close`: every operation that touches *fd* runs
+    on the executor thread, so no event-loop-side close can race with
+    this work.
+    """
+    try:
+        if plan.bytes_since_flush > 0:
+            with contextlib.suppress(OSError):
+                datasync(fd)
+            with contextlib.suppress(OSError):
+                save_checkpoint(prep.ctrl_path, plan, prep)
+            plan.bytes_since_flush = 0
+    finally:
+        with contextlib.suppress(OSError):
+            os.close(fd)
+
+
+async def haul_async(  # noqa: C901 — stream loop + transport/error paths; keep linear
     url: str,
     client: AsyncTransportSession | object,
     *,
@@ -102,6 +137,13 @@ async def haul_async(
                 extra={"pyhaul_part_path": str(prep.part_path)},
             )
             fd = open_part_file(plan, prep.part_path)
+            # Once True, the executor finalizer owns *fd* and is solely
+            # responsible for closing it.  The event-loop-side fallback
+            # close in the outer ``finally`` then becomes a no-op.  This
+            # prevents a cancellation race where the loop thread closes
+            # *fd* while a queued executor task is still calling
+            # ``datasync(fd)`` on it (EBADF).
+            fd_finalized_by_executor = False
             try:
                 async for chunk in resp.aiter_raw_bytes(chunk_size=chunk_size):
                     os.write(fd, chunk)
@@ -120,14 +162,32 @@ async def haul_async(
                     if on_progress is not None:
                         on_progress(state)
 
-                await loop.run_in_executor(None, datasync, fd)
+                # Hand *fd* over to the executor for the final datasync +
+                # close.  The flag is set BEFORE the await so a
+                # cancellation here does not race the executor: the
+                # worker thread runs to completion and closes *fd*
+                # serially after datasync, with no concurrent close
+                # from the loop thread.
+                fd_finalized_by_executor = True
+                await loop.run_in_executor(None, _datasync_and_close, fd)
             except TransportError as exc:
-                flush_dirty(fd, plan, prep)
-                os.close(fd)
+                fd_finalized_by_executor = True
+                await loop.run_in_executor(
+                    None,
+                    _flush_dirty_and_close,
+                    fd,
+                    plan,
+                    prep,
+                )
                 raise PartialHaulError("connection lost during stream") from exc
             finally:
-                with contextlib.suppress(OSError):
-                    os.close(fd)
+                if not fd_finalized_by_executor:
+                    # Reachable only if a synchronous error occurred
+                    # between opening *fd* and any executor handoff.
+                    # Safe to close on the loop thread because no
+                    # executor task is in flight against this fd.
+                    with contextlib.suppress(OSError):
+                        os.close(fd)
 
             return after_stream(plan, prep, state)
     except TransportConnectionError as ce:

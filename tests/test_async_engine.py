@@ -398,8 +398,7 @@ class TestAsyncExecutorOffload:
         from collections.abc import Callable
         from typing import Any
 
-        from pyhaul._engine_common import datasync
-        from pyhaul.async_engine import _sync_flush, haul_async
+        from pyhaul.async_engine import _datasync_and_close, _sync_flush, haul_async
 
         body = b"A" * 200
         session = AsyncMockSession()
@@ -427,7 +426,7 @@ class TestAsyncExecutorOffload:
         assert dest.read_bytes() == body
         assert len(offloaded_fns) >= 2, f"expected >=2 executor calls, got {len(offloaded_fns)}"
         assert _sync_flush in offloaded_fns, "periodic flush should be offloaded"
-        assert datasync in offloaded_fns, "final datasync should be offloaded"
+        assert _datasync_and_close in offloaded_fns, "final fdatasync+close should be offloaded"
 
     @pytest.mark.anyio
     async def test_correctness_with_aggressive_flushing(self, tmp_path: Path) -> None:

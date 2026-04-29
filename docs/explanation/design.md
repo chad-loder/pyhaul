@@ -31,6 +31,26 @@ The engine handles each case without caller intervention.
 - **Discard.** Delete both `.part` and `.part.ctrl` to force a
   restart.
 
+### Stream completeness
+
+After the response body finishes, ``after_stream()``
+compares bytes written to **`plan.extent`** when that value is known from
+**`Content-Range`** (full representation length on **206**). If the stream ends
+with **`plan.cursor < plan.extent`**, pyhaul raises [`PartialHaulError`][pyhaul._types.PartialHaulError]
+and saves checkpoint — this covers “server promised *N* bytes for this
+response, delivered fewer.”
+
+Supported HTTP clients obey transfer framing, so pyhaul does **not** add a
+separate “bytes received vs `Content-Length`” gate for overflow: the raw-byte
+iterator stops at the framing boundary.
+
+When **`Content-Range`** uses an unknown instance length (**`bytes start-end/\*`**),
+**`plan.extent`** may be **`None`**. In that case there is no declared total to
+compare against, so an early-terminated chunked body cannot be detected as
+incomplete here — only as success. That combination is uncommon (e.g. some
+large object stores); fixing it in general would require extra requests (such as
+**`HEAD`**) that pyhaul deliberately avoids.
+
 ## Sidecar file naming and preflight
 
 All sidecar files are derived from the caller-provided destination path by

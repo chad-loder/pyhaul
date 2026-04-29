@@ -47,6 +47,17 @@ their own). To adjust headers inside the adapter layer — for example tests or
 telemetry — implement or wrap [`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers];
 see [Writing a Custom Adapter](custom-transport.md).
 
+### Redirects
+
+pyhaul does not override your HTTP client's redirect policy. Library defaults differ:
+**`httpx.Client`** / **`httpx.AsyncClient`** use **`follow_redirects=False`**
+(httpx treats opt-in redirect following as conservative with respect to credentials on
+cross-host redirects); **`requests.Session`**, **`niquests.Session`**,
+**`aiohttp.ClientSession`**, and urllib3 (via pyhaul's adapter) follow redirects in the
+usual configurations unless you turn that off. CDN and mirror URLs often redirect — configure
+the session or client you pass to pyhaul accordingly (for example
+`httpx.Client(follow_redirects=True)`).
+
 ## Per-client examples
 
 ### httpx (sync)
@@ -232,8 +243,10 @@ client = httpx.Client(
 - Both sync (`httpx.Client`) and async (`httpx.AsyncClient`) are supported.
 - pyhaul uses `response.iter_raw()` / `response.aiter_raw()` to bypass
   content decoding, ensuring byte-accurate resume.
-- `follow_redirects` from `TransportRequestOptions` maps to httpx's
-  `follow_redirects` parameter.
+- Per-request **`follow_redirects`** can be forwarded via **`TransportRequestOptions`**
+  when an adapter receives it (see [Writing a Custom Adapter](custom-transport.md)); otherwise
+  httpx uses your client's default (constructor default is `follow_redirects=False` — see
+  [Redirects](#redirects) above).
 
 ### requests
 
