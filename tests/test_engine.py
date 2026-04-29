@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
@@ -10,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from pyhaul._types import CompleteHaul, ETag, HaulState, PartialHaulError, Url
+from pyhaul._types import EMPTY_ETAG, CompleteHaul, ETag, HaulState, PartialHaulError, ServerMisconfiguredError, Url
 from pyhaul.checkpoint import LATEST_VERSION, Checkpoint, registry
 from pyhaul.persist import ctrl_path_for, write_atomic
 from pyhaul.transport.protocols import TransportResponse
@@ -238,7 +239,7 @@ class TestResume206:
                     start=0,
                     extent=10,
                     valid_length=5,
-                    etag=ETag('"test"'),
+                    etag=ETag.from_canonical("test"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=10,
@@ -258,6 +259,76 @@ class TestResume206:
         assert isinstance(req_headers, TransportHeaders)
         assert req_headers["Range"] == "bytes=5-"
         assert req_headers["If-Range"] == '"test"'
+
+    def test_mislabeled_206_full_body_restores_like_graceful_200(self, tmp_path: Path) -> None:
+        """206 + Content-Range from byte 0 for entire resource while we resumed."""
+        from pyhaul.engine import haul
+
+        full_body = b"AAAAABBBBB"
+        first_half = full_body[:5]
+
+        dest = tmp_path / "out.bin"
+        part_path = dest.with_suffix(dest.suffix + ".part")
+        ctrl_path = ctrl_path_for(part_path)
+
+        part_path.write_bytes(first_half)
+        write_atomic(
+            ctrl_path,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=5,
+                    etag=ETag.from_canonical("test"),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    reported_length=10,
+                )
+            ),
+        )
+
+        session = MockSession()
+        session.add_response(_make_206_response(full_body, start=0, total=len(full_body)))
+
+        result = haul(_TEST_URL, session, dest=str(dest))
+
+        assert isinstance(result, CompleteHaul)
+        assert dest.read_bytes() == full_body
+
+    def test_206_partial_from_zero_when_resume_still_misconfigured(self, tmp_path: Path) -> None:
+        """206 bytes 0-4/10 does not cover full instance — do not treat like 200."""
+        from pyhaul.engine import haul
+
+        full_body = b"AAAAABBBBB"
+        first_half = full_body[:5]
+
+        dest = tmp_path / "out.bin"
+        part_path = dest.with_suffix(dest.suffix + ".part")
+        ctrl_path = ctrl_path_for(part_path)
+
+        part_path.write_bytes(first_half)
+        write_atomic(
+            ctrl_path,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=5,
+                    etag=ETag.from_canonical("test"),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    reported_length=10,
+                )
+            ),
+        )
+
+        session = MockSession()
+        session.add_response(_make_206_response(full_body[:5], start=0, total=len(full_body)))
+
+        with pytest.raises(ServerMisconfiguredError, match=r"Content-Range start 0 != requested 5"):
+            haul(_TEST_URL, session, dest=str(dest))
 
 
 class TestResumeEtagChanged:
@@ -280,7 +351,7 @@ class TestResumeEtagChanged:
                     start=0,
                     extent=5,
                     valid_length=5,
-                    etag=ETag('"old-etag"'),
+                    etag=ETag.from_canonical("old-etag"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=5,
@@ -319,7 +390,7 @@ class TestResumeEtagChanged:
                     start=0,
                     extent=10,
                     valid_length=5,
-                    etag=ETag('"old"'),
+                    etag=ETag.from_canonical("old"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=10,
@@ -357,7 +428,7 @@ class TestResume416AlreadyComplete:
                     start=0,
                     extent=len(body),
                     valid_length=len(body),
-                    etag=ETag('"test"'),
+                    etag=ETag.from_canonical("test"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=len(body),
@@ -401,7 +472,7 @@ class TestResumeNoEtag:
                     start=0,
                     extent=10,
                     valid_length=3,
-                    etag=ETag(""),
+                    etag=EMPTY_ETAG,
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=10,
@@ -423,6 +494,92 @@ class TestResumeNoEtag:
         assert "If-Range" not in req_headers
 
 
+class TestResumeWeakEtag:
+    def test_omits_if_range_and_logs_warning(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Weak checkpoint ETag: Range only; warning explains missing If-Range precondition."""
+        from pyhaul.engine import haul
+
+        caplog.set_level(logging.WARNING)
+
+        full_body = b"0123456789"
+        first = full_body[:3]
+        rest = full_body[3:]
+
+        dest = tmp_path / "out.bin"
+        part_path = dest.with_suffix(dest.suffix + ".part")
+        ctrl_path = ctrl_path_for(part_path)
+
+        part_path.write_bytes(first)
+        write_atomic(
+            ctrl_path,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=3,
+                    etag=ETag.from_canonical("W/weak-token"),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    reported_length=10,
+                )
+            ),
+        )
+
+        session = MockSession()
+        session.add_response(_make_206_response(rest, start=3, total=10))
+
+        result = haul(_TEST_URL, session, dest=str(dest))
+
+        assert isinstance(result, CompleteHaul)
+        assert dest.read_bytes() == full_body
+
+        req_headers = session.requests[0]["headers"]
+        assert isinstance(req_headers, TransportHeaders)
+        assert req_headers["Range"] == "bytes=3-"
+        assert "If-Range" not in req_headers
+        assert any("weak ETag" in rec.message for rec in caplog.records)
+
+    def test_206_skips_strict_etag_match_when_checkpoint_weak(self, tmp_path: Path) -> None:
+        """Weak stored validator must not raise ServerMisconfiguredError on ETag drift."""
+        from pyhaul.engine import haul
+
+        full_body = b"AAAAABBBBB"
+        first_half = full_body[:5]
+        second_half = full_body[5:]
+
+        dest = tmp_path / "out.bin"
+        part_path = dest.with_suffix(dest.suffix + ".part")
+        ctrl_path = ctrl_path_for(part_path)
+
+        part_path.write_bytes(first_half)
+        write_atomic(
+            ctrl_path,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=5,
+                    etag=ETag.from_canonical("W/orig"),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    reported_length=10,
+                )
+            ),
+        )
+
+        session = MockSession()
+        session.add_response(
+            _make_206_response(second_half, start=5, total=10, etag='"different-strong"'),
+        )
+
+        result = haul(_TEST_URL, session, dest=str(dest))
+
+        assert isinstance(result, CompleteHaul)
+        assert dest.read_bytes() == full_body
+
+
 class TestResume416ResourceShrank:
     def test_416_resource_shrank(self, tmp_path: Path) -> None:
         """416 with instance_length < valid_length resets the checkpoint."""
@@ -441,7 +598,7 @@ class TestResume416ResourceShrank:
                     start=0,
                     extent=10,
                     valid_length=10,
-                    etag=ETag('"test"'),
+                    etag=ETag.from_canonical("test"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=10,
@@ -482,7 +639,7 @@ class TestRestart200SizeChange:
                     start=0,
                     extent=5,
                     valid_length=5,
-                    etag=ETag('"old"'),
+                    etag=ETag.from_canonical("old"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=5,
@@ -517,7 +674,7 @@ class TestRestart200SizeChange:
                     start=0,
                     extent=12,
                     valid_length=12,
-                    etag=ETag('"old"'),
+                    etag=ETag.from_canonical("old"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=12,
@@ -552,7 +709,7 @@ class TestRestart200SizeChange:
                     start=0,
                     extent=20,
                     valid_length=20,
-                    etag=ETag('"old"'),
+                    etag=ETag.from_canonical("old"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=20,
@@ -593,7 +750,7 @@ class TestCrashRecovery:
                     start=0,
                     extent=len(full_body),
                     valid_length=len(valid_data),
-                    etag=ETag('"test"'),
+                    etag=ETag.from_canonical("test"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=len(full_body),

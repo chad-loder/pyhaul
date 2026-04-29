@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pyhaul._types import ControlFileError, ETag
+from pyhaul._types import EMPTY_ETAG, ControlFileError, ETag
 from pyhaul.checkpoint import LATEST_VERSION, Checkpoint, registry
 from pyhaul.persist import (
     ctrl_path_for,
@@ -24,7 +24,7 @@ def _make_checkpoint(**overrides: object) -> Checkpoint:
         "start": 0,
         "extent": 104857600,
         "valid_length": 67108864,
-        "etag": ETag('"abc123"'),
+        "etag": ETag.from_canonical("abc123"),
         "block_size": 8 * 1024 * 1024,
         "hashes": [],
         "reported_length": 104857600,
@@ -74,10 +74,10 @@ class TestRoundTrip:
         assert restored.reported_length is None
 
     def test_empty_etag(self) -> None:
-        cp = _make_checkpoint(etag=ETag(""))
+        cp = _make_checkpoint(etag=EMPTY_ETAG)
         raw = registry.dump(cp)
         restored = registry.load(raw)
-        assert restored.etag == ""
+        assert restored.etag == EMPTY_ETAG
 
     def test_zero_valid_length(self) -> None:
         cp = _make_checkpoint(valid_length=0)

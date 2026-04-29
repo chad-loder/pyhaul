@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
 
-from pyhaul._types import CompleteHaul, ETag, HaulState, Url
+from pyhaul._types import CompleteHaul, ETag, HaulState, ServerMisconfiguredError, Url
 from pyhaul.checkpoint import LATEST_VERSION, Checkpoint, registry
 from pyhaul.persist import ctrl_path_for, write_atomic
 from pyhaul.transport.protocols import AsyncTransportResponse
@@ -167,6 +168,33 @@ class TestAsyncFresh206KnownTotal:
         assert state.reported_length == len(body)
 
     @pytest.mark.anyio
+    async def test_on_progress_async_callback(self, tmp_path: Path) -> None:
+        from pyhaul.async_engine import haul_async
+
+        body = b"Hello, async world!"
+        session = AsyncMockSession()
+        session.add_response(_make_206(body, start=0, total=len(body)))
+
+        dest = tmp_path / "out.bin"
+        state = HaulState()
+        seen: list[int] = []
+
+        async def on_progress(s: HaulState) -> None:
+            await asyncio.sleep(0)
+            seen.append(s.valid_length)
+
+        await haul_async(
+            _TEST_URL,
+            session,
+            dest=str(dest),
+            state=state,
+            chunk_size=4,
+            on_progress=on_progress,
+        )
+        assert len(seen) >= 2
+        assert seen[-1] == len(body)
+
+    @pytest.mark.anyio
     async def test_sends_range_header(self, tmp_path: Path) -> None:
         from pyhaul.async_engine import haul_async
 
@@ -241,7 +269,7 @@ class TestAsyncResume206:
                     start=0,
                     extent=10,
                     valid_length=5,
-                    etag=ETag('"test"'),
+                    etag=ETag.from_canonical("test"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=10,
@@ -261,6 +289,76 @@ class TestAsyncResume206:
         assert isinstance(req_headers, TransportHeaders)
         assert req_headers["Range"] == "bytes=5-"
         assert req_headers["If-Range"] == '"test"'
+
+    @pytest.mark.anyio
+    async def test_mislabeled_206_full_body_restores_like_graceful_200(self, tmp_path: Path) -> None:
+        from pyhaul.async_engine import haul_async
+
+        full_body = b"AAAAABBBBB"
+        first_half = full_body[:5]
+
+        dest = tmp_path / "out.bin"
+        part_path = dest.with_suffix(dest.suffix + ".part")
+        ctrl_path = ctrl_path_for(part_path)
+
+        part_path.write_bytes(first_half)
+        write_atomic(
+            ctrl_path,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=5,
+                    etag=ETag.from_canonical("test"),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    reported_length=10,
+                )
+            ),
+        )
+
+        session = AsyncMockSession()
+        session.add_response(_make_206(full_body, start=0, total=len(full_body)))
+
+        result = await haul_async(_TEST_URL, session, dest=str(dest))
+
+        assert isinstance(result, CompleteHaul)
+        assert dest.read_bytes() == full_body
+
+    @pytest.mark.anyio
+    async def test_206_partial_from_zero_when_resume_still_misconfigured(self, tmp_path: Path) -> None:
+        from pyhaul.async_engine import haul_async
+
+        full_body = b"AAAAABBBBB"
+        first_half = full_body[:5]
+
+        dest = tmp_path / "out.bin"
+        part_path = dest.with_suffix(dest.suffix + ".part")
+        ctrl_path = ctrl_path_for(part_path)
+
+        part_path.write_bytes(first_half)
+        write_atomic(
+            ctrl_path,
+            registry.dump(
+                Checkpoint(
+                    version=LATEST_VERSION,
+                    start=0,
+                    extent=10,
+                    valid_length=5,
+                    etag=ETag.from_canonical("test"),
+                    block_size=8 * 1024 * 1024,
+                    hashes=[],
+                    reported_length=10,
+                )
+            ),
+        )
+
+        session = AsyncMockSession()
+        session.add_response(_make_206(full_body[:5], start=0, total=len(full_body)))
+
+        with pytest.raises(ServerMisconfiguredError, match=r"Content-Range start 0 != requested 5"):
+            await haul_async(_TEST_URL, session, dest=str(dest))
 
 
 class TestAsyncResumeEtagChanged:
@@ -284,7 +382,7 @@ class TestAsyncResumeEtagChanged:
                     start=0,
                     extent=5,
                     valid_length=5,
-                    etag=ETag('"old-etag"'),
+                    etag=ETag.from_canonical("old-etag"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=5,
@@ -320,7 +418,7 @@ class TestAsyncResume416AlreadyComplete:
                     start=0,
                     extent=len(body),
                     valid_length=len(body),
-                    etag=ETag('"test"'),
+                    etag=ETag.from_canonical("test"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=len(body),
@@ -366,7 +464,7 @@ class TestAsyncCrashRecovery:
                     start=0,
                     extent=len(full_body),
                     valid_length=len(valid_data),
-                    etag=ETag('"test"'),
+                    etag=ETag.from_canonical("test"),
                     block_size=8 * 1024 * 1024,
                     hashes=[],
                     reported_length=len(full_body),

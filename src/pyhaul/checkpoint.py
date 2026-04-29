@@ -15,7 +15,8 @@ from dataclasses import dataclass, field
 from enum import IntEnum, unique
 from typing import Final, Protocol, runtime_checkable
 
-from pyhaul._types import ControlFileError, ETag, parse_etag
+from pyhaul._types import ControlFileError
+from pyhaul.etag import EMPTY_ETAG, ETag
 
 # On-disk / wire version (v1 is the only format today).
 V1_BINARY: Final = 1
@@ -100,7 +101,9 @@ class V1BinaryCodec:
         extensions = bytearray()
 
         if cp.etag:
-            extensions.extend(self._pack_tlv(Tag.ETAG, cp.etag.encode("utf-8")))
+            canon = cp.etag.to_canonical()
+            if canon:
+                extensions.extend(self._pack_tlv(Tag.ETAG, canon.encode("utf-8")))
 
         if cp.reported_length is not None:
             extensions.extend(self._pack_tlv(Tag.REPORTED_LENGTH, struct.pack("<Q", cp.reported_length)))
@@ -168,7 +171,7 @@ class V1BinaryCodec:
         )
 
     def _parse_extensions(self, data: bytes, header_size: int) -> tuple[ETag, int | None, bytes | None]:
-        etag = ETag("")
+        etag = EMPTY_ETAG
         reported_len: int | None = None
         tail_hash: bytes | None = None
 
@@ -195,7 +198,7 @@ class V1BinaryCodec:
             value = data[ptr + 3 : ptr + 3 + v_len]
 
             if tag_val == Tag.ETAG:
-                etag = parse_etag(value.decode("utf-8"))
+                etag = ETag.from_canonical(value.decode("utf-8"))
             elif tag_val == Tag.REPORTED_LENGTH and v_len == _REPORTED_LEN_U64_SIZE:
                 reported_len = struct.unpack("<Q", value)[0]
             elif tag_val == Tag.TAIL_HASH:

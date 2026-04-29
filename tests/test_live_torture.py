@@ -132,16 +132,16 @@ def test_200_truncation_restarts_from_zero(http: HttpTest) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _write_synthetic_ctrl(http: HttpTest, *, valid_length: int, extent: int, etag: str = '"test-etag"') -> None:
+def _write_synthetic_ctrl(http: HttpTest, *, valid_length: int, extent: int, etag: str = "test-etag") -> None:
     """Stage a .ctrl as if a prior haul wrote ``valid_length`` bytes."""
-    from pyhaul._types import ETag
+    from pyhaul.etag import parse_etag
 
     cp = Checkpoint(
         version=LATEST_VERSION,
         start=0,
         extent=extent,
         valid_length=valid_length,
-        etag=ETag(etag),
+        etag=parse_etag(etag),
         block_size=8 * 1024 * 1024,
         hashes=[],
         reported_length=extent,

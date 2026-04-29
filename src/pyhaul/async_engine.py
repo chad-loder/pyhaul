@@ -4,18 +4,27 @@ Async mirror of :mod:`pyhaul.engine`.  All non-I/O logic is shared via
 :mod:`pyhaul._engine_common`; only the session context manager and the
 chunk iterator differ (``async with`` / ``async for``).
 
-Blocking disk I/O (``fdatasync``, checkpoint writes) is offloaded to the
-default executor via :func:`asyncio.loop.run_in_executor` so the event
-loop stays responsive for other tasks during periodic flushes.
+Blocking disk preparation (:func:`~pyhaul._engine_common.prepare_haul`),
+opening/preallocating the ``.part`` file (:func:`~pyhaul._engine_common.open_part_file`),
+HTTP ``416`` completion handling (including tree-hash of large ``.part`` files via
+:func:`~pyhaul._engine_common.handle_response`), post-download finalization
+(:func:`~pyhaul._engine_common.after_stream` — stat / truncate / rename / unlink),
+and ``fdatasync`` / checkpoint writes (including the best-effort dirty flush and
+close on ``TransportError``, ``asyncio.CancelledError``, or other abnormal exits in ``_flush_dirty_and_close``)
+use :func:`asyncio.loop.run_in_executor`
+(the default :class:`~concurrent.futures.ThreadPoolExecutor`) so the event loop
+stays responsive under concurrent downloads, slow filesystems, or streaming flushes.
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
+import inspect
 import logging
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from pathlib import Path
 
 from pyhaul._engine_common import (
@@ -31,11 +40,19 @@ from pyhaul._engine_common import (
     save_checkpoint,
 )
 from pyhaul._session_dispatch import coerce_async_session
-from pyhaul._types import CompleteHaul, HaulState, PartialHaulError
+from pyhaul._types import (
+    AsyncProgressCallback,
+    CompleteHaul,
+    HaulState,
+    PartialHaulError,
+)
 from pyhaul.transport.errors import TransportConnectionError, TransportError
 from pyhaul.transport.protocols import AsyncTransportSession
 
 logger = logging.getLogger(__name__)
+
+# HTTP 416 Range Not Satisfiable — must match ``_engine_common._HTTP_416``.
+_HTTP_RANGE_NOT_SATISFIABLE = 416
 
 
 def _sync_flush(fd: int, plan: StreamPlan, prep: PrepareHaul) -> None:
@@ -80,7 +97,13 @@ def _flush_dirty_and_close(fd: int, plan: StreamPlan, prep: PrepareHaul) -> None
             os.close(fd)
 
 
-async def haul_async(  # noqa: C901 — stream loop + transport/error paths; keep linear
+async def _maybe_await_progress(cb: AsyncProgressCallback, state: HaulState) -> None:
+    out = cb(state)
+    if inspect.isawaitable(out):
+        await out
+
+
+async def haul_async(  # noqa: C901, PLR0912, PLR0915 — stream loop + transport/error paths; keep linear
     url: str,
     client: AsyncTransportSession | object,
     *,
@@ -89,7 +112,7 @@ async def haul_async(  # noqa: C901 — stream loop + transport/error paths; kee
     state: HaulState | None = None,
     chunk_size: int = DEFAULT_CHUNK,
     flush_every: int = DEFAULT_FLUSH,
-    on_progress: Callable[[HaulState], None] | None = None,
+    on_progress: AsyncProgressCallback | None = None,
 ) -> CompleteHaul:
     """Async equivalent of :func:`pyhaul.engine.haul`.
 
@@ -105,8 +128,11 @@ async def haul_async(  # noqa: C901 — stream loop + transport/error paths; kee
     throughout the download — always accurate regardless of how the
     function exits.
 
-    *on_progress*, if set, is called after each chunk (synchronous
-    callback; same contract as :func:`pyhaul.engine.haul`).
+    *on_progress*, if set, is called after each chunk.  It may be an
+    ordinary synchronous callable or return an awaitable (for example
+    an ``async def``); when the return value is awaitable, it is
+    awaited before the next chunk is read.  :func:`pyhaul.engine.haul`
+    accepts only synchronous callbacks.
 
     Returns :class:`CompleteHaul` on success.  Raises
     :class:`PartialHaulError` when the stream ends before all bytes
@@ -118,15 +144,31 @@ async def haul_async(  # noqa: C901 — stream loop + transport/error paths; kee
         state = HaulState()
     transport = coerce_async_session(client)
 
-    prep = prepare_haul(url, dest, user_headers=headers)
+    loop = asyncio.get_running_loop()
+    prep = await loop.run_in_executor(
+        None,
+        functools.partial(prepare_haul, url, dest, user_headers=headers),
+    )
+
     prepare_fn = getattr(transport, "prepare_headers", None)
     final_headers = prepare_fn(prep.merged_headers) if prepare_fn else prep.merged_headers
 
-    loop = asyncio.get_running_loop()
-
     try:
         async with transport.stream_get(prep.parsed_url, headers=final_headers) as resp:
-            action = handle_response(resp.status_code, resp.headers, prep, state)
+            # 416 → _on_416 may SHA-hash multi-GB .part files before finalize — offload.
+            if resp.status_code == _HTTP_RANGE_NOT_SATISFIABLE:
+                action = await loop.run_in_executor(
+                    None,
+                    functools.partial(
+                        handle_response,
+                        resp.status_code,
+                        resp.headers,
+                        prep,
+                        state,
+                    ),
+                )
+            else:
+                action = handle_response(resp.status_code, resp.headers, prep, state)
 
             if not isinstance(action, StreamPlan):
                 return action
@@ -136,13 +178,15 @@ async def haul_async(  # noqa: C901 — stream loop + transport/error paths; kee
                 "Beginning response body stream",
                 extra={"pyhaul_part_path": str(prep.part_path)},
             )
-            fd = open_part_file(plan, prep.part_path)
+            fd = await loop.run_in_executor(
+                None,
+                functools.partial(open_part_file, plan, prep.part_path),
+            )
             # Once True, the executor finalizer owns *fd* and is solely
-            # responsible for closing it.  The event-loop-side fallback
-            # close in the outer ``finally`` then becomes a no-op.  This
-            # prevents a cancellation race where the loop thread closes
-            # *fd* while a queued executor task is still calling
-            # ``datasync(fd)`` on it (EBADF).
+            # responsible for closing it.  ``finally`` below may call
+            # ``_flush_dirty_and_close`` if the stream exits without a finisher—
+            # preventing a cancellation race where the loop thread closes *fd*
+            # while ``datasync(fd)`` is still running (EBADF).
             fd_finalized_by_executor = False
             try:
                 async for chunk in resp.aiter_raw_bytes(chunk_size=chunk_size):
@@ -160,16 +204,7 @@ async def haul_async(  # noqa: C901 — stream loop + transport/error paths; kee
                         plan.bytes_since_flush = 0
 
                     if on_progress is not None:
-                        on_progress(state)
-
-                # Hand *fd* over to the executor for the final datasync +
-                # close.  The flag is set BEFORE the await so a
-                # cancellation here does not race the executor: the
-                # worker thread runs to completion and closes *fd*
-                # serially after datasync, with no concurrent close
-                # from the loop thread.
-                fd_finalized_by_executor = True
-                await loop.run_in_executor(None, _datasync_and_close, fd)
+                        await _maybe_await_progress(on_progress, state)
             except TransportError as exc:
                 fd_finalized_by_executor = True
                 await loop.run_in_executor(
@@ -180,16 +215,37 @@ async def haul_async(  # noqa: C901 — stream loop + transport/error paths; kee
                     prep,
                 )
                 raise PartialHaulError("connection lost during stream") from exc
+            except asyncio.CancelledError:
+                # Persist bytes written since the last periodic flush so cancel-resume
+                # matches abrupt-exit checkpoint semantics.
+                fd_finalized_by_executor = True
+                await loop.run_in_executor(
+                    None,
+                    _flush_dirty_and_close,
+                    fd,
+                    plan,
+                    prep,
+                )
+                raise
+            else:
+                # Normal stream end: final datasync + close on the executor thread.
+                fd_finalized_by_executor = True
+                await loop.run_in_executor(None, _datasync_and_close, fd)
             finally:
                 if not fd_finalized_by_executor:
-                    # Reachable only if a synchronous error occurred
-                    # between opening *fd* and any executor handoff.
-                    # Safe to close on the loop thread because no
-                    # executor task is in flight against this fd.
-                    with contextlib.suppress(OSError):
-                        os.close(fd)
+                    await loop.run_in_executor(
+                        None,
+                        _flush_dirty_and_close,
+                        fd,
+                        plan,
+                        prep,
+                    )
+                    fd_finalized_by_executor = True
 
-            return after_stream(plan, prep, state)
+            return await loop.run_in_executor(
+                None,
+                functools.partial(after_stream, plan, prep, state),
+            )
     except TransportConnectionError as ce:
         raise PartialHaulError("connection error") from ce
     except TransportError as te:
