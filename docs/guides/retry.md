@@ -205,7 +205,7 @@ tenacity's async support works transparently with `haul_async`.
 | --- | --- | --- |
 | [`PartialHaulError`][pyhaul._types.PartialHaulError] | Yes | Stream ended early; progress saved to checkpoint |
 | Transport errors (timeout, connection reset) | Yes | Transient network issue — see table below |
-| [`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError] | Caller decides | `exc.is_transient` is True for 429/503, False for 404/403/etc. |
+| [`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError] | Caller decides | `exc.is_transient` is True for common temporary statuses (408, 425, 429, many 5xx, CDN codes); `exc.is_server_error` is True for any HTTP 5xx |
 | [`ServerMisconfiguredError`][pyhaul._types.ServerMisconfiguredError] | No | Server violates HTTP in a way that prevents safe resume |
 | [`DestinationError`][pyhaul._types.DestinationError] | No | Path problem — retrying won't fix it |
 | [`ControlFileError`][pyhaul._types.ControlFileError] | Auto-recovers | Corrupt checkpoint is discarded; next attempt starts fresh |
@@ -226,7 +226,7 @@ never wraps them. The retryable base class varies by library:
 When the server returns a non-download status (anything other than 200, 206, or
 416), pyhaul raises [`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError]
 with structured metadata — `status_code`, `headers`, and a convenience
-`is_transient` property — so you can branch on status codes and honour
+`is_transient` / `is_server_error` — so you can branch on status codes and honour
 `Retry-After` without parsing strings:
 
 === "httpx"

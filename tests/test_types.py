@@ -200,17 +200,32 @@ class TestUnexpectedStatusError:
         assert str(exc) == "rate limited"
         assert exc.reason == "rate limited"
 
-    def test_is_transient_429(self) -> None:
+    def test_is_transient_common_overload_and_upstream_codes(self) -> None:
+        assert self._make(408).is_transient is True
+        assert self._make(425).is_transient is True
         assert self._make(429).is_transient is True
-
-    def test_is_transient_503(self) -> None:
+        assert self._make(500).is_transient is True
+        assert self._make(502).is_transient is True
         assert self._make(503).is_transient is True
+        assert self._make(504).is_transient is True
+        assert self._make(520).is_transient is True
+        assert self._make(522).is_transient is True
+        assert self._make(524).is_transient is True
 
     def test_is_not_transient_404(self) -> None:
         assert self._make(404).is_transient is False
 
-    def test_is_not_transient_500(self) -> None:
-        assert self._make(500).is_transient is False
+    def test_is_server_error_5xx(self) -> None:
+        assert self._make(500).is_server_error is True
+        assert self._make(503).is_server_error is True
+        assert self._make(599).is_server_error is True
+
+    def test_is_not_server_error_4xx(self) -> None:
+        assert self._make(429).is_server_error is False
+        assert self._make(404).is_server_error is False
+
+    def test_is_server_error_excludes_non_http_class(self) -> None:
+        assert self._make(200).is_server_error is False
 
     def test_retry_after_present(self) -> None:
         exc = self._make()

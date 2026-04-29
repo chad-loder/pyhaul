@@ -39,6 +39,26 @@ for size bookkeeping only)."""
 _URL_SCHEMES: frozenset[str] = frozenset({"http", "https"})
 _MIN_QUOTED_ETAG_LEN = 2  # two DQUOTEs wrap any valid entity-tag
 
+# Status codes CDNs and origins often use for temporary overload, upstream failure,
+# or rate limiting — conservative superset for default retry hints.
+_TRANSIENT_HTTP_STATUSES: frozenset[int] = frozenset(
+    {
+        408,  # Request Timeout
+        425,  # Too Early
+        429,  # Too Many Requests
+        500,  # Internal Server Error
+        502,  # Bad Gateway
+        503,  # Service Unavailable
+        504,  # Gateway Timeout
+        520,  # Cloudflare: unknown error
+        522,  # Cloudflare: connection timed out
+        524,  # Cloudflare: a timeout occurred
+    },
+)
+
+_HTTP_SERVER_ERROR_MIN = 500
+_HTTP_SERVER_ERROR_MAX = 599
+
 
 def parse_url(raw: str) -> Url:
     """Validate *raw* as an http(s) URL and brand it as :data:`Url`.
@@ -178,8 +198,18 @@ class UnexpectedStatusError(HaulError):
 
     @property
     def is_transient(self) -> bool:
-        """``True`` for 429 (Too Many Requests) and 503 (Service Unavailable)."""
-        return self.status_code in {429, 503}
+        """True when the status usually indicates a temporary condition worth retrying.
+
+        Includes common overload / upstream / CDN signals (e.g. ``408``, ``425``,
+        ``429``, ``5xx`` gateway and origin errors, and Cloudflare ``520``/``522``/``524``).
+        For any HTTP 5xx without branching on this set, see :attr:`is_server_error`.
+        """
+        return self.status_code in _TRANSIENT_HTTP_STATUSES
+
+    @property
+    def is_server_error(self) -> bool:
+        """True for HTTP 5xx responses (status ``500`` ≤ code ≤ ``599``)."""
+        return _HTTP_SERVER_ERROR_MIN <= self.status_code <= _HTTP_SERVER_ERROR_MAX
 
     @property
     def retry_after(self) -> str | None:

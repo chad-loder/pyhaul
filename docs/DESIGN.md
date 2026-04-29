@@ -7,7 +7,7 @@
 | Exception | When | Retryable? |
 | --- | --- | --- |
 | `PartialHaulError` | Stream ended before all bytes arrived. | Yes — call `haul()` again |
-| `UnexpectedStatusError` | Server returned a non-download status (429, 503, 404, …). | Lets caller decide — check `exc.is_transient` |
+| `UnexpectedStatusError` | Server returned a non-download status (408, 429, 5xx, 404, …). | Lets caller decide — check `exc.is_transient` / `exc.is_server_error` |
 | `ServerMisconfiguredError` | Server violated HTTP in a way that prevents safe resume. | No |
 | `ContentRangeError` | 206 Content-Range doesn't match the requested range. | Often yes |
 | `ControlFileError` | `.part.ctrl` is corrupt or version-mismatched. Discarded on next attempt. | Auto-recovers |
