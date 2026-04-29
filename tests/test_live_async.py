@@ -123,12 +123,14 @@ class _MultiFileHandler(_http_server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Length", str(len(content)))
         self.send_header("ETag", f'"seed-{len(content)}"')
+        if truncate:
+            # Announce close before framing the body as keep-alive; avoids slam-close EBADF races.
+            self.send_header("Connection", "close")
+            self.close_connection = True
         self.end_headers()
         if truncate:
             self.wfile.write(content[: len(content) // 2])
             self.wfile.flush()
-            self.connection.close()
-            self.close_connection = True
         else:
             self.wfile.write(content)
 
@@ -148,12 +150,13 @@ class _MultiFileHandler(_http_server.BaseHTTPRequestHandler):
         self.send_header("Content-Range", f"bytes {start}-{end}/{len(content)}")
         self.send_header("Content-Length", str(len(chunk)))
         self.send_header("ETag", f'"seed-{len(content)}"')
+        if truncate:
+            self.send_header("Connection", "close")
+            self.close_connection = True
         self.end_headers()
         if truncate:
             self.wfile.write(chunk[: len(chunk) // 2])
             self.wfile.flush()
-            self.connection.close()
-            self.close_connection = True
         else:
             self.wfile.write(chunk)
 
