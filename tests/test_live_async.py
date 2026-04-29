@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import gc
 import http.server as _http_server
+import os
 import socket
 import threading
 import time
@@ -94,6 +95,11 @@ class _ServerFaults:
         """True if this request should be truncated mid-body."""
         attempt = self.hit(file_idx)
         return attempt < self.truncate_first_n
+
+    def reset_attempts(self) -> None:
+        """Clear per-file counters (for stress loops that reuse one server)."""
+        with self._lock:
+            self._hits.clear()
 
 
 class _MultiFileHandler(_http_server.BaseHTTPRequestHandler):
@@ -397,3 +403,77 @@ class TestConcurrentAsyncDownloads:
             expected = _deterministic(file_size, seed=i)
             assert (dest_dir / f"file_{i}.bin").read_bytes() == expected
             assert partial_count[i] >= 1, f"file {i}: expected at least 1 PartialHaulError"
+
+
+class TestTruncationConcurrentStress:
+    """Tight-loop regression harness for async-engine teardown races.
+
+    Mirrors :meth:`TestConcurrentAsyncDownloads.test_truncation_and_resume_concurrent`
+    (``TaskGroup``, shared client, first GET truncated per file, resume loop). Running
+    many iterations increases the chance of surfacing an executor cancellation race on
+    the final ``fdatasync`` / ``close`` path (e.g. ``EBADF`` in a worker thread while
+    the event loop closes the fd).
+
+    **Opt-in:** set ``PYHAUL_TRUNCATION_STRESS_ROUNDS`` to a positive integer (e.g.
+    ``200``). If unset or ``0``, the test is skipped so default CI stays fast.
+
+    Example::
+
+        PYHAUL_TRUNCATION_STRESS_ROUNDS=200 \\
+          uv run pytest tests/test_live_async.py::TestTruncationConcurrentStress \\
+          -q --tb=short
+    """
+
+    @pytest.mark.anyio
+    async def test_truncation_and_resume_concurrent_stress_loop(
+        self,
+        multi_file_server: tuple[str, Path, int, int, _ServerFaults],
+    ) -> None:
+        pytest.importorskip("httpx")
+        rounds_s = os.environ.get("PYHAUL_TRUNCATION_STRESS_ROUNDS", "").strip()
+        if not rounds_s or not rounds_s.isdigit():
+            pytest.skip(
+                "Set PYHAUL_TRUNCATION_STRESS_ROUNDS to a positive integer "
+                "(e.g. 200) to run truncation TaskGroup stress loop",
+            )
+        rounds = int(rounds_s)
+        if rounds < 1:
+            pytest.skip(
+                "PYHAUL_TRUNCATION_STRESS_ROUNDS must be >= 1 (omit or set 0 to skip this stress test)",
+            )
+
+        base_url, dest_dir, _file_count, file_size, faults = multi_file_server
+        target_count = 4
+
+        async with _make_async_client("httpx") as client:
+            for round_ix in range(rounds):
+                faults.truncate_first_n = 1
+                faults.reset_attempts()
+
+                results: dict[int, CompleteHaul] = {}
+                async with asyncio.TaskGroup() as tg:
+                    for i in range(target_count):
+
+                        async def _download(
+                            idx: int = i,
+                            *,
+                            r: int = round_ix,
+                            bucket: dict[int, CompleteHaul] = results,
+                        ) -> None:
+                            url = f"{base_url}/{idx}"
+                            dest = dest_dir / f"stress_r{r}_f{idx}.bin"
+                            for attempt in range(5):
+                                try:
+                                    bucket[idx] = await haul_async(url, client, dest=str(dest))
+                                    break
+                                except PartialHaulError:
+                                    assert attempt < 4, f"round {r} file {idx}: still partial after 5 attempts"
+
+                        tg.create_task(_download())
+
+                assert len(results) == target_count
+                for i in range(target_count):
+                    expected = _deterministic(file_size, seed=i)
+                    path = dest_dir / f"stress_r{round_ix}_f{i}.bin"
+                    assert path.read_bytes() == expected
+                    assert results[i].sha256 == _tree_hash(expected)
