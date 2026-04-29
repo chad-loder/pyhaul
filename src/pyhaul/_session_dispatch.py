@@ -5,13 +5,14 @@ packages can register additional adapters via :func:`register_sync_adapter`
 and :func:`register_async_adapter` — no monkeypatching required.
 
 Each adapter factory is a callable ``(object) -> T | None``.  The dispatch
-walks the factory list in registration order; the first non-``None`` result
+walks the factory tuple in registration order; the first non-``None`` result
 wins.  Built-in factories use lazy imports so no backend is pulled until a
 matching client object actually arrives.
 """
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 
 from pyhaul.transport.protocols import AsyncTransportSession, TransportSession
@@ -113,21 +114,23 @@ def _try_async_aiohttp(obj: object) -> AsyncTransportSession | None:
 
 
 # ---------------------------------------------------------------------------
-# Registries
+# Registries (immutable tuples; registration uses copy-on-write under lock)
 # ---------------------------------------------------------------------------
 
-_sync_factories: list[SyncAdapterFactory] = [
+_registry_lock = threading.Lock()
+
+_sync_factories: tuple[SyncAdapterFactory, ...] = (
     _try_requests,
     _try_niquests,
     _try_httpx,
     _try_urllib3,
-]
+)
 
-_async_factories: list[AsyncAdapterFactory] = [
+_async_factories: tuple[AsyncAdapterFactory, ...] = (
     _try_async_niquests,
     _try_async_httpx,
     _try_async_aiohttp,
-]
+)
 
 
 def register_sync_adapter(factory: SyncAdapterFactory) -> None:
@@ -138,7 +141,9 @@ def register_sync_adapter(factory: SyncAdapterFactory) -> None:
     Factories are tried in registration order; the first non-``None``
     result wins.
     """
-    _sync_factories.append(factory)
+    global _sync_factories  # noqa: PLW0603
+    with _registry_lock:
+        _sync_factories = (*_sync_factories, factory)
 
 
 def register_async_adapter(factory: AsyncAdapterFactory) -> None:
@@ -147,7 +152,9 @@ def register_async_adapter(factory: AsyncAdapterFactory) -> None:
     *factory* is called with a raw client object and must return an
     :class:`~pyhaul.transport.protocols.AsyncTransportSession` or ``None``.
     """
-    _async_factories.append(factory)
+    global _async_factories  # noqa: PLW0603
+    with _registry_lock:
+        _async_factories = (*_async_factories, factory)
 
 
 # ---------------------------------------------------------------------------

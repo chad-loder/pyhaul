@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+import pyhaul._session_dispatch as session_dispatch
 from pyhaul._session_dispatch import (
-    _async_factories,
-    _sync_factories,
     coerce_async_session,
     coerce_sync_session,
     register_async_adapter,
@@ -108,15 +107,15 @@ class TestRegisterSyncAdapter:
             calls.append(obj)
             return None
 
-        original_len = len(_sync_factories)
+        saved = session_dispatch._sync_factories
         register_sync_adapter(fake_factory)
         try:
             with pytest.raises(TypeError):
                 coerce_sync_session(sentinel)
             assert sentinel in calls
         finally:
-            _sync_factories.pop()
-            assert len(_sync_factories) == original_len
+            session_dispatch._sync_factories = saved
+            assert len(session_dispatch._sync_factories) == len(saved)
 
     def test_custom_factory_wins(self) -> None:
         niquests = pytest.importorskip("niquests")
@@ -127,12 +126,13 @@ class TestRegisterSyncAdapter:
         def always_match(obj: object) -> TransportSession | None:
             return custom_adapter
 
+        saved = session_dispatch._sync_factories
         register_sync_adapter(always_match)
         try:
             result = coerce_sync_session(object())
             assert result is custom_adapter
         finally:
-            _sync_factories.pop()
+            session_dispatch._sync_factories = saved
 
 
 class TestRegisterAsyncAdapter:
@@ -143,12 +143,12 @@ class TestRegisterAsyncAdapter:
             calls.append(obj)
             return None
 
-        original_len = len(_async_factories)
+        saved = session_dispatch._async_factories
         register_async_adapter(fake_factory)
         try:
             with pytest.raises(TypeError):
                 coerce_async_session(object())
             assert len(calls) == 1
         finally:
-            _async_factories.pop()
-            assert len(_async_factories) == original_len
+            session_dispatch._async_factories = saved
+            assert len(session_dispatch._async_factories) == len(saved)
