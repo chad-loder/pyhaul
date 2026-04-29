@@ -25,6 +25,7 @@ import inspect
 import logging
 import os
 from collections.abc import Mapping
+from http import HTTPStatus
 from pathlib import Path
 
 from pyhaul._engine_common import (
@@ -50,9 +51,6 @@ from pyhaul.transport.errors import TransportConnectionError, TransportError
 from pyhaul.transport.protocols import AsyncTransportSession
 
 logger = logging.getLogger(__name__)
-
-# HTTP 416 Range Not Satisfiable — must match ``_engine_common._HTTP_416``.
-_HTTP_RANGE_NOT_SATISFIABLE = 416
 
 
 def _sync_flush(fd: int, plan: StreamPlan, prep: PrepareHaul) -> None:
@@ -156,7 +154,7 @@ async def haul_async(  # noqa: C901, PLR0912, PLR0915 — stream loop + transpor
     try:
         async with transport.stream_get(prep.parsed_url, headers=final_headers) as resp:
             # 416 → _on_416 may SHA-hash multi-GB .part files before finalize — offload.
-            if resp.status_code == _HTTP_RANGE_NOT_SATISFIABLE:
+            if resp.status_code == HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE:
                 action = await loop.run_in_executor(
                     None,
                     functools.partial(

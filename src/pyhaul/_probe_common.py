@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import cast
 
 from pyhaul._types import EMPTY_ETAG, ContentRangeError, ETag, ProbeResult, UnexpectedStatusError, parse_etag, parse_url
@@ -13,11 +14,6 @@ from pyhaul.transport._headers import TransportHeaders
 from pyhaul.transport.protocols import AsyncTransportResponse, TransportResponse
 from pyhaul.transport.types import TransportRequestOptions
 
-_HTTP_200 = 200
-_HTTP_206 = 206
-_HTTP_416 = 416
-_HTTP_REDIRECT = 300
-_HTTP_BAD_REQ = 400
 _DEFAULT_CHUNK = 1 << 16
 
 
@@ -61,9 +57,9 @@ def _pypdl_style_metadata_complete(headers: TransportHeaders, *, head_was_2xx: b
 
 def _total_length_from_status(status: int, headers: TransportHeaders) -> int | None:
     """Infer full entity length from *status* and *headers* when possible."""
-    if status == _HTTP_200:
+    if status == HTTPStatus.OK:
         return _parse_content_length(headers.get("Content-Length"))
-    if status not in (_HTTP_206, _HTTP_416):
+    if status not in (HTTPStatus.PARTIAL_CONTENT, HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE):
         return None
     cr_raw = headers.get("Content-Range")
     if not cr_raw:
@@ -72,7 +68,7 @@ def _total_length_from_status(status: int, headers: TransportHeaders) -> int | N
         cr = parse_content_range(cr_raw)
     except ContentRangeError:
         return None
-    if status == _HTTP_416:
+    if status == HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE:
         return cr.instance_length if cr.is_unsatisfied else None
     return cr.instance_length
 
@@ -84,9 +80,9 @@ def _unexpected(status: int, headers: TransportHeaders) -> UnexpectedStatusError
 
 def _finalize_allowed_status(status: int, headers: TransportHeaders) -> None:
     """Raise if *status* is not an acceptable terminal probe response."""
-    if status in (_HTTP_200, _HTTP_206):
+    if status in (HTTPStatus.OK, HTTPStatus.PARTIAL_CONTENT):
         return
-    if status == _HTTP_416:
+    if status == HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE:
         cr_raw = headers.get("Content-Range") or ""
         if cr_raw.strip():
             try:
@@ -96,7 +92,7 @@ def _finalize_allowed_status(status: int, headers: TransportHeaders) -> None:
             if cr.is_unsatisfied and cr.instance_length is not None:
                 return
         raise _unexpected(status, headers)
-    if status >= _HTTP_BAD_REQ:
+    if status >= HTTPStatus.BAD_REQUEST:
         raise _unexpected(status, headers)
 
 
@@ -190,7 +186,7 @@ def run_probe_sync(
         head_attempted = True
         head_status_code = head_resp.status_code
         hh = head_resp.headers
-        if _HTTP_200 <= head_resp.status_code < _HTTP_REDIRECT:
+        if HTTPStatus.OK <= head_resp.status_code < HTTPStatus.MULTIPLE_CHOICES:
             head_headers_saved = hh
             snap = snapshot_from_response(head_resp.status_code, hh)
             skip_get = _pypdl_style_metadata_complete(hh, head_was_2xx=True)
@@ -254,7 +250,7 @@ async def run_probe_async(
         head_attempted = True
         head_status_code = head_resp.status_code
         hh = head_resp.headers
-        if _HTTP_200 <= head_resp.status_code < _HTTP_REDIRECT:
+        if HTTPStatus.OK <= head_resp.status_code < HTTPStatus.MULTIPLE_CHOICES:
             head_headers_saved = hh
             snap = snapshot_from_response(head_resp.status_code, hh)
             skip_get = _pypdl_style_metadata_complete(hh, head_was_2xx=True)
