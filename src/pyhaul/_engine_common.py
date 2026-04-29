@@ -52,6 +52,9 @@ _HTTP_200 = 200
 _HTTP_206 = 206
 _HTTP_416 = 416
 
+# Final responses when the underlying client chose not to follow (library default or explicit).
+_REDIRECT_STATUSES: frozenset[int] = frozenset({301, 302, 303, 307, 308})
+
 
 # ─── Dataclasses ──────────────────────────────────────────────────
 
@@ -189,7 +192,21 @@ def handle_response(
         return _plan_206(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
 
     if status == _HTTP_200:
-        return _plan_200(headers, state, resp_etag=resp_etag, content_type=resp_ct)
+        return _plan_200(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
+
+    if status in _REDIRECT_STATUSES:
+        loc = (headers.get("Location") or "").strip()
+        if loc:
+            reason = (
+                f"The server responded with HTTP {status} and redirected to {loc!r}, "
+                "but redirects were not followed, so the download never reached the final resource."
+            )
+        else:
+            reason = (
+                f"The server responded with HTTP {status} with a redirect to another URL, "
+                "but redirects were not followed, so the download never reached the final resource."
+            )
+        raise UnexpectedStatusError(status, headers, reason=reason)
 
     raise UnexpectedStatusError(status, headers)
 
@@ -339,12 +356,27 @@ def _parse_content_length(raw: str | None) -> int | None:
 
 def _plan_200(
     headers: TransportHeaders,
+    prep: PrepareHaul,
     state: HaulState,
     *,
     resp_etag: ETag,
     content_type: str,
 ) -> StreamPlan:
     resp_cl = _parse_content_length(headers.get("Content-Length"))
+
+    if resp_cl == 0 and prep.cursor > 0:
+        logger.info(
+            "200 OK with Content-Length 0 while resuming had partial progress "
+            "(cursor=%s, request_byte=%s); treating as empty full representation "
+            "and discarding prior bytes — often CDN/misconfiguration vs Range",
+            prep.cursor,
+            prep.request_byte,
+            extra={
+                "pyhaul_resume_cursor": prep.cursor,
+                "pyhaul_request_byte": prep.request_byte,
+                "pyhaul_content_length": resp_cl,
+            },
+        )
 
     state.valid_length = 0
     state.hashes = []
@@ -416,7 +448,12 @@ def write_chunk(
 
 
 def after_stream(plan: StreamPlan, prep: PrepareHaul, state: HaulState) -> CompleteHaul:
-    """Post-loop: check completeness, trim junk tail, finalize or raise partial."""
+    """Post-loop: compare ``cursor`` to ``extent`` when known, trim junk tail, finalize.
+
+    When ``plan.extent`` is ``None`` (e.g. **206** with ``Content-Range`` whose
+    total length is ``*``), there is no byte budget for ``cursor`` to satisfy,
+    so a truncated chunked body cannot be detected as incomplete here.
+    """
     if plan.extent is not None and plan.cursor < plan.extent:
         save_checkpoint(prep.ctrl_path, plan, prep)
         raise PartialHaulError("stream ended before extent reached")
