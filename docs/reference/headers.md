@@ -53,7 +53,7 @@ h = TransportHeaders.from_pairs([
 ])
 
 repr(h)
-# "TransportHeaders({'content-type': 'text/html', 'authorization': '[redacted]'})"
+# "TransportHeaders([('content-type', 'text/html'), ('authorization', '[redacted]')])"
 
 h.to_safe_dict()
 # {'content-type': 'text/html', 'authorization': '[redacted]'}

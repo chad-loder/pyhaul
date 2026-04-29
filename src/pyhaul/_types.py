@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 import hashlib
+import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import UTC
+from email.utils import parsedate_to_datetime
+from http import HTTPStatus
 from pathlib import Path
 from typing import NewType
 from urllib.parse import urlparse
 
+import pyhaul.etag as _etag
 from pyhaul.transport._headers import TransportHeaders
+
+EMPTY_ETAG = _etag.EMPTY_ETAG
+ETag = _etag.ETag
+EntityTag = _etag.EntityTag
+format_entity_tag_for_http_header = _etag.format_entity_tag_for_http_header
+is_weak_validator = _etag.is_weak_validator
+parse_etag = _etag.parse_etag
 
 ByteOffset = NewType("ByteOffset", int)
 """Absolute byte offset from the start of the download target."""
@@ -19,25 +32,65 @@ ByteLength = NewType("ByteLength", int)
 Url = NewType("Url", str)
 """An http(s) URL that has passed :func:`parse_url`."""
 
-ETag = NewType("ETag", str)
-"""An HTTP ETag value (possibly empty) that has passed :func:`parse_etag`.
-
-Stored verbatim as the server sent it — quotes and optional ``W/`` prefix
-included — so that it can be echoed back in ``If-Range`` / ``If-Match``
-byte-for-byte. An empty string means "no ETag for this resource".
-"""
-
-EMPTY_ETAG: ETag = ETag("")
-"""Shared "no ETag" singleton. Used as the default for signatures where
-inline ``ETag("")`` would trip B008."""
-
 EMPTY_URL: Url = Url("")
 """Shared "no URL yet" sentinel for components constructed before the
 downloader has a parsed URL to hand them (e.g. tests, trackers built
 for size bookkeeping only)."""
 
 _URL_SCHEMES: frozenset[str] = frozenset({"http", "https"})
-_MIN_QUOTED_ETAG_LEN = 2  # two DQUOTEs wrap any valid entity-tag
+
+# Status codes CDNs and origins often use for temporary overload, upstream failure,
+# or rate limiting — conservative superset for default retry hints.
+_TRANSIENT_HTTP_STATUSES: frozenset[int] = frozenset(
+    {
+        HTTPStatus.REQUEST_TIMEOUT,
+        HTTPStatus.TOO_EARLY,
+        HTTPStatus.TOO_MANY_REQUESTS,
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+        HTTPStatus.BAD_GATEWAY,
+        HTTPStatus.SERVICE_UNAVAILABLE,
+        HTTPStatus.GATEWAY_TIMEOUT,
+        520,  # Cloudflare: unknown error
+        522,  # Cloudflare: connection timed out
+        524,  # Cloudflare: a timeout occurred
+    },
+)
+
+
+def _retry_after_raw_to_seconds(
+    raw: str | None,
+    *,
+    now: Callable[[], float] | None = None,
+) -> float | None:
+    """Parse ``Retry-After`` into seconds after ``now()`` — RFC 9110 §10.2.3 form.
+
+    Tries ``HTTP-date`` first (same order as common clients), then ``delay-seconds``.
+    Returns ``None`` if absent or unparsable. HTTP-dates in the past map to ``0.0``.
+    Does **not** cap values — callers choose retry policy.
+    """
+    if raw is None:
+        return None
+    stripped = raw.strip()
+    if not stripped:
+        return None
+    clock = time.time if now is None else now
+
+    try:
+        dt = parsedate_to_datetime(stripped)
+    except (TypeError, ValueError):
+        dt = None
+    if dt is not None:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        delta = dt.timestamp() - clock()
+        out = max(0.0, delta)
+        return float(out)
+
+    if stripped.isdigit():
+        sec = int(stripped)
+        return float(sec)
+
+    return None
 
 
 def parse_url(raw: str) -> Url:
@@ -60,27 +113,6 @@ def parse_url(raw: str) -> Url:
     return Url(raw)
 
 
-def parse_etag(raw: object) -> ETag:
-    """Normalize a raw ETag header value into an :data:`ETag`.
-
-    Strips surrounding whitespace. Empty input becomes ``ETag("")`` to
-    represent "no ETag". Values that clearly aren't well-formed
-    entity-tags (per RFC 7232: optional ``W/`` then a quoted string) are
-    also treated as absent, since echoing them back in ``If-Range`` /
-    ``If-Match`` would be unsafe. Non-string input raises
-    :class:`TypeError`.
-    """
-    if not isinstance(raw, str):
-        raise TypeError(f"etag must be str, got {type(raw).__name__}")
-    stripped = raw.strip()
-    if not stripped:
-        return EMPTY_ETAG
-    candidate = stripped.removeprefix("W/")
-    if len(candidate) < _MIN_QUOTED_ETAG_LEN or not candidate.startswith('"') or not candidate.endswith('"'):
-        return EMPTY_ETAG
-    return ETag(stripped)
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ServerMeta:
     """Typed view of the response headers pyhaul cares about.
@@ -95,6 +127,42 @@ class ServerMeta:
     total_length: int | None = None
     last_modified: str = ""
     content_type: str = ""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProbeResult:
+    """Structured remote metadata from :func:`~pyhaul.probe.probe` / :func:`~pyhaul.async_probe.probe_async`.
+
+    The probe sequence mirrors common CDN/origin behaviour: send ``HEAD``, then — when
+    metadata is still incomplete — issue ``GET`` with ``Range: bytes=0-0`` (see pypdl-style
+    discovery). Values are best-effort hints for planners (concurrent range shards,
+    progress UI); they are not a substitute for download-time validation.
+    """
+
+    url: Url
+    status_code: int
+    """HTTP status from the response that supplied the merged snapshot (usually GET)."""
+
+    total_length: int | None
+    """Total entity length when inferable from ``Content-Length`` or ``Content-Range``."""
+
+    etag: ETag
+    last_modified: str
+    content_type: str
+    content_disposition: str
+    """Raw ``Content-Disposition`` field value, if any."""
+
+    accept_ranges_bytes: bool
+    """True when ``Accept-Ranges: bytes`` is advertised."""
+
+    head_attempted: bool
+    head_status_code: int | None
+    ranged_get_used: bool
+
+    @property
+    def supports_concurrent_byte_ranges(self) -> bool:
+        """Whether byte-range sharding is plausible: ranges supported and size known."""
+        return self.accept_ranges_bytes and self.total_length is not None
 
 
 @dataclass(slots=True)
@@ -123,6 +191,15 @@ class HaulState:
     reported_length: int | None = None
     block_size: int = 8 * 1024 * 1024
     hashes: list[bytes] = field(default_factory=list[bytes])
+
+
+AsyncProgressCallback = Callable[[HaulState], None | Awaitable[None]]
+"""Progress hook for :func:`~pyhaul.async_engine.haul_async`.
+
+May be an ordinary function (returns ``None``) or return an awaitable
+(e.g. ``async def`` without awaiting it yourself); the engine awaits it
+when applicable so callers need not ``asyncio.create_task`` each chunk.
+"""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -178,13 +255,32 @@ class UnexpectedStatusError(HaulError):
 
     @property
     def is_transient(self) -> bool:
-        """``True`` for 429 (Too Many Requests) and 503 (Service Unavailable)."""
-        return self.status_code in {429, 503}
+        """True when the status usually indicates a temporary condition worth retrying.
+
+        Includes common overload / upstream / CDN signals (e.g. ``408``, ``425``,
+        ``429``, ``5xx`` gateway and origin errors, and Cloudflare ``520``/``522``/``524``).
+        For any HTTP 5xx without branching on this set, see :attr:`is_server_error`.
+        """
+        return self.status_code in _TRANSIENT_HTTP_STATUSES
+
+    @property
+    def is_server_error(self) -> bool:
+        """True for HTTP 5xx responses (status ``500`` ≤ code ≤ ``599``)."""
+        return self.status_code // 100 == 5  # noqa: PLR2004 -- RFC 9110 status class 5 (server error)
 
     @property
     def retry_after(self) -> str | None:
-        """Value of the ``Retry-After`` header, if present."""
+        """Raw ``Retry-After`` header value, if present (seconds or HTTP-date string)."""
         return self.headers.get("Retry-After")
+
+    @property
+    def retry_after_seconds(self) -> float | None:
+        """Seconds until retry per ``Retry-After``, or ``None`` if absent/unparsable.
+
+        Accepts ``delay-seconds`` (integer) and ``HTTP-date`` forms (RFC 9110 §10.2.3).
+        For dates in the past, returns ``0.0``. Parsing only — pyhaul does not retry or cap sleeps.
+        """
+        return _retry_after_raw_to_seconds(self.retry_after)
 
 
 class ContentRangeError(HaulError):
@@ -222,9 +318,6 @@ class HashBuilder:
         self.block_size = block_size
         self.completed_hashes = initial_hashes or []
         self._current_hash = hashlib.sha256()
-        self._total_pos = sum(len(h) for h in self.completed_hashes) * block_size  # inaccurate if we resumed at 0
-        # Actually, let's keep it simpler. We assume we are fed bytes sequentially
-        # starting from some offset.
         self._block_pos = 0  # bytes into the current block
 
     @property

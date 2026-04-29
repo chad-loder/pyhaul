@@ -6,13 +6,17 @@
 
 1. `haul()` reads `.part.ctrl` (if it exists) to recover the cursor
    position and stored ETag.
-2. Sends `Range: bytes=<cursor>-` with `If-Range: <etag>` (omitted
-   when no ETag is stored).
+2. Sends `Range: bytes=<cursor>-` with `If-Range: <etag>` when a **strong**
+   ETag is stored — omitted when there is no ETag **or** when only a **weak**
+   ETag is available (weak validators are not used for byte-range preconditioning).
 3. **206 Partial Content** — server honors the range. Stream appends
    from the cursor.
 4. **200 OK** — server ignores the range (resource changed, or server
    doesn't support ranges). Cursor resets to 0; stream overwrites from
    the beginning.
+   Rare mislabeled **206** responses fall here too: if ``Content-Range``
+   describes the entire representation from byte 0 while we asked for a resume,
+   pyhaul treats that like **200** (same cursor reset).
 5. **416 Range Not Satisfiable** — the server's reported total matches
    the cursor (already complete) or the representation shrank (checkpoint
    reset, next call restarts).
@@ -127,8 +131,8 @@ pyhaul's exception hierarchy separates retryable from non-retryable errors:
 
 - [`PartialHaulError`][pyhaul._types.PartialHaulError] — the stream ended early, but progress is saved. Retry.
 - [`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError] — server returned a non-download status
-  (429, 503, 404, …). Check `exc.is_transient` to decide whether to retry,
-  and inspect `exc.retry_after` for server-requested backoff.
+  (408, 425, 429, many 5xx, CDN-specific codes, 404, …). Check `exc.is_transient` (or `exc.is_server_error` for any HTTP 5xx) to decide whether to retry,
+  and inspect `exc.retry_after` / `exc.retry_after_seconds` for server-requested backoff.
 - [`ServerMisconfiguredError`][pyhaul._types.ServerMisconfiguredError] — the server violated HTTP in a way that makes
   safe resume impossible. Don't retry.
 - [`ControlFileError`][pyhaul._types.ControlFileError] — the checkpoint file is corrupt. Auto-recovers on next

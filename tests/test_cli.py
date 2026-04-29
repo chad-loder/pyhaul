@@ -34,7 +34,9 @@ from pyhaul.transport._headers import TransportHeaders
 
 
 def _make_complete_haul() -> CompleteHaul:
-    return CompleteHaul(elapsed=1.0, sha256="a" * 64, etag=ETag('"test"'), content_type="application/octet-stream")
+    return CompleteHaul(
+        elapsed=1.0, sha256="a" * 64, etag=ETag.from_canonical("test"), content_type="application/octet-stream"
+    )
 
 
 # ---------------------------------------------------------------------------

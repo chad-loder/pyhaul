@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from pyhaul._engine_common import PrepareHaul, handle_response
-from pyhaul._types import ETag, HaulState, UnexpectedStatusError, Url
+from pyhaul._types import EMPTY_ETAG, HaulState, UnexpectedStatusError, Url
 from pyhaul.transport._headers import TransportHeaders
 
 
@@ -19,7 +19,7 @@ def _minimal_prep() -> PrepareHaul:
         ctrl_path=Path("/tmp/pyhaul-test.bin.part.ctrl"),
         start=0,
         cursor=0,
-        stored_etag=ETag(""),
+        stored_etag=EMPTY_ETAG,
         hashes=[],
         tail_hash=None,
         block_size=8 * 1024 * 1024,

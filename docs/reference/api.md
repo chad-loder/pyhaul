@@ -28,7 +28,11 @@
     options:
       heading_level: 3
 
-::: pyhaul._types.ETag
+::: pyhaul.etag.EntityTag
+    options:
+      heading_level: 3
+
+::: pyhaul.etag.EMPTY_ETAG
     options:
       heading_level: 3
 
@@ -44,7 +48,15 @@ dedicated [TransportHeaders](headers.md) page — duplicated here it would colli
     options:
       heading_level: 3
 
-::: pyhaul._types.parse_etag
+::: pyhaul.etag.parse_etag
+    options:
+      heading_level: 3
+
+::: pyhaul.etag.format_entity_tag_for_http_header
+    options:
+      heading_level: 3
+
+::: pyhaul.etag.is_weak_validator
     options:
       heading_level: 3
 

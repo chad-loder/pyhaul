@@ -82,12 +82,13 @@ your call — a for-loop, `tenacity`, or nothing. Concurrency limiting
 file per call and doesn't manage parallelism.
 
 ```python
-def haul(url, client, *, dest, state=None) -> CompleteHaul: ...
-async def haul_async(url, client, *, dest, state=None) -> CompleteHaul: ...
+def haul(url, client, *, dest) -> CompleteHaul: ...
+async def haul_async(url, client, *, dest) -> CompleteHaul: ...
 ```
 
-`state` is an optional `HaulState` bag, updated in-place as bytes
-land on disk — works identically in sync and async. See
+Optional `HaulState` (progress bag, updated in-place) and other keyword-only
+options (extra headers, progress hooks, buffer sizing) are documented on the
+site. See
 [docs/DESIGN.md](docs/DESIGN.md) for the exception hierarchy, transport
 adapters, and download lifecycle.
 

@@ -45,10 +45,22 @@ class StubTransport(TransportSession):
     def __init__(self) -> None:
         self.prepared_sequence: list[TransportHeaders] = []
         self.stream_get_calls = 0
+        self.stream_head_calls = 0
 
     def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
         self.prepared_sequence.append(headers)
         return headers.with_added("X-Inner", "1")
+
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Iterator[StubResponse]:
+        self.stream_head_calls += 1
+        yield StubResponse()
 
     @contextmanager
     def stream_get(
@@ -153,10 +165,22 @@ class _MiniAsyncResp:
 class AsyncStubTransport(AsyncTransportSession):
     def __init__(self) -> None:
         self.prepared: list[TransportHeaders] = []
+        self.stream_head_calls = 0
 
     def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
         self.prepared.append(headers)
         return headers.with_added("Y-Inner", "1")
+
+    @asynccontextmanager
+    async def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AsyncIterator[_MiniAsyncResp]:
+        self.stream_head_calls += 1
+        yield _MiniAsyncResp()
 
     @asynccontextmanager
     async def stream_get(
@@ -196,3 +220,14 @@ def test_stream_get_forwards_to_inner() -> None:
         assert resp.status_code == 200
 
     assert inner.stream_get_calls == 1
+
+
+def test_stream_head_forwards_to_inner() -> None:
+    inner = StubTransport()
+    proxy = transport_session_proxy().around(inner).build()
+    u = parse_url("http://example.test/file")
+
+    with proxy.stream_head(u, headers={"Accept": "*/*"}) as resp:
+        assert resp.status_code == 200
+
+    assert inner.stream_head_calls == 1

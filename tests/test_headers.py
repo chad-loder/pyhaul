@@ -52,6 +52,21 @@ class TestFromPairs:
         assert list(h) == ["x-a", "x-b"]
 
 
+class TestDirectConstruction:
+    """``TransportHeaders(...)`` must normalize like :meth:`TransportHeaders.from_pairs`."""
+
+    def test_bracket_access_case_insensitive_for_mixed_case_constructor_names(self) -> None:
+        h = TransportHeaders([("My-Header", "Value")])
+        assert h["My-Header"] == "Value"
+        assert h["my-header"] == "Value"
+        assert h.raw_items == (("my-header", "Value"),)
+
+    def test_constructor_strips_names_and_values(self) -> None:
+        h = TransportHeaders([("  Z  ", "  padded  ")])
+        assert h["z"] == "padded"
+        assert list(h) == ["z"]
+
+
 class TestFromMapping:
     def test_round_trip(self) -> None:
         h = TransportHeaders.from_mapping({"Content-Length": "42", "ETag": '"z"'})
@@ -223,6 +238,24 @@ class TestEqualityAndHashing:
         h = TransportHeaders.from_pairs([("content-type", "text/html")])
         assert h == {"content-type": "text/html"}
 
+    def test_eq_plain_mapping_false_when_self_has_duplicate_field_names(self) -> None:
+        """``Mapping.items()`` collapses to one value per key — cannot match full wire state.
+
+        A :class:`dict` (or any mapping consumed via ``dict(their.items())``) cannot
+        represent duplicate header names. Equality must not succeed on first-value
+        coincidence alone.
+        """
+        h = TransportHeaders.from_pairs(
+            [
+                ("Set-Cookie", "a=1"),
+                ("Set-Cookie", "b=2"),
+            ]
+        )
+        assert h.get_all("set-cookie") == ("a=1", "b=2")
+        naive_single = {"set-cookie": "a=1"}
+        assert h != naive_single
+        assert naive_single != h
+
     def test_ne_with_non_mapping(self) -> None:
         h = TransportHeaders.from_pairs([("A", "1")])
         assert h != 42
@@ -351,8 +384,17 @@ class TestRepr:
     def test_basic_repr(self) -> None:
         h = TransportHeaders.from_pairs([("Content-Type", "text/html")])
         r = repr(h)
-        assert "content-type" in r
-        assert "text/html" in r
+        assert r == "TransportHeaders([('content-type', 'text/html')])"
+
+    def test_repr_list_shape_preserves_duplicate_field_names(self) -> None:
+        """List-of-tuples ``repr`` mirrors wire rows (dict-shaped ``repr`` would lie)."""
+        h = TransportHeaders.from_pairs(
+            [
+                ("X-Trace", "first"),
+                ("X-Trace", "second"),
+            ]
+        )
+        assert repr(h) == "TransportHeaders([('x-trace', 'first'), ('x-trace', 'second')])"
 
     def test_redacts_authorization(self) -> None:
         h = TransportHeaders.from_pairs(
@@ -384,10 +426,10 @@ class TestRepr:
         assert "xyz" not in r
         assert "[redacted]" in r
 
-
-# ======================================================================
-# Raw access
-# ======================================================================
+    def test_repr_duplicate_set_cookie_rows_redacted_but_distinct(self) -> None:
+        """Sensitive names stay redacted; tuple count still shows multiple wire rows."""
+        h = TransportHeaders.from_pairs([("Set-Cookie", "a=1"), ("Set-Cookie", "b=2")])
+        assert repr(h) == ("TransportHeaders([('set-cookie', '[redacted]'), ('set-cookie', '[redacted]')])")
 
 
 class TestToSafeDict:
@@ -431,6 +473,10 @@ class TestWire:
     def test_to_wire(self) -> None:
         h = TransportHeaders.from_pairs([("Content-Type", "text/html"), ("ETag", '"v1"')])
         assert h.to_wire() == b'content-type: text/html\r\netag: "v1"\r\n'
+
+    def test_to_wire_utf8_non_ascii(self) -> None:
+        h = TransportHeaders.from_pairs([("X-Greeting", "café")])
+        assert h.to_wire() == "x-greeting: café\r\n".encode()
 
 
 class TestPickle:

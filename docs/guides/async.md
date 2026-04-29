@@ -382,14 +382,27 @@ to run the sync `haul()` in a thread without blocking the event loop:
 
 ## Progress reporting
 
-The `on_progress` callback is synchronous even in async mode — pass a
-[`HaulState`][pyhaul._types.HaulState] to track progress. Keep the callback fast:
+`haul_async` accepts an [`AsyncProgressCallback`][pyhaul._types.AsyncProgressCallback]:
+either a synchronous callable or one whose return value is awaitable (for example
+`async def`). The engine awaits each chunk's hook before reading the next chunk,
+so you can push updates over websockets or similar without wrapping each call in
+[`asyncio.create_task`][asyncio.create_task]. Keep work bounded — progress runs on the
+download's critical path.
+
+[`haul()`][pyhaul.engine.haul] still accepts only synchronous callbacks.
+
+Pass a [`HaulState`][pyhaul._types.HaulState] to track progress. Example with a sync hook:
 
 ```python
+import asyncio
+
+import httpx
+
 from pyhaul import haul_async, HaulState
 
 state = HaulState()
 high_water = 0
+
 
 def show_progress(state: HaulState):
     global high_water
@@ -400,12 +413,27 @@ def show_progress(state: HaulState):
         pct = high_water / state.reported_length * 100
         print(f"\r{pct:.1f}%", end="", flush=True)
 
+
 async def main():
+    url = "https://example.com/file.bin"
     async with httpx.AsyncClient() as client:
-        result = await haul_async(
-            url, client, dest="file.bin",
-            state=state, on_progress=show_progress,
+        await haul_async(
+            url,
+            client,
+            dest="file.bin",
+            state=state,
+            on_progress=show_progress,
         )
+
 
 asyncio.run(main())
 ```
+
+!!! note "Cancellation and outer timeouts"
+    pyhaul only maps **HTTP client** failures (timeouts, disconnects, TLS, etc.)
+    to [`TransportError`][pyhaul.transport.errors.TransportError] subclasses.
+    **Caller-owned** deadlines — `asyncio.wait_for(...)`, `asyncio.Task.cancel()`, or
+    cooperative cancellation — surface as `asyncio.TimeoutError` or
+    `asyncio.CancelledError`. Those bypass adapter translation and are **not**
+    turned into [`PartialHaulError`][pyhaul._types.PartialHaulError]; treat them as
+    application policy, not transport failure.

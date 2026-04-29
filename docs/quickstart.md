@@ -70,8 +70,10 @@ state where a partially-written file sits at the final path.
 ## Resume
 
 To resume, call `haul()` again with the same destination. pyhaul reads the
-checkpoint, sends a `Range` request with `If-Range: <etag>`, and appends from
-where it left off:
+checkpoint and sends `Range` for the tail of the object. When the checkpoint
+holds a **strong** ETag, pyhaul also sends **`If-Range`** with that validator;
+weak or missing validators omit **`If-Range`** (byte-range preconditioning only
+applies to strong validators). It then appends from where it left off:
 
 ```python
 # Just call haul() again — it resumes automatically

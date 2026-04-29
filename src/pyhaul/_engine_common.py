@@ -15,9 +15,11 @@ import os
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from http import HTTPStatus
 from pathlib import Path
 
 from pyhaul._types import (
+    EMPTY_ETAG,
     CompleteHaul,
     ControlFileError,
     DestinationError,
@@ -28,6 +30,7 @@ from pyhaul._types import (
     ServerMisconfiguredError,
     UnexpectedStatusError,
     Url,
+    format_entity_tag_for_http_header,
     parse_etag,
     parse_url,
 )
@@ -48,12 +51,16 @@ datasync = getattr(os, "fdatasync", os.fsync)
 
 logger = logging.getLogger(__name__)
 
-_HTTP_200 = 200
-_HTTP_206 = 206
-_HTTP_416 = 416
-
 # Final responses when the underlying client chose not to follow (library default or explicit).
-_REDIRECT_STATUSES: frozenset[int] = frozenset({301, 302, 303, 307, 308})
+_REDIRECT_STATUSES: frozenset[int] = frozenset(
+    {
+        HTTPStatus.MOVED_PERMANENTLY,
+        HTTPStatus.FOUND,
+        HTTPStatus.SEE_OTHER,
+        HTTPStatus.TEMPORARY_REDIRECT,
+        HTTPStatus.PERMANENT_REDIRECT,
+    },
+)
 
 
 # ─── Dataclasses ──────────────────────────────────────────────────
@@ -121,7 +128,7 @@ def prepare_haul(
 
     start = cp.start if cp else 0
     cursor = cp.valid_length if cp else 0
-    stored_etag = cp.etag if cp else ETag("")
+    stored_etag = cp.etag if cp else EMPTY_ETAG
     hashes = cp.hashes if cp else []
     tail_hash = cp.tail_hash if cp else None
     block_size = cp.block_size if cp else 8 * 1024 * 1024
@@ -129,7 +136,29 @@ def prepare_haul(
     request_byte = start + cursor
     req_hdrs: dict[str, str] = {"Range": f"bytes={request_byte}-"}
     if stored_etag:
-        req_hdrs["If-Range"] = str(stored_etag)
+        if stored_etag.usable_for_byte_range_precondition:
+            req_hdrs["If-Range"] = format_entity_tag_for_http_header(stored_etag)
+        elif stored_etag.is_weak:
+            logger.warning(
+                "checkpoint stores weak ETag %r — cannot use it for If-Range resume "
+                "validation (weak validators are not defined for byte-identical range "
+                "preconditions per RFC 9110); sending Range without If-Range",
+                str(stored_etag),
+                extra={
+                    "pyhaul_stored_etag": str(stored_etag),
+                    "pyhaul_weak_etag_skip_if_range": True,
+                },
+            )
+        elif stored_etag.is_wildcard:
+            logger.warning(
+                "checkpoint stores wildcard ETag %r — cannot use If-Range for byte-range "
+                "preconditioning; sending Range without If-Range",
+                str(stored_etag),
+                extra={
+                    "pyhaul_stored_etag": str(stored_etag),
+                    "pyhaul_wildcard_etag_skip_if_range": True,
+                },
+            )
 
     merged = merge_headers(dict(user_headers or {}), {**DEFAULT_HEADERS, **req_hdrs})
     th = TransportHeaders.from_mapping(merged)
@@ -185,13 +214,13 @@ def handle_response(
         },
     )
 
-    if status == _HTTP_416:
+    if status == HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE:
         return _on_416(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
 
-    if status == _HTTP_206:
+    if status == HTTPStatus.PARTIAL_CONTENT:
         return _plan_206(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
 
-    if status == _HTTP_200:
+    if status == HTTPStatus.OK:
         return _plan_200(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
 
     if status in _REDIRECT_STATUSES:
@@ -270,10 +299,41 @@ def _plan_206(
         raise ServerMisconfiguredError("206 with unsatisfied Content-Range")
     assert cr.start is not None  # noqa: S101 — type narrowing after is_unsatisfied guard
     if cr.start != prep.request_byte:
+        # Some origins respond with 206 but a satisfied Content-Range of the whole
+        # representation starting at 0 while ignoring Range — equivalent to sending
+        # 200 for the full body. Recover via _plan_200 only when the range spans the
+        # entire instance (start 0 .. instance_length-1).
+        if (
+            prep.request_byte > 0
+            and cr.start == 0
+            and cr.end is not None
+            and cr.instance_length is not None
+            and cr.instance_length > 0
+            and cr.end == cr.instance_length - 1
+        ):
+            logger.info(
+                "206 with satisfied Content-Range bytes 0-%s/%s while Range requested "
+                "byte offset %s — treating as full representation (mislabeled 206 / graceful "
+                "200 recovery)",
+                cr.end,
+                cr.instance_length,
+                prep.request_byte,
+                extra={
+                    "pyhaul_resume_cursor": prep.cursor,
+                    "pyhaul_request_byte": prep.request_byte,
+                },
+            )
+            return _plan_200(headers, prep, state, resp_etag=resp_etag, content_type=content_type)
+
         raise ServerMisconfiguredError(f"Content-Range start {cr.start} != requested {prep.request_byte}")
 
-    # BUG FIX: Verify ETag if server sent one.
-    if resp_etag and prep.stored_etag and resp_etag != prep.stored_etag:
+    # Strong, specific validators only — weak / wildcard checkpoint tags skip strict 206 equality.
+    if (
+        resp_etag
+        and prep.stored_etag
+        and prep.stored_etag.usable_for_byte_range_precondition
+        and resp_etag != prep.stored_etag
+    ):
         logger.debug(
             "ETag mismatch on 206, aborting",
             extra={
@@ -511,7 +571,7 @@ def _reset_checkpoint(ctrl_path: Path, start: int, block_size: int) -> None:
         start=start,
         extent=None,
         valid_length=0,
-        etag=ETag(""),
+        etag=EMPTY_ETAG,
         block_size=block_size,
         hashes=[],
         tail_hash=None,

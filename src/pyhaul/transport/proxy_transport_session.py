@@ -113,7 +113,7 @@ class AsyncTransportSessionProxyRecipe:
 
 @final
 class _ProxiedTransportSession:
-    """Delegates ``stream_get`` faithfully; optionally layers ``prepare_headers`` after inner."""
+    """Delegates ``stream_get`` / ``stream_head``; optionally layers ``prepare_headers`` after inner."""
 
     __slots__ = ("_inner", "_outer_prepare_headers")
 
@@ -139,6 +139,15 @@ class _ProxiedTransportSession:
         options: TransportRequestOptions | None = None,
     ) -> AbstractContextManager[TransportResponse]:
         return self._inner.stream_get(url, headers=headers, options=options)
+
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AbstractContextManager[TransportResponse]:
+        return self._inner.stream_head(url, headers=headers, options=options)
 
 
 @final
@@ -168,6 +177,17 @@ class _ProxiedAsyncTransportSession:
         options: TransportRequestOptions | None = None,
     ) -> AsyncIterator[AsyncTransportResponse]:
         async with self._inner.stream_get(url, headers=headers, options=options) as resp:
+            yield resp
+
+    @asynccontextmanager
+    async def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AsyncIterator[AsyncTransportResponse]:
+        async with self._inner.stream_head(url, headers=headers, options=options) as resp:
             yield resp
 
 

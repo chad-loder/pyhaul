@@ -57,6 +57,16 @@ class MockSession:
         self._call_index += 1
         yield self.responses[idx]
 
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Iterator[TransportResponse]:
+        raise RuntimeError("MockSession.stream_head is not used by integrity tests")
+
 
 def _make_206_response(body: bytes, start: int, total: int | None, etag: str = '"test"') -> MockResponse:
     end = start + len(body) - 1
@@ -95,7 +105,7 @@ def test_resume_tail_corruption_detected(tmp_path: Path) -> None:
         start=0,
         extent=20,
         valid_length=15,
-        etag=ETag('"v1"'),
+        etag=ETag.from_canonical("v1"),
         block_size=10,
         hashes=[_get_hash(block1)],
         tail_hash=_get_hash(tail_good),  # We thought it was GOOD when we saved ctrl
@@ -128,7 +138,7 @@ def test_resume_tail_truncation_detected(tmp_path: Path) -> None:
         start=0,
         extent=20,
         valid_length=15,
-        etag=ETag('"v1"'),
+        etag=ETag.from_canonical("v1"),
         block_size=10,
         hashes=[b"H" * 32],
     )

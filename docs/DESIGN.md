@@ -7,7 +7,7 @@
 | Exception | When | Retryable? |
 | --- | --- | --- |
 | `PartialHaulError` | Stream ended before all bytes arrived. | Yes — call `haul()` again |
-| `UnexpectedStatusError` | Server returned a non-download status (429, 503, 404, …). | Lets caller decide — check `exc.is_transient` |
+| `UnexpectedStatusError` | Server returned a non-download status (408, 429, 5xx, 404, …). | Lets caller decide — check `exc.is_transient` / `exc.is_server_error` |
 | `ServerMisconfiguredError` | Server violated HTTP in a way that prevents safe resume. | No |
 | `ContentRangeError` | 206 Content-Range doesn't match the requested range. | Often yes |
 | `ControlFileError` | `.part.ctrl` is corrupt or version-mismatched. Discarded on next attempt. | Auto-recovers |
@@ -48,8 +48,9 @@ testing, etc.), implement the `TransportSession` protocol: a single
 
 1. `haul()` reads `.part.ctrl` (if it exists) to recover the cursor
    position and stored ETag.
-2. Sends `Range: bytes=<cursor>-` with `If-Range: <etag>` (omitted
-   when no ETag is stored).
+2. Sends `Range: bytes=<cursor>-` with `If-Range: <etag>` when a **strong**
+   ETag is stored — omitted when there is no ETag **or** when only a **weak**
+   ETag is available (weak validators are not used for byte-range preconditioning).
 3. **206 Partial Content** — server honors the range. Stream appends
    from the cursor.
 4. **200 OK** — server ignores the range (resource changed, or server

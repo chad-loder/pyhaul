@@ -1,22 +1,23 @@
-"""Tests for parse_url / parse_etag branding factories, CompleteHaul,
-PartialHaulError (exception), and HaulState (mutable bag)."""
+"""Tests for parse_url, CompleteHaul, PartialHaulError (exception), and HaulState."""
 
 from __future__ import annotations
+
+from datetime import UTC, datetime
+from email.utils import format_datetime
 
 import pytest
 
 from pyhaul import (
+    EMPTY_ETAG,
     CompleteHaul,
     ETag,
     HaulError,
     HaulState,
     PartialHaulError,
     UnexpectedStatusError,
-    Url,
-    parse_etag,
     parse_url,
 )
-from pyhaul._types import EMPTY_ETAG, EMPTY_URL
+from pyhaul._types import EMPTY_URL, _retry_after_raw_to_seconds
 from pyhaul.transport._headers import TransportHeaders
 
 
@@ -61,64 +62,15 @@ def test_parse_url_rejects_missing_host(raw: str) -> None:
         parse_url(raw)
 
 
-def test_parse_etag_strong_and_weak_are_preserved_verbatim() -> None:
-    assert parse_etag('"abc123"') == '"abc123"'
-    assert parse_etag('W/"weak-hash"') == 'W/"weak-hash"'
-
-
-def test_parse_etag_strips_whitespace() -> None:
-    assert parse_etag('  "abc"  ') == '"abc"'
-
-
-@pytest.mark.parametrize("raw", ["", "   ", "\t"])
-def test_parse_etag_empty_returns_empty_sentinel(raw: str) -> None:
-    result = parse_etag(raw)
-    assert result == EMPTY_ETAG
-    assert result == ""
-
-
-@pytest.mark.parametrize(
-    "raw",
-    [
-        "not-quoted",
-        '"unterminated',
-        'unopened"',
-        '"',
-        "W/unquoted",
-    ],
-)
-def test_parse_etag_rejects_malformed_as_empty(raw: str) -> None:
-    """Malformed ETags become EMPTY_ETAG rather than raise — we refuse to
-    echo garbage back in If-Range, but don't want to blow up the download."""
-    assert parse_etag(raw) == EMPTY_ETAG
-
-
-def test_parse_etag_type_error_on_non_string() -> None:
-    with pytest.raises(TypeError):
-        parse_etag(None)
-    with pytest.raises(TypeError):
-        parse_etag(b'"bytes"')
-
-
-def test_newtype_identity_at_runtime() -> None:
-    """NewType is a no-op at runtime — the brand only lives in mypy's view."""
-    url = parse_url("http://example.com/")
-    etag = parse_etag('"abc"')
-    assert type(url) is str  # not a subclass
-    assert type(etag) is str
-    assert Url("x") == "x"
-    assert ETag("y") == "y"
-
-
 def test_download_complete_carries_success_only_fields() -> None:
     result = CompleteHaul(
         elapsed=1.0,
         sha256="abc",
-        etag=ETag('"v1"'),
+        etag=ETag.from_canonical("v1"),
         content_type="application/octet-stream",
     )
     assert result.sha256 == "abc"
-    assert result.etag == '"v1"'
+    assert result.etag == ETag.from_canonical("v1")
 
 
 def test_download_partial_is_exception() -> None:
@@ -200,25 +152,48 @@ class TestUnexpectedStatusError:
         assert str(exc) == "rate limited"
         assert exc.reason == "rate limited"
 
-    def test_is_transient_429(self) -> None:
+    def test_is_transient_common_overload_and_upstream_codes(self) -> None:
+        assert self._make(408).is_transient is True
+        assert self._make(425).is_transient is True
         assert self._make(429).is_transient is True
-
-    def test_is_transient_503(self) -> None:
+        assert self._make(500).is_transient is True
+        assert self._make(502).is_transient is True
         assert self._make(503).is_transient is True
+        assert self._make(504).is_transient is True
+        assert self._make(520).is_transient is True
+        assert self._make(522).is_transient is True
+        assert self._make(524).is_transient is True
 
     def test_is_not_transient_404(self) -> None:
         assert self._make(404).is_transient is False
 
-    def test_is_not_transient_500(self) -> None:
-        assert self._make(500).is_transient is False
+    def test_is_server_error_5xx(self) -> None:
+        assert self._make(500).is_server_error is True
+        assert self._make(503).is_server_error is True
+        assert self._make(599).is_server_error is True
+
+    def test_is_not_server_error_4xx(self) -> None:
+        assert self._make(429).is_server_error is False
+        assert self._make(404).is_server_error is False
+
+    def test_is_server_error_excludes_non_http_class(self) -> None:
+        assert self._make(200).is_server_error is False
 
     def test_retry_after_present(self) -> None:
         exc = self._make()
         assert exc.retry_after == "120"
+        assert exc.retry_after_seconds == 120.0
 
     def test_retry_after_absent(self) -> None:
         exc = self._make(headers=TransportHeaders())
         assert exc.retry_after is None
+        assert exc.retry_after_seconds is None
+
+    def test_retry_after_seconds_invalid_header(self) -> None:
+        exc = self._make(
+            headers=TransportHeaders.from_pairs([("Retry-After", "not-a-number-or-date")]),
+        )
+        assert exc.retry_after_seconds is None
 
     def test_catchable_as_haul_error(self) -> None:
         with pytest.raises(HaulError):
@@ -228,3 +203,40 @@ class TestUnexpectedStatusError:
         exc = self._make()
         with pytest.raises(AttributeError):
             exc.headers.x = "nope"
+
+
+class TestRetryAfterParsing:
+    """Unit tests for :func:`pyhaul._types._retry_after_raw_to_seconds`."""
+
+    def test_delay_seconds(self) -> None:
+        assert _retry_after_raw_to_seconds("45", now=lambda: 0.0) == 45.0
+
+    def test_whitespace_delay(self) -> None:
+        assert _retry_after_raw_to_seconds("  90  ", now=lambda: 0.0) == 90.0
+
+    def test_http_date_future(self) -> None:
+        fixed_ts = 1_700_000_000.0
+        when = datetime.fromtimestamp(fixed_ts + 37.0, tz=UTC)
+        assert _retry_after_raw_to_seconds(format_datetime(when), now=lambda: fixed_ts) == pytest.approx(37.0)
+
+    def test_http_date_past_clamps_zero(self) -> None:
+        fixed_ts = 1_700_000_000.0
+        when = datetime.fromtimestamp(fixed_ts - 60.0, tz=UTC)
+        assert _retry_after_raw_to_seconds(format_datetime(when), now=lambda: fixed_ts) == 0.0
+
+    def test_large_delay_integer_passes_through(self) -> None:
+        assert _retry_after_raw_to_seconds("999999", now=lambda: 0.0) == 999999.0
+
+    def test_large_http_date_passes_through(self) -> None:
+        fixed_ts = 1_700_000_000.0
+        delta_sec = 999_999.0
+        when = datetime.fromtimestamp(fixed_ts + delta_sec, tz=UTC)
+        assert _retry_after_raw_to_seconds(format_datetime(when), now=lambda: fixed_ts) == pytest.approx(
+            delta_sec,
+        )
+
+    def test_none_absent(self) -> None:
+        assert _retry_after_raw_to_seconds(None, now=lambda: 0.0) is None
+
+    def test_empty_string(self) -> None:
+        assert _retry_after_raw_to_seconds("   ", now=lambda: 0.0) is None
