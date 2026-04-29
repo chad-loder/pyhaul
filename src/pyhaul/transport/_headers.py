@@ -50,7 +50,9 @@ class TransportHeaders(Mapping[str, str]):
     Field names are matched case-insensitively per HTTP semantics.
     Duplicate names are preserved in wire order.
 
-    Construct via `build`, `from_pairs`, or `from_mapping`.
+    Constructor arguments are normalized (names lowercased/stripped, values
+    stripped) — same rules as :meth:`from_pairs`. Prefer :meth:`build`,
+    :meth:`from_pairs`, or :meth:`from_mapping` for readability.
     """
 
     __slots__ = ("_hash", "_index", "_items")
@@ -58,11 +60,12 @@ class TransportHeaders(Mapping[str, str]):
     _index: dict[str, tuple[int, ...]]
     _hash: int | None
 
-    def __init__(self, items: Pairs = (), /) -> None:
+    def __init__(self, items: Iterable[Pair] = (), /) -> None:
+        norm_items: Pairs = tuple((_norm_name(k), _norm_value(v)) for k, v in items)
         index: dict[str, list[int]] = {}
-        for i, (k, _) in enumerate(items):
+        for i, (k, _) in enumerate(norm_items):
             index.setdefault(k, []).append(i)
-        object.__setattr__(self, "_items", items)
+        object.__setattr__(self, "_items", norm_items)
         object.__setattr__(self, "_index", {k: tuple(v) for k, v in index.items()})
         object.__setattr__(self, "_hash", None)
 
@@ -111,8 +114,9 @@ class TransportHeaders(Mapping[str, str]):
         """Build from an ordered ``(name, value)`` iterable.
 
         Preserves duplicate names and wire order for `get_all`.
+        Normalization matches direct :class:`TransportHeaders` construction.
         """
-        return cls(tuple((_norm_name(n), _norm_value(v)) for n, v in pairs))
+        return cls(tuple(pairs))
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, str]) -> Self:
@@ -192,6 +196,11 @@ class TransportHeaders(Mapping[str, str]):
             return self._items == other._items
         if isinstance(other, Mapping):
             m = cast("Mapping[str, str]", other)
+            # ``dict(Mapping.items())`` keeps only one value per key; ``self.items()``
+            # only exposes the first value per normalized name. Never treat as equal
+            # when this header bag carries multiple wire rows for the same field name.
+            if len(self._items) != len(self._index):
+                return False
             return dict(self.items()) == dict(m.items())
         return NotImplemented
 
@@ -259,12 +268,17 @@ class TransportHeaders(Mapping[str, str]):
         return self.without(name).with_added(name, value)
 
     # ------------------------------------------------------------------
-    # Repr — redacts sensitive headers
+    # Repr — ``[(name, value), ...]`` wire shape (not a dict literal); redacts sensitive
     # ------------------------------------------------------------------
 
     def __repr__(self) -> str:
-        body = ", ".join(f"{k!r}: {'[redacted]' if k in _SENSITIVE else v!r}" for k, v in self._items)
-        return f"{type(self).__name__}({{{body}}})"
+        chunks: list[str] = []
+        for k, v in self._items:
+            if k in _SENSITIVE:
+                chunks.append(f"({k!r}, '[redacted]')")
+            else:
+                chunks.append(f"({k!r}, {v!r})")
+        return f"{type(self).__name__}([{', '.join(chunks)}])"
 
     # ------------------------------------------------------------------
     # Safe dict for structured logging
@@ -284,8 +298,14 @@ class TransportHeaders(Mapping[str, str]):
     # ------------------------------------------------------------------
 
     def to_wire(self) -> bytes:
-        r"""Serialize to ``b'name: value\r\n...'`` form."""
-        return b"".join(f"{k}: {v}\r\n".encode("latin-1") for k, v in self._items)
+        r"""Serialize to ``b'name: value\r\n...'`` form.
+
+        Uses UTF-8 for the combined header lines. HTTP/1 historically treated
+        field values as ISO-8859-1 octets; UTF-8 is common for Unicode today,
+        and matches how aiohttp serializes outgoing prelude lines and how httpx
+        defaults header encoding when emitting bytes from ``str`` values.
+        """
+        return b"".join(f"{k}: {v}\r\n".encode() for k, v in self._items)
 
     __match_args__ = ("raw_items",)
 
