@@ -292,7 +292,7 @@ class TestMainMissingBackend:
 
 class TestMainSuccessfulDownload:
     def test_success_returns_zero(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        def mock_haul(dest: Path, client: object, url: str, state: HaulState) -> CompleteHaul:
+        def mock_haul(dest: Path, client: object, url: str, state: HaulState, headers: dict[str, str]) -> CompleteHaul:
             state.valid_length = 1024
             return _make_complete_haul()
 
@@ -306,7 +306,7 @@ class TestMainPartialHaul:
     def test_partial_retries_then_gives_up(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         call_count = 0
 
-        def mock_haul(dest: Path, client: object, url: str, state: HaulState) -> CompleteHaul:
+        def mock_haul(dest: Path, client: object, url: str, state: HaulState, headers: dict[str, str]) -> CompleteHaul:
             nonlocal call_count
             call_count += 1
             raise PartialHaulError("truncated")
@@ -322,7 +322,7 @@ class TestMainPartialHaul:
 
 class TestMainHaulError:
     def test_haul_error_returns_one(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        def mock_haul(dest: Path, client: object, url: str, state: HaulState) -> CompleteHaul:
+        def mock_haul(dest: Path, client: object, url: str, state: HaulState, headers: dict[str, str]) -> CompleteHaul:
             raise HaulError("bad")
 
         monkeypatch.setattr("pyhaul.cli._run_haul", mock_haul)
@@ -333,7 +333,7 @@ class TestMainHaulError:
 
 class TestMainServerMisconfigured:
     def test_server_misconfigured_returns_one(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        def mock_haul(dest: Path, client: object, url: str, state: HaulState) -> CompleteHaul:
+        def mock_haul(dest: Path, client: object, url: str, state: HaulState, headers: dict[str, str]) -> CompleteHaul:
             raise ServerMisconfiguredError("no ranges")
 
         monkeypatch.setattr("pyhaul.cli._run_haul", mock_haul)
@@ -344,7 +344,7 @@ class TestMainServerMisconfigured:
 
 class TestMainUnexpectedStatus:
     def test_unexpected_status_returns_one(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        def mock_haul(dest: Path, client: object, url: str, state: HaulState) -> CompleteHaul:
+        def mock_haul(dest: Path, client: object, url: str, state: HaulState, headers: dict[str, str]) -> CompleteHaul:
             raise UnexpectedStatusError(429, TransportHeaders.from_pairs([("Retry-After", "60")]))
 
         monkeypatch.setattr("pyhaul.cli._run_haul", mock_haul)
@@ -355,7 +355,7 @@ class TestMainUnexpectedStatus:
 
 class TestMainNetworkError:
     def test_connection_error_returns_one(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        def mock_haul(dest: Path, client: object, url: str, state: HaulState) -> CompleteHaul:
+        def mock_haul(dest: Path, client: object, url: str, state: HaulState, headers: dict[str, str]) -> CompleteHaul:
             raise ConnectionError("refused")
 
         monkeypatch.setattr("pyhaul.cli._run_haul", mock_haul)
@@ -364,7 +364,7 @@ class TestMainNetworkError:
         assert result == 1
 
     def test_os_error_returns_one(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        def mock_haul(dest: Path, client: object, url: str, state: HaulState) -> CompleteHaul:
+        def mock_haul(dest: Path, client: object, url: str, state: HaulState, headers: dict[str, str]) -> CompleteHaul:
             raise OSError("disk full")
 
         monkeypatch.setattr("pyhaul.cli._run_haul", mock_haul)
@@ -377,7 +377,7 @@ class TestMainQuiet:
     def test_quiet_suppresses_progress(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        def mock_haul(dest: Path, client: object, url: str, state: HaulState) -> CompleteHaul:
+        def mock_haul(dest: Path, client: object, url: str, state: HaulState, headers: dict[str, str]) -> CompleteHaul:
             state.valid_length = 1024
             return _make_complete_haul()
 

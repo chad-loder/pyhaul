@@ -82,6 +82,10 @@ class NiquestsAdapter:
     def __init__(self, session: niquests.Session) -> None:
         self._session = session
 
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        """Optionally mutate headers before they are sent (noop)."""
+        return headers
+
     @contextmanager
     def stream_get(
         self,
@@ -149,6 +153,10 @@ class AsyncNiquestsAdapter:
 
     def __init__(self, session: niquests.AsyncSession) -> None:
         self._session = session
+
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        """Optionally mutate headers before they are sent (noop)."""
+        return headers
 
     @asynccontextmanager
     async def stream_get(

@@ -1,9 +1,17 @@
 # TransportHeaders
 
-Immutable, case-insensitive, multi-value HTTP response headers.
-`TransportHeaders` is attached to
-[`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError] and available on
-every transport response — you never need to construct one yourself.
+Immutable, case-insensitive, multi-value HTTP headers used throughout the transport
+layer. Most callers encounter them as **response** metadata:
+[`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError] carries them, and every
+[`TransportResponse`][pyhaul.transport.protocols.TransportResponse] exposes normalized
+response headers.
+
+On the **request** path, pyhaul also represents the merged outbound header set as
+`TransportHeaders`: user headers plus structural defaults, then the result of
+[`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers] before
+your adapter's HTTP client sees them. You rarely construct request-side instances yourself;
+[`haul()`][pyhaul.engine.haul] / [`haul_async()`][pyhaul.async_engine.haul_async] accept an
+optional plain mapping for extras.
 
 ## Quick usage
 

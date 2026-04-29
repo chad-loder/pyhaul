@@ -13,11 +13,21 @@ from pyhaul.transport.protocols import (
     TransportResponse,
     TransportSession,
 )
+from pyhaul.transport.proxy_transport_session import (
+    AsyncTransportSessionProxyPlanning,
+    AsyncTransportSessionProxyRecipe,
+    TransportSessionProxyPlanning,
+    TransportSessionProxyRecipe,
+    async_transport_session_proxy,
+    transport_session_proxy,
+)
 from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
 
 __all__ = [
     "AsyncTransportResponse",
     "AsyncTransportSession",
+    "AsyncTransportSessionProxyPlanning",
+    "AsyncTransportSessionProxyRecipe",
     "TransportConnectionError",
     "TransportError",
     "TransportHTTPError",
@@ -25,6 +35,10 @@ __all__ = [
     "TransportRequestOptions",
     "TransportResponse",
     "TransportSession",
+    "TransportSessionProxyPlanning",
+    "TransportSessionProxyRecipe",
     "TransportTLSError",
     "TransportUnsupportedError",
+    "async_transport_session_proxy",
+    "transport_session_proxy",
 ]

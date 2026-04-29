@@ -38,6 +38,9 @@ class MockSession:
         self.requests: list[dict[str, object]] = []
         self._call_index = 0
 
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        return headers
+
     def add_response(self, resp: MockResponse) -> None:
         self.responses.append(resp)
 

@@ -62,6 +62,9 @@ class AsyncMockSession:
         self.requests: list[dict[str, object]] = []
         self._call_index = 0
 
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        return headers
+
     def add_response(self, resp: AsyncMockResponse) -> None:
         self.responses.append(resp)
 
@@ -73,7 +76,7 @@ class AsyncMockSession:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> AsyncIterator[AsyncTransportResponse]:
-        self.requests.append({"url": url, "headers": dict(headers), "options": options})
+        self.requests.append({"url": url, "headers": headers, "options": options})
         idx = self._call_index
         self._call_index += 1
         if idx >= len(self.responses):
@@ -175,7 +178,7 @@ class TestAsyncFresh206KnownTotal:
         await haul_async(_TEST_URL, session, dest=str(dest))
 
         req_headers = session.requests[0]["headers"]
-        assert isinstance(req_headers, dict)
+        assert isinstance(req_headers, TransportHeaders)
         assert req_headers["Range"] == "bytes=0-"
 
 
@@ -255,7 +258,7 @@ class TestAsyncResume206:
         assert dest.read_bytes() == full_body
 
         req_headers = session.requests[0]["headers"]
-        assert isinstance(req_headers, dict)
+        assert isinstance(req_headers, TransportHeaders)
         assert req_headers["Range"] == "bytes=5-"
         assert req_headers["If-Range"] == '"test"'
 

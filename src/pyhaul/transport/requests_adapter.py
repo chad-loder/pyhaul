@@ -66,6 +66,10 @@ class RequestsAdapter:
     def __init__(self, session: requests.Session) -> None:
         self._session = session
 
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        """Optionally mutate headers before they are sent (noop)."""
+        return headers
+
     @contextmanager
     def stream_get(
         self,

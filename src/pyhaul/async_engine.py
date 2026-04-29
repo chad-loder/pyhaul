@@ -15,7 +15,7 @@ import asyncio
 import contextlib
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from pyhaul._engine_common import (
@@ -50,6 +50,7 @@ async def haul_async(
     client: AsyncTransportSession | object,
     *,
     dest: str | Path,
+    headers: Mapping[str, str] | None = None,
     state: HaulState | None = None,
     chunk_size: int = DEFAULT_CHUNK,
     flush_every: int = DEFAULT_FLUSH,
@@ -62,6 +63,8 @@ async def haul_async(
 
     *url* is validated on entry; invalid schemes or missing hosts raise
     :class:`ValueError`.
+
+    *headers*, when provided, are merged with pyhaul's structural requirements.
 
     *state*, when provided, is a :class:`HaulState` updated in-place
     throughout the download — always accurate regardless of how the
@@ -79,11 +82,15 @@ async def haul_async(
     if state is None:
         state = HaulState()
     transport = coerce_async_session(client)
-    prep = prepare_haul(url, dest)
+
+    prep = prepare_haul(url, dest, user_headers=headers)
+    prepare_fn = getattr(transport, "prepare_headers", None)
+    final_headers = prepare_fn(prep.merged_headers) if prepare_fn else prep.merged_headers
+
     loop = asyncio.get_running_loop()
 
     try:
-        async with transport.stream_get(prep.parsed_url, headers=prep.merged_headers) as resp:
+        async with transport.stream_get(prep.parsed_url, headers=final_headers) as resp:
             action = handle_response(resp.status_code, resp.headers, prep, state)
 
             if not isinstance(action, StreamPlan):

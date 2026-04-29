@@ -126,6 +126,10 @@ class Urllib3Adapter:
     def __init__(self, pool: urllib3.PoolManager) -> None:
         self._pool = pool
 
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        """Optionally mutate headers before they are sent (noop)."""
+        return headers
+
     @contextmanager
     def stream_get(
         self,

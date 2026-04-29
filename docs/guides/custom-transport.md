@@ -1,16 +1,17 @@
 # Writing a Custom Adapter
 
 If your application uses an HTTP library that pyhaul doesn't ship an adapter
-for, you can write your own. The adapter protocol is intentionally minimal: one
-context manager, one iterator.
+for, you can write your own. The adapter protocol is intentionally minimal:
+[`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers]
+(opt-in policy) plus one streaming GET context manager.
 
 ## Why the protocol is structured this way
 
 pyhaul needs exactly one thing from an HTTP client: a streaming GET request
 that yields raw bytes. No connection management, no cookie handling, no retry
-logic — just "open a stream, give me bytes, close the stream."
+logic — just "prepare merged headers, open a stream, give me bytes, close the stream."
 
-This is why the protocol is a single `stream_get()` context manager rather than
+This is why the surface area is `prepare_headers` plus `stream_get()` rather than
 a full-featured HTTP client interface. pyhaul delegates everything else
 (auth, proxies, TLS, pooling) to your session.
 
@@ -19,22 +20,35 @@ a full-featured HTTP client interface. pyhaul delegates everything else
 A sync adapter implements [`TransportSession`][pyhaul.transport.protocols.TransportSession]:
 
 ```python
-from contextlib import AbstractContextManager
 from collections.abc import Iterator, Mapping
-from pyhaul.transport.protocols import TransportSession, TransportResponse
-from pyhaul._types import Url
+from contextlib import AbstractContextManager
 
-class TransportSession:
+from pyhaul._types import Url
+from pyhaul.transport.protocols import TransportResponse
+from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
+
+
+class ExampleSyncTransport:
+    """Structural sketch — your adapter must satisfy TransportSession."""
+
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        ...
+
     def stream_get(
         self,
         url: Url,
         *,
         headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
     ) -> AbstractContextManager[TransportResponse]:
         ...
 ```
 
-The returned `TransportResponse` needs three things:
+[`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers]
+runs after pyhaul merges caller headers with structural defaults. Return the
+same instance unchanged if you have nothing to adjust.
+
+The returned `TransportResponse` needs four things:
 
 ```python
 class TransportResponse:
@@ -43,6 +57,8 @@ class TransportResponse:
 
     @property
     def headers(self) -> TransportHeaders: ...
+
+    def raise_for_status(self) -> None: ...
 
     def iter_raw_bytes(self, *, chunk_size: int) -> Iterator[bytes]: ...
 ```
@@ -67,7 +83,7 @@ import urllib3
 
 from pyhaul._types import Url
 from pyhaul.transport.protocols import TransportResponse, TransportSession
-from pyhaul.transport.types import TransportHeaders
+from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
 
 
 class MyResponse(TransportResponse):
@@ -99,13 +115,16 @@ class MyAdapter:
     def __init__(self, pool: urllib3.PoolManager) -> None:
         self._pool = pool
 
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        return headers
+
     @contextmanager
     def stream_get(
         self,
         url: Url,
         *,
         headers: Mapping[str, str],
-        options=None,
+        options: TransportRequestOptions | None = None,
     ) -> Iterator[TransportResponse]:
         resp = self._pool.request(
             "GET", str(url), headers=dict(headers), preload_content=False
@@ -139,11 +158,44 @@ to wrap manually.
 
 The async protocol mirrors the sync one:
 
-- [`AsyncTransportSession`][pyhaul.transport.protocols.AsyncTransportSession]`.stream_get()` returns an
+- [`AsyncTransportSession`][pyhaul.transport.protocols.AsyncTransportSession] implements
+  `prepare_headers` and `.stream_get()` returning an
   `AbstractAsyncContextManager[AsyncTransportResponse]`
 - `AsyncTransportResponse.aiter_raw_bytes()` returns an `AsyncIterator[bytes]`
 
 Register with [`register_async_adapter()`][pyhaul._session_dispatch.register_async_adapter].
+
+## Layering headers with a session proxy {#layering-headers-with-a-session-proxy}
+
+If you only need to wrap header preparation — logging, test doubles, or policy —
+without copying an entire adapter, use the fluent builders [`transport_session_proxy()`][pyhaul.transport.proxy_transport_session.transport_session_proxy]
+and [`async_transport_session_proxy()`][pyhaul.transport.proxy_transport_session.async_transport_session_proxy].
+They produce a [`TransportSession`][pyhaul.transport.protocols.TransportSession] /
+[`AsyncTransportSession`][pyhaul.transport.protocols.AsyncTransportSession] that forwards
+`stream_get` to an inner adapter and runs your function **after**
+`inner.prepare_headers`:
+
+```python
+from pyhaul.transport import transport_session_proxy
+from pyhaul.transport.types import TransportHeaders
+
+
+def tag(headers: TransportHeaders) -> TransportHeaders:
+    return headers.with_added("X-Observed", "1")
+
+
+inner = MyAdapter(pool)
+wrapped = (
+    transport_session_proxy()
+    .around(inner)
+    .preparing_headers_with(tag)
+    .build()
+)
+
+result = haul(url, wrapped, dest="file.bin")
+```
+
+See also the [TransportHeaders](../reference/headers.md) reference page and the [API summary](../reference/api.md#transport-headers-type).
 
 ## TransportHeaders
 
@@ -160,7 +212,8 @@ headers = TransportHeaders.from_pairs([
 ])
 ```
 
-This handles case-insensitive lookups and multi-value headers.
+This handles case-insensitive lookups and multi-value headers. The same type is
+used on the request path after merging (see [TransportHeaders](../reference/headers.md)).
 
 ## Error mapping (optional but recommended)
 

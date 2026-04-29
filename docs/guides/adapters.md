@@ -39,6 +39,14 @@ pyhaul adds per-request headers for range negotiation (`Range`, `If-Range`,
 modify your session. After `haul()` returns, the session is exactly as you
 left it.
 
+You can also supply **extra headers for that download** via the optional
+`headers=` keyword on [`haul()`][pyhaul.engine.haul] / [`haul_async()`][pyhaul.async_engine.haul_async].
+Those merge before structural headers; structural headers still win where they
+overlap. That is separate from session defaults (which many clients merge in on
+their own). To adjust headers inside the adapter layer — for example tests or
+telemetry — implement or wrap [`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers];
+see [Writing a Custom Adapter](custom-transport.md).
+
 ## Per-client examples
 
 ### httpx (sync)
