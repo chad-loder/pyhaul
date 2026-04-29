@@ -1,5 +1,4 @@
-"""Tests for parse_url / parse_etag branding factories, CompleteHaul,
-PartialHaulError (exception), and HaulState (mutable bag)."""
+"""Tests for parse_url, CompleteHaul, PartialHaulError (exception), and HaulState."""
 
 from __future__ import annotations
 
@@ -9,17 +8,16 @@ from email.utils import format_datetime
 import pytest
 
 from pyhaul import (
+    EMPTY_ETAG,
     CompleteHaul,
     ETag,
     HaulError,
     HaulState,
     PartialHaulError,
     UnexpectedStatusError,
-    Url,
-    parse_etag,
     parse_url,
 )
-from pyhaul._types import EMPTY_ETAG, EMPTY_URL, _retry_after_raw_to_seconds
+from pyhaul._types import EMPTY_URL, _retry_after_raw_to_seconds
 from pyhaul.transport._headers import TransportHeaders
 
 
@@ -64,64 +62,15 @@ def test_parse_url_rejects_missing_host(raw: str) -> None:
         parse_url(raw)
 
 
-def test_parse_etag_strong_and_weak_are_preserved_verbatim() -> None:
-    assert parse_etag('"abc123"') == '"abc123"'
-    assert parse_etag('W/"weak-hash"') == 'W/"weak-hash"'
-
-
-def test_parse_etag_strips_whitespace() -> None:
-    assert parse_etag('  "abc"  ') == '"abc"'
-
-
-@pytest.mark.parametrize("raw", ["", "   ", "\t"])
-def test_parse_etag_empty_returns_empty_sentinel(raw: str) -> None:
-    result = parse_etag(raw)
-    assert result == EMPTY_ETAG
-    assert result == ""
-
-
-@pytest.mark.parametrize(
-    "raw",
-    [
-        "not-quoted",
-        '"unterminated',
-        'unopened"',
-        '"',
-        "W/unquoted",
-    ],
-)
-def test_parse_etag_rejects_malformed_as_empty(raw: str) -> None:
-    """Malformed ETags become EMPTY_ETAG rather than raise — we refuse to
-    echo garbage back in If-Range, but don't want to blow up the download."""
-    assert parse_etag(raw) == EMPTY_ETAG
-
-
-def test_parse_etag_type_error_on_non_string() -> None:
-    with pytest.raises(TypeError):
-        parse_etag(None)
-    with pytest.raises(TypeError):
-        parse_etag(b'"bytes"')
-
-
-def test_newtype_identity_at_runtime() -> None:
-    """NewType is a no-op at runtime — the brand only lives in mypy's view."""
-    url = parse_url("http://example.com/")
-    etag = parse_etag('"abc"')
-    assert type(url) is str  # not a subclass
-    assert type(etag) is str
-    assert Url("x") == "x"
-    assert ETag("y") == "y"
-
-
 def test_download_complete_carries_success_only_fields() -> None:
     result = CompleteHaul(
         elapsed=1.0,
         sha256="abc",
-        etag=ETag('"v1"'),
+        etag=ETag.from_canonical("v1"),
         content_type="application/octet-stream",
     )
     assert result.sha256 == "abc"
-    assert result.etag == '"v1"'
+    assert result.etag == ETag.from_canonical("v1")
 
 
 def test_download_partial_is_exception() -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC
 from email.utils import parsedate_to_datetime
@@ -12,7 +12,15 @@ from pathlib import Path
 from typing import NewType
 from urllib.parse import urlparse
 
+import pyhaul.etag as _etag
 from pyhaul.transport._headers import TransportHeaders
+
+EMPTY_ETAG = _etag.EMPTY_ETAG
+ETag = _etag.ETag
+EntityTag = _etag.EntityTag
+format_entity_tag_for_http_header = _etag.format_entity_tag_for_http_header
+is_weak_validator = _etag.is_weak_validator
+parse_etag = _etag.parse_etag
 
 ByteOffset = NewType("ByteOffset", int)
 """Absolute byte offset from the start of the download target."""
@@ -23,25 +31,12 @@ ByteLength = NewType("ByteLength", int)
 Url = NewType("Url", str)
 """An http(s) URL that has passed :func:`parse_url`."""
 
-ETag = NewType("ETag", str)
-"""An HTTP ETag value (possibly empty) that has passed :func:`parse_etag`.
-
-Stored verbatim as the server sent it — quotes and optional ``W/`` prefix
-included — so that it can be echoed back in ``If-Range`` / ``If-Match``
-byte-for-byte. An empty string means "no ETag for this resource".
-"""
-
-EMPTY_ETAG: ETag = ETag("")
-"""Shared "no ETag" singleton. Used as the default for signatures where
-inline ``ETag("")`` would trip B008."""
-
 EMPTY_URL: Url = Url("")
 """Shared "no URL yet" sentinel for components constructed before the
 downloader has a parsed URL to hand them (e.g. tests, trackers built
 for size bookkeeping only)."""
 
 _URL_SCHEMES: frozenset[str] = frozenset({"http", "https"})
-_MIN_QUOTED_ETAG_LEN = 2  # two DQUOTEs wrap any valid entity-tag
 
 # Status codes CDNs and origins often use for temporary overload, upstream failure,
 # or rate limiting — conservative superset for default retry hints.
@@ -120,27 +115,6 @@ def parse_url(raw: str) -> Url:
     return Url(raw)
 
 
-def parse_etag(raw: object) -> ETag:
-    """Normalize a raw ETag header value into an :data:`ETag`.
-
-    Strips surrounding whitespace. Empty input becomes ``ETag("")`` to
-    represent "no ETag". Values that clearly aren't well-formed
-    entity-tags (per RFC 7232: optional ``W/`` then a quoted string) are
-    also treated as absent, since echoing them back in ``If-Range`` /
-    ``If-Match`` would be unsafe. Non-string input raises
-    :class:`TypeError`.
-    """
-    if not isinstance(raw, str):
-        raise TypeError(f"etag must be str, got {type(raw).__name__}")
-    stripped = raw.strip()
-    if not stripped:
-        return EMPTY_ETAG
-    candidate = stripped.removeprefix("W/")
-    if len(candidate) < _MIN_QUOTED_ETAG_LEN or not candidate.startswith('"') or not candidate.endswith('"'):
-        return EMPTY_ETAG
-    return ETag(stripped)
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ServerMeta:
     """Typed view of the response headers pyhaul cares about.
@@ -183,6 +157,15 @@ class HaulState:
     reported_length: int | None = None
     block_size: int = 8 * 1024 * 1024
     hashes: list[bytes] = field(default_factory=list[bytes])
+
+
+AsyncProgressCallback = Callable[[HaulState], None | Awaitable[None]]
+"""Progress hook for :func:`~pyhaul.async_engine.haul_async`.
+
+May be an ordinary function (returns ``None``) or return an awaitable
+(e.g. ``async def`` without awaiting it yourself); the engine awaits it
+when applicable so callers need not ``asyncio.create_task`` each chunk.
+"""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -301,9 +284,6 @@ class HashBuilder:
         self.block_size = block_size
         self.completed_hashes = initial_hashes or []
         self._current_hash = hashlib.sha256()
-        self._total_pos = sum(len(h) for h in self.completed_hashes) * block_size  # inaccurate if we resumed at 0
-        # Actually, let's keep it simpler. We assume we are fed bytes sequentially
-        # starting from some offset.
         self._block_pos = 0  # bytes into the current block
 
     @property
