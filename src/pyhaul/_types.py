@@ -131,6 +131,42 @@ class ServerMeta:
     content_type: str = ""
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProbeResult:
+    """Structured remote metadata from :func:`~pyhaul.probe.probe` / :func:`~pyhaul.async_probe.probe_async`.
+
+    The probe sequence mirrors common CDN/origin behaviour: send ``HEAD``, then — when
+    metadata is still incomplete — issue ``GET`` with ``Range: bytes=0-0`` (see pypdl-style
+    discovery). Values are best-effort hints for planners (concurrent range shards,
+    progress UI); they are not a substitute for download-time validation.
+    """
+
+    url: Url
+    status_code: int
+    """HTTP status from the response that supplied the merged snapshot (usually GET)."""
+
+    total_length: int | None
+    """Total entity length when inferable from ``Content-Length`` or ``Content-Range``."""
+
+    etag: ETag
+    last_modified: str
+    content_type: str
+    content_disposition: str
+    """Raw ``Content-Disposition`` field value, if any."""
+
+    accept_ranges_bytes: bool
+    """True when ``Accept-Ranges: bytes`` is advertised."""
+
+    head_attempted: bool
+    head_status_code: int | None
+    ranged_get_used: bool
+
+    @property
+    def supports_concurrent_byte_ranges(self) -> bool:
+        """Whether byte-range sharding is plausible: ranges supported and size known."""
+        return self.accept_ranges_bytes and self.total_length is not None
+
+
 @dataclass(slots=True)
 class HaulState:
     """Mutable progress bag updated in-place by ``haul()`` / ``haul_async()``.

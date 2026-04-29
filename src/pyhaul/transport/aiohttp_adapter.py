@@ -174,6 +174,27 @@ class AsyncAiohttpAdapter:
         ):
             yield AiohttpTransportResponse(resp)
 
+    @asynccontextmanager
+    async def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AsyncIterator[AsyncTransportResponse]:
+        """Open a HEAD request and yield the response."""
+        kwargs = _request_options_to_aiohttp_kwargs(options)
+        async with (
+            map_aiohttp_transport_errors_async(),
+            self._session.head(
+                str(url),
+                headers=dict(headers),
+                raise_for_status=False,
+                **kwargs,
+            ) as resp,
+        ):
+            yield AiohttpTransportResponse(resp)
+
 
 def async_aiohttp_transport(session: aiohttp.ClientSession) -> AsyncTransportSession:
     """Shorthand: ``AsyncAiohttpAdapter(session)``."""

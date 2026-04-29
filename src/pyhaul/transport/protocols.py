@@ -51,7 +51,7 @@ class TransportResponse(Protocol):
 
 @runtime_checkable
 class TransportSession(Protocol):
-    """Sync transport: ``prepare_headers`` then ``stream_get``; no lifecycle ownership."""
+    """Sync transport: ``prepare_headers``, ``stream_get``, and ``stream_head``."""
 
     def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
         """Optionally mutate headers before they are sent.
@@ -75,6 +75,16 @@ class TransportSession(Protocol):
         options: TransportRequestOptions | None = None,
     ) -> AbstractContextManager[TransportResponse]:
         """Context manager yielding a response whose body must be streamed."""
+        ...
+
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AbstractContextManager[TransportResponse]:
+        """Context manager yielding a HEAD response (entity body must not be read)."""
         ...
 
     # CPD-ON
@@ -113,7 +123,7 @@ class AsyncTransportResponse(Protocol):
 
 @runtime_checkable
 class AsyncTransportSession(Protocol):
-    """Async transport: ``prepare_headers`` then ``stream_get`` (async context manager)."""
+    """Async transport: ``prepare_headers``, ``stream_get``, and ``stream_head``."""
 
     def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
         """Optionally mutate headers before they are sent (see sync version)."""
@@ -128,6 +138,16 @@ class AsyncTransportSession(Protocol):
         options: TransportRequestOptions | None = None,
     ) -> AbstractAsyncContextManager[AsyncTransportResponse]:
         """Async context manager yielding a response whose body must be streamed."""
+        ...
+
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AbstractAsyncContextManager[AsyncTransportResponse]:
+        """Async context manager yielding a HEAD response."""
         ...
 
     # CPD-ON

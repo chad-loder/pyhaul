@@ -147,6 +147,22 @@ class HttpxAdapter:
         ):
             yield HttpxTransportResponse(resp)
 
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Iterator[TransportResponse]:
+        """Open a HEAD request and yield the response."""
+        kwargs = _request_options_to_httpx_kwargs(options)
+        with (
+            map_httpx_transport_errors(),
+            self._client.stream("HEAD", str(url), headers=dict(headers), **kwargs) as resp,
+        ):
+            yield HttpxTransportResponse(resp)
+
 
 def httpx_transport(client: httpx.Client) -> TransportSession:
     """Shorthand: ``HttpxAdapter(client)``."""
@@ -215,6 +231,20 @@ class AsyncHttpxAdapter:
         kwargs = _request_options_to_httpx_kwargs(options)
         with map_httpx_transport_errors():
             async with self._client.stream("GET", str(url), headers=dict(headers), **kwargs) as resp:
+                yield AsyncHttpxTransportResponse(resp)
+
+    @asynccontextmanager
+    async def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AsyncIterator[AsyncTransportResponse]:
+        """Open a HEAD request and yield the response."""
+        kwargs = _request_options_to_httpx_kwargs(options)
+        with map_httpx_transport_errors():
+            async with self._client.stream("HEAD", str(url), headers=dict(headers), **kwargs) as resp:
                 yield AsyncHttpxTransportResponse(resp)
 
 

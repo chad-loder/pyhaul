@@ -154,6 +154,30 @@ class Urllib3Adapter:
             transport_resp.close()
             resp.release_conn()
 
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Iterator[TransportResponse]:
+        """Open a HEAD request and yield the response."""
+        kw = _build_urlopen_kwargs(options)
+        with map_urllib3_transport_errors():
+            resp = self._pool.request(
+                "HEAD",
+                str(url),
+                headers=dict(headers),
+                **kw,
+            )
+        transport_resp = Urllib3TransportResponse(resp)
+        try:
+            yield transport_resp
+        finally:
+            transport_resp.close()
+            resp.release_conn()
+
 
 def urllib3_transport(pool: urllib3.PoolManager) -> TransportSession:
     """Shorthand: ``Urllib3Adapter(pool)``."""
