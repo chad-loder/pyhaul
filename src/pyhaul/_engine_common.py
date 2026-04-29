@@ -318,6 +318,25 @@ def _plan_206(
     )
 
 
+def _parse_content_length(raw: str | None) -> int | None:
+    """Parse ``Content-Length`` for full-response (200) planning.
+
+    Values are normally stripped by :class:`~pyhaul.transport.types.TransportHeaders`;
+    we still strip here for defense in depth.
+
+    Some misbehaving proxies emit comma-separated duplicate lengths (see RFC 7230).
+    """
+    if raw is None:
+        return None
+    s = raw.strip()
+    tokens = [t.strip() for t in s.split(",") if t.strip()]
+    if not tokens or any(not t.isdigit() for t in tokens):
+        return None
+    if len(set(tokens)) > 1:
+        return None
+    return int(tokens[0])
+
+
 def _plan_200(
     headers: TransportHeaders,
     state: HaulState,
@@ -325,8 +344,7 @@ def _plan_200(
     resp_etag: ETag,
     content_type: str,
 ) -> StreamPlan:
-    cl_str = headers.get("Content-Length")
-    resp_cl = int(cl_str) if cl_str and cl_str.isdigit() else None
+    resp_cl = _parse_content_length(headers.get("Content-Length"))
 
     state.valid_length = 0
     state.hashes = []
