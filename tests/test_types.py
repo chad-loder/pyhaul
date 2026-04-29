@@ -3,6 +3,9 @@ PartialHaulError (exception), and HaulState (mutable bag)."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from email.utils import format_datetime
+
 import pytest
 
 from pyhaul import (
@@ -16,7 +19,7 @@ from pyhaul import (
     parse_etag,
     parse_url,
 )
-from pyhaul._types import EMPTY_ETAG, EMPTY_URL
+from pyhaul._types import EMPTY_ETAG, EMPTY_URL, _retry_after_raw_to_seconds
 from pyhaul.transport._headers import TransportHeaders
 
 
@@ -230,10 +233,18 @@ class TestUnexpectedStatusError:
     def test_retry_after_present(self) -> None:
         exc = self._make()
         assert exc.retry_after == "120"
+        assert exc.retry_after_seconds == 120.0
 
     def test_retry_after_absent(self) -> None:
         exc = self._make(headers=TransportHeaders())
         assert exc.retry_after is None
+        assert exc.retry_after_seconds is None
+
+    def test_retry_after_seconds_invalid_header(self) -> None:
+        exc = self._make(
+            headers=TransportHeaders.from_pairs([("Retry-After", "not-a-number-or-date")]),
+        )
+        assert exc.retry_after_seconds is None
 
     def test_catchable_as_haul_error(self) -> None:
         with pytest.raises(HaulError):
@@ -243,3 +254,40 @@ class TestUnexpectedStatusError:
         exc = self._make()
         with pytest.raises(AttributeError):
             exc.headers.x = "nope"
+
+
+class TestRetryAfterParsing:
+    """Unit tests for :func:`pyhaul._types._retry_after_raw_to_seconds`."""
+
+    def test_delay_seconds(self) -> None:
+        assert _retry_after_raw_to_seconds("45", now=lambda: 0.0) == 45.0
+
+    def test_whitespace_delay(self) -> None:
+        assert _retry_after_raw_to_seconds("  90  ", now=lambda: 0.0) == 90.0
+
+    def test_http_date_future(self) -> None:
+        fixed_ts = 1_700_000_000.0
+        when = datetime.fromtimestamp(fixed_ts + 37.0, tz=UTC)
+        assert _retry_after_raw_to_seconds(format_datetime(when), now=lambda: fixed_ts) == pytest.approx(37.0)
+
+    def test_http_date_past_clamps_zero(self) -> None:
+        fixed_ts = 1_700_000_000.0
+        when = datetime.fromtimestamp(fixed_ts - 60.0, tz=UTC)
+        assert _retry_after_raw_to_seconds(format_datetime(when), now=lambda: fixed_ts) == 0.0
+
+    def test_large_delay_integer_passes_through(self) -> None:
+        assert _retry_after_raw_to_seconds("999999", now=lambda: 0.0) == 999999.0
+
+    def test_large_http_date_passes_through(self) -> None:
+        fixed_ts = 1_700_000_000.0
+        delta_sec = 999_999.0
+        when = datetime.fromtimestamp(fixed_ts + delta_sec, tz=UTC)
+        assert _retry_after_raw_to_seconds(format_datetime(when), now=lambda: fixed_ts) == pytest.approx(
+            delta_sec,
+        )
+
+    def test_none_absent(self) -> None:
+        assert _retry_after_raw_to_seconds(None, now=lambda: 0.0) is None
+
+    def test_empty_string(self) -> None:
+        assert _retry_after_raw_to_seconds("   ", now=lambda: 0.0) is None

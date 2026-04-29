@@ -128,7 +128,7 @@ pyhaul's exception hierarchy separates retryable from non-retryable errors:
 - [`PartialHaulError`][pyhaul._types.PartialHaulError] — the stream ended early, but progress is saved. Retry.
 - [`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError] — server returned a non-download status
   (408, 425, 429, many 5xx, CDN-specific codes, 404, …). Check `exc.is_transient` (or `exc.is_server_error` for any HTTP 5xx) to decide whether to retry,
-  and inspect `exc.retry_after` for server-requested backoff.
+  and inspect `exc.retry_after` / `exc.retry_after_seconds` for server-requested backoff.
 - [`ServerMisconfiguredError`][pyhaul._types.ServerMisconfiguredError] — the server violated HTTP in a way that makes
   safe resume impossible. Don't retry.
 - [`ControlFileError`][pyhaul._types.ControlFileError] — the checkpoint file is corrupt. Auto-recovers on next

@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import NewType
 from urllib.parse import urlparse
@@ -58,6 +62,42 @@ _TRANSIENT_HTTP_STATUSES: frozenset[int] = frozenset(
 
 _HTTP_SERVER_ERROR_MIN = 500
 _HTTP_SERVER_ERROR_MAX = 599
+
+
+def _retry_after_raw_to_seconds(
+    raw: str | None,
+    *,
+    now: Callable[[], float] | None = None,
+) -> float | None:
+    """Parse ``Retry-After`` into seconds after ``now()`` — RFC 9110 §10.2.3 form.
+
+    Tries ``HTTP-date`` first (same order as common clients), then ``delay-seconds``.
+    Returns ``None`` if absent or unparsable. HTTP-dates in the past map to ``0.0``.
+    Does **not** cap values — callers choose retry policy.
+    """
+    if raw is None:
+        return None
+    stripped = raw.strip()
+    if not stripped:
+        return None
+    clock = time.time if now is None else now
+
+    try:
+        dt = parsedate_to_datetime(stripped)
+    except (TypeError, ValueError):
+        dt = None
+    if dt is not None:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        delta = dt.timestamp() - clock()
+        out = max(0.0, delta)
+        return float(out)
+
+    if stripped.isdigit():
+        sec = int(stripped)
+        return float(sec)
+
+    return None
 
 
 def parse_url(raw: str) -> Url:
@@ -213,8 +253,17 @@ class UnexpectedStatusError(HaulError):
 
     @property
     def retry_after(self) -> str | None:
-        """Value of the ``Retry-After`` header, if present."""
+        """Raw ``Retry-After`` header value, if present (seconds or HTTP-date string)."""
         return self.headers.get("Retry-After")
+
+    @property
+    def retry_after_seconds(self) -> float | None:
+        """Seconds until retry per ``Retry-After``, or ``None`` if absent/unparsable.
+
+        Accepts ``delay-seconds`` (integer) and ``HTTP-date`` forms (RFC 9110 §10.2.3).
+        For dates in the past, returns ``0.0``. Parsing only — pyhaul does not retry or cap sleeps.
+        """
+        return _retry_after_raw_to_seconds(self.retry_after)
 
 
 class ContentRangeError(HaulError):

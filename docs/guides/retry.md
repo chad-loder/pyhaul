@@ -225,9 +225,9 @@ never wraps them. The retryable base class varies by library:
 
 When the server returns a non-download status (anything other than 200, 206, or
 416), pyhaul raises [`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError]
-with structured metadata — `status_code`, `headers`, and a convenience
-`is_transient` / `is_server_error` — so you can branch on status codes and honour
-`Retry-After` without parsing strings:
+with structured metadata — `status_code`, `headers`,
+`is_transient` / `is_server_error`, and parsed `retry_after_seconds` — so you can branch on status codes and honour
+`Retry-After` (delay seconds or HTTP-date) without manual parsing:
 
 === "httpx"
 
@@ -245,7 +245,7 @@ with structured metadata — `status_code`, `headers`, and a convenience
                 time.sleep(min(2**attempt, 30))
             except UnexpectedStatusError as exc:
                 if exc.is_transient:
-                    wait = int(exc.retry_after or 0) or min(2**attempt, 60)
+                    wait = exc.retry_after_seconds if exc.retry_after_seconds is not None else min(2**attempt, 60)
                     time.sleep(wait)
                 else:
                     raise  # 404, 403, etc. — not retryable
@@ -268,7 +268,7 @@ with structured metadata — `status_code`, `headers`, and a convenience
                     await asyncio.sleep(min(2**attempt, 30))
                 except UnexpectedStatusError as exc:
                     if exc.is_transient:
-                        wait = int(exc.retry_after or 0) or min(2**attempt, 60)
+                        wait = exc.retry_after_seconds if exc.retry_after_seconds is not None else min(2**attempt, 60)
                         await asyncio.sleep(wait)
                     else:
                         raise  # 404, 403, etc. — not retryable
@@ -292,7 +292,7 @@ with structured metadata — `status_code`, `headers`, and a convenience
                 time.sleep(min(2**attempt, 30))
             except UnexpectedStatusError as exc:
                 if exc.is_transient:
-                    wait = int(exc.retry_after or 0) or min(2**attempt, 60)
+                    wait = exc.retry_after_seconds if exc.retry_after_seconds is not None else min(2**attempt, 60)
                     time.sleep(wait)
                 else:
                     raise  # 404, 403, etc. — not retryable
@@ -314,7 +314,7 @@ with structured metadata — `status_code`, `headers`, and a convenience
                 time.sleep(min(2**attempt, 30))
             except UnexpectedStatusError as exc:
                 if exc.is_transient:
-                    wait = int(exc.retry_after or 0) or min(2**attempt, 60)
+                    wait = exc.retry_after_seconds if exc.retry_after_seconds is not None else min(2**attempt, 60)
                     time.sleep(wait)
                 else:
                     raise  # 404, 403, etc. — not retryable
