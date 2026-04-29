@@ -409,3 +409,12 @@ async def main():
 
 asyncio.run(main())
 ```
+
+!!! note "Cancellation and outer timeouts"
+    pyhaul only maps **HTTP client** failures (timeouts, disconnects, TLS, etc.)
+    to [`TransportError`][pyhaul.transport.errors.TransportError] subclasses.
+    **Caller-owned** deadlines — `asyncio.wait_for(...)`, `asyncio.Task.cancel()`, or
+    cooperative cancellation — surface as `asyncio.TimeoutError` or
+    `asyncio.CancelledError`. Those bypass adapter translation and are **not**
+    turned into [`PartialHaulError`][pyhaul._types.PartialHaulError]; treat them as
+    application policy, not transport failure.
