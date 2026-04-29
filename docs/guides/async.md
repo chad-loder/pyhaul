@@ -382,8 +382,16 @@ to run the sync `haul()` in a thread without blocking the event loop:
 
 ## Progress reporting
 
-The `on_progress` callback is synchronous even in async mode — pass a
-[`HaulState`][pyhaul._types.HaulState] to track progress. Keep the callback fast:
+`haul_async` accepts an [`AsyncProgressCallback`][pyhaul._types.AsyncProgressCallback]:
+either a synchronous callable or one whose return value is awaitable (for example
+`async def`). The engine awaits each chunk's hook before reading the next chunk,
+so you can push updates over websockets or similar without wrapping each call in
+[`asyncio.create_task`][asyncio.create_task]. Keep work bounded — progress runs on the
+download's critical path.
+
+[`haul()`][pyhaul.engine.haul] still accepts only synchronous callbacks.
+
+Pass a [`HaulState`][pyhaul._types.HaulState] to track progress. Example with a sync hook:
 
 ```python
 from pyhaul import haul_async, HaulState

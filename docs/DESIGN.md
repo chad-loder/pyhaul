@@ -48,8 +48,9 @@ testing, etc.), implement the `TransportSession` protocol: a single
 
 1. `haul()` reads `.part.ctrl` (if it exists) to recover the cursor
    position and stored ETag.
-2. Sends `Range: bytes=<cursor>-` with `If-Range: <etag>` (omitted
-   when no ETag is stored).
+2. Sends `Range: bytes=<cursor>-` with `If-Range: <etag>` when a **strong**
+   ETag is stored — omitted when there is no ETag **or** when only a **weak**
+   ETag is available (weak validators are not used for byte-range preconditioning).
 3. **206 Partial Content** — server honors the range. Stream appends
    from the cursor.
 4. **200 OK** — server ignores the range (resource changed, or server

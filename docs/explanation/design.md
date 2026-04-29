@@ -6,13 +6,17 @@
 
 1. `haul()` reads `.part.ctrl` (if it exists) to recover the cursor
    position and stored ETag.
-2. Sends `Range: bytes=<cursor>-` with `If-Range: <etag>` (omitted
-   when no ETag is stored).
+2. Sends `Range: bytes=<cursor>-` with `If-Range: <etag>` when a **strong**
+   ETag is stored — omitted when there is no ETag **or** when only a **weak**
+   ETag is available (weak validators are not used for byte-range preconditioning).
 3. **206 Partial Content** — server honors the range. Stream appends
    from the cursor.
 4. **200 OK** — server ignores the range (resource changed, or server
    doesn't support ranges). Cursor resets to 0; stream overwrites from
    the beginning.
+   Rare mislabeled **206** responses fall here too: if ``Content-Range``
+   describes the entire representation from byte 0 while we asked for a resume,
+   pyhaul treats that like **200** (same cursor reset).
 5. **416 Range Not Satisfiable** — the server's reported total matches
    the cursor (already complete) or the representation shrank (checkpoint
    reset, next call restarts).

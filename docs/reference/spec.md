@@ -100,7 +100,11 @@ control file from causing the parser to misinterpret lengths or ETag strings.
 
 Supported Tags:
 
-- `1`: ETag (UTF-8 string)
+- `1`: ETag (UTF-8 string — RFC ``entity-tag`` text: ``"<opaque>"``,
+  ``W/"<opaque>"``, or ``*``, as produced by
+  :meth:`EntityTag.to_canonical <pyhaul.etag.EntityTag.to_canonical>`;
+  legacy bare tokens still load via
+  :meth:`EntityTag.from_canonical <pyhaul.etag.EntityTag.from_canonical>`)
 - `2`: Reported length (64-bit unsigned integer — server-claimed full size)
 - `3`: Tail Hash (32-byte SHA-256 binary digest of the current partial block)
 
