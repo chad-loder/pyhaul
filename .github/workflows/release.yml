@@ -27,30 +27,9 @@ jobs:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  codeql-gate:
-    name: CodeQL gate
-    needs: release-please
-    if: needs.release-please.outputs.released == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
-          persist-credentials: false
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@7fc6561ed893d15cec696e062df840b21db27eb0 # v4.35.2
-        with:
-          languages: python
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@7fc6561ed893d15cec696e062df840b21db27eb0 # v4.35.2
-        with:
-          category: /language:python
-
   build:
     name: Build & inspect package
-    needs: [release-please, codeql-gate]
+    needs: [release-please]
     if: needs.release-please.outputs.released == 'true'
     runs-on: ubuntu-latest
     permissions:

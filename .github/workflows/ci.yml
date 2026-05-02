@@ -43,9 +43,10 @@ jobs:
             os_sensitive:
               - 'src/pyhaul/alloc.py'
               - 'src/pyhaul/fs.py'
-            deps:
-              - 'pyproject.toml'
+            lockfile:
               - 'uv.lock'
+            config:
+              - 'pyproject.toml'
             ci:
               - '.github/workflows/**'
             docs:
@@ -59,17 +60,20 @@ jobs:
           CHANGED_SRC: ${{ steps.changes.outputs.src }}
           CHANGED_TESTS: ${{ steps.changes.outputs.tests }}
           CHANGED_OS: ${{ steps.changes.outputs.os_sensitive }}
-          CHANGED_DEPS: ${{ steps.changes.outputs.deps }}
+          CHANGED_LOCK: ${{ steps.changes.outputs.lockfile }}
+          CHANGED_CONFIG: ${{ steps.changes.outputs.config }}
           CHANGED_CI: ${{ steps.changes.outputs.ci }}
         shell: bash
         run: |
-          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_SRC" == "true" || "$CHANGED_TESTS" == "true" || "$CHANGED_DEPS" == "true" || "$CHANGED_CI" == "true" ]]; then
+          # run-tests: lockfile or pyproject config changes imply dependency or packaging inputs may affect installs/tests.
+          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_SRC" == "true" || "$CHANGED_TESTS" == "true" || "$CHANGED_LOCK" == "true" || "$CHANGED_CONFIG" == "true" || "$CHANGED_CI" == "true" ]]; then
             echo "run-tests=true" >> "$GITHUB_OUTPUT"
           else
             echo "run-tests=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_OS" == "true" || "$CHANGED_DEPS" == "true" || "$CHANGED_CI" == "true" ]]; then
+          # Tri-OS: trunk merges, lockfile changes, CI workflow edits, or fs-sensitive code paths — not pyproject-only bumps (e.g. release-please version PRs).
+          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_OS" == "true" || "$CHANGED_LOCK" == "true" || "$CHANGED_CI" == "true" ]]; then
             echo 'os-matrix=["ubuntu-latest","windows-latest","macos-latest"]' >> "$GITHUB_OUTPUT"
             echo "coverage-floor=85" >> "$GITHUB_OUTPUT"
           else
