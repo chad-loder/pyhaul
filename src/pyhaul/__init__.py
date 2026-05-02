@@ -11,6 +11,7 @@ from pyhaul._types import (
     HaulError,
     HaulState,
     PartialHaulError,
+    ProbeResult,
     ServerMeta,
     ServerMisconfiguredError,
     UnexpectedStatusError,
@@ -19,6 +20,7 @@ from pyhaul._types import (
 )
 from pyhaul._version import __version__
 from pyhaul.async_engine import haul_async
+from pyhaul.async_probe import probe_async
 from pyhaul.engine import haul
 from pyhaul.etag import (
     EMPTY_ETAG,
@@ -28,6 +30,7 @@ from pyhaul.etag import (
     is_weak_validator,
     parse_etag,
 )
+from pyhaul.probe import probe
 
 __all__ = [
     "EMPTY_ETAG",
@@ -42,6 +45,7 @@ __all__ = [
     "HaulError",
     "HaulState",
     "PartialHaulError",
+    "ProbeResult",
     "ServerMeta",
     "ServerMisconfiguredError",
     "UnexpectedStatusError",
@@ -53,6 +57,8 @@ __all__ = [
     "is_weak_validator",
     "parse_etag",
     "parse_url",
+    "probe",
+    "probe_async",
     "register_async_adapter",
     "register_sync_adapter",
 ]

@@ -85,6 +85,17 @@ class AsyncMockSession:
             raise RuntimeError(msg)
         yield self.responses[idx]
 
+    @asynccontextmanager
+    async def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AsyncIterator[AsyncTransportResponse]:
+        raise RuntimeError("AsyncMockSession.stream_head is not used by haul_async tests")
+        yield self.responses[0]
+
 
 def _make_206(body: bytes, start: int, total: int | None, etag: str = '"test"') -> AsyncMockResponse:
     end = start + len(body) - 1

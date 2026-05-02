@@ -43,9 +43,10 @@ jobs:
             os_sensitive:
               - 'src/pyhaul/alloc.py'
               - 'src/pyhaul/fs.py'
-            deps:
-              - 'pyproject.toml'
+            lockfile:
               - 'uv.lock'
+            config:
+              - 'pyproject.toml'
             ci:
               - '.github/workflows/**'
             docs:
@@ -59,17 +60,20 @@ jobs:
           CHANGED_SRC: ${{ steps.changes.outputs.src }}
           CHANGED_TESTS: ${{ steps.changes.outputs.tests }}
           CHANGED_OS: ${{ steps.changes.outputs.os_sensitive }}
-          CHANGED_DEPS: ${{ steps.changes.outputs.deps }}
+          CHANGED_LOCK: ${{ steps.changes.outputs.lockfile }}
+          CHANGED_CONFIG: ${{ steps.changes.outputs.config }}
           CHANGED_CI: ${{ steps.changes.outputs.ci }}
         shell: bash
         run: |
-          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_SRC" == "true" || "$CHANGED_TESTS" == "true" || "$CHANGED_DEPS" == "true" || "$CHANGED_CI" == "true" ]]; then
+          # run-tests: lockfile or pyproject config changes imply dependency or packaging inputs may affect installs/tests.
+          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_SRC" == "true" || "$CHANGED_TESTS" == "true" || "$CHANGED_LOCK" == "true" || "$CHANGED_CONFIG" == "true" || "$CHANGED_CI" == "true" ]]; then
             echo "run-tests=true" >> "$GITHUB_OUTPUT"
           else
             echo "run-tests=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_OS" == "true" || "$CHANGED_DEPS" == "true" || "$CHANGED_CI" == "true" ]]; then
+          # Tri-OS: trunk merges, lockfile changes, CI workflow edits, or fs-sensitive code paths — not pyproject-only bumps (e.g. release-please version PRs).
+          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_OS" == "true" || "$CHANGED_LOCK" == "true" || "$CHANGED_CI" == "true" ]]; then
             echo 'os-matrix=["ubuntu-latest","windows-latest","macos-latest"]' >> "$GITHUB_OUTPUT"
             echo "coverage-floor=85" >> "$GITHUB_OUTPUT"
           else
@@ -276,7 +280,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   test-prospective:
-    name: Test (ubuntu / Python 3.15-dev, experimental)
+    name: Test (ubuntu / Python 3.15 preview, experimental)
     needs: [plan, lint]
     if: needs.plan.outputs.run-tests == 'true'
     runs-on: ubuntu-latest
@@ -292,15 +296,14 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
-          cache-suffix: python-3.15-dev-experimental
-      - name: Install CPython 3.15-dev
-        uses: deadsnakes/action@e640ac8743173a67cca4d7d77cd837e514bf98e8 # v3.2.0
-        with:
-          python-version: "3.15-dev"
+          cache-suffix: python-3.15-preview-experimental
+      # uv-managed CPython (python-build-standalone); avoids deadsnakes/Launchpad flakes on GHA.
+      - name: Install CPython 3.15 preview
+        run: uv python install 3.15
       # Only the `test` group: `lint` pulls semgrep → pydantic-core (Rust/PyO3) which
       # often lags CPython pre-releases; the lint job already runs on 3.14 in test-stable.
       - name: Install project
-        run: uv sync --python python3.15 --no-default-groups --group test
+        run: uv sync --python 3.15 --no-default-groups --group test
       - name: pytest
         run: uv run pytest
 

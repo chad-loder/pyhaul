@@ -394,10 +394,15 @@ download's critical path.
 Pass a [`HaulState`][pyhaul._types.HaulState] to track progress. Example with a sync hook:
 
 ```python
+import asyncio
+
+import httpx
+
 from pyhaul import haul_async, HaulState
 
 state = HaulState()
 high_water = 0
+
 
 def show_progress(state: HaulState):
     global high_water
@@ -408,12 +413,18 @@ def show_progress(state: HaulState):
         pct = high_water / state.reported_length * 100
         print(f"\r{pct:.1f}%", end="", flush=True)
 
+
 async def main():
+    url = "https://example.com/file.bin"
     async with httpx.AsyncClient() as client:
-        result = await haul_async(
-            url, client, dest="file.bin",
-            state=state, on_progress=show_progress,
+        await haul_async(
+            url,
+            client,
+            dest="file.bin",
+            state=state,
+            on_progress=show_progress,
         )
+
 
 asyncio.run(main())
 ```

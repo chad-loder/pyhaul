@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from http import HTTPStatus
 from typing import TypedDict
 
 import urllib3
@@ -19,8 +20,6 @@ from pyhaul.transport.errors import (
 )
 from pyhaul.transport.protocols import TransportResponse, TransportSession
 from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
-
-_HTTP_400 = 400
 
 
 def headers_from_urllib3_response(resp: urllib3.HTTPResponse) -> TransportHeaders:
@@ -100,7 +99,7 @@ class Urllib3TransportResponse(TransportResponse):
 
     def raise_for_status(self) -> None:
         """Raise :exc:`~pyhaul.transport.errors.TransportHTTPError` for 4xx/5xx responses."""
-        if self._resp.status >= _HTTP_400:
+        if self._resp.status >= HTTPStatus.BAD_REQUEST:
             raise TransportHTTPError(
                 f"HTTP {self._resp.status}",
                 status_code=self._resp.status,
@@ -143,6 +142,30 @@ class Urllib3Adapter:
         with map_urllib3_transport_errors():
             resp = self._pool.request(
                 "GET",
+                str(url),
+                headers=dict(headers),
+                **kw,
+            )
+        transport_resp = Urllib3TransportResponse(resp)
+        try:
+            yield transport_resp
+        finally:
+            transport_resp.close()
+            resp.release_conn()
+
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Iterator[TransportResponse]:
+        """Open a HEAD request and yield the response."""
+        kw = _build_urlopen_kwargs(options)
+        with map_urllib3_transport_errors():
+            resp = self._pool.request(
+                "HEAD",
                 str(url),
                 headers=dict(headers),
                 **kw,

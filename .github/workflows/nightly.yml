@@ -61,6 +61,7 @@ jobs:
         with:
           enable-cache: false
 
+      # Ephemeral edit on the runner only — never committed or pushed to main.
       - name: Stamp dev version into pyproject.toml
         id: ver
         shell: python

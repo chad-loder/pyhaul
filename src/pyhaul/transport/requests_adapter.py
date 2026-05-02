@@ -86,6 +86,23 @@ class RequestsAdapter:
         ):
             yield RequestsTransportResponse(resp)
 
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Iterator[TransportResponse]:
+        """Open a HEAD request and yield the response."""
+        kwargs = request_options_to_requests_like_kwargs(options)
+        with map_requests_like_transport_errors(_requests_exceptions):
+            resp = self._session.head(str(url), headers=dict(headers), **kwargs)
+        try:
+            yield RequestsTransportResponse(resp)
+        finally:
+            resp.close()
+
 
 def requests_transport(session: requests.Session) -> TransportSession:
     """Shorthand: ``RequestsAdapter(session)``."""

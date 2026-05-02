@@ -15,6 +15,7 @@ import os
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from http import HTTPStatus
 from pathlib import Path
 
 from pyhaul._types import (
@@ -50,12 +51,16 @@ datasync = getattr(os, "fdatasync", os.fsync)
 
 logger = logging.getLogger(__name__)
 
-_HTTP_200 = 200
-_HTTP_206 = 206
-_HTTP_416 = 416
-
 # Final responses when the underlying client chose not to follow (library default or explicit).
-_REDIRECT_STATUSES: frozenset[int] = frozenset({301, 302, 303, 307, 308})
+_REDIRECT_STATUSES: frozenset[int] = frozenset(
+    {
+        HTTPStatus.MOVED_PERMANENTLY,
+        HTTPStatus.FOUND,
+        HTTPStatus.SEE_OTHER,
+        HTTPStatus.TEMPORARY_REDIRECT,
+        HTTPStatus.PERMANENT_REDIRECT,
+    },
+)
 
 
 # ─── Dataclasses ──────────────────────────────────────────────────
@@ -209,13 +214,13 @@ def handle_response(
         },
     )
 
-    if status == _HTTP_416:
+    if status == HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE:
         return _on_416(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
 
-    if status == _HTTP_206:
+    if status == HTTPStatus.PARTIAL_CONTENT:
         return _plan_206(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
 
-    if status == _HTTP_200:
+    if status == HTTPStatus.OK:
         return _plan_200(headers, prep, state, resp_etag=resp_etag, content_type=resp_ct)
 
     if status in _REDIRECT_STATUSES:

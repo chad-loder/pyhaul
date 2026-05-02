@@ -102,6 +102,23 @@ class NiquestsAdapter:
         ):
             yield NiquestsTransportResponse(resp)
 
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Iterator[TransportResponse]:
+        """Open a HEAD request and yield the response."""
+        kwargs = request_options_to_requests_like_kwargs(options)
+        with map_requests_like_transport_errors(_niquests_exceptions):
+            resp = self._session.head(url, headers=dict(headers), **kwargs)
+        try:
+            yield NiquestsTransportResponse(resp)
+        finally:
+            resp.close()
+
 
 def niquests_transport(session: niquests.Session) -> TransportSession:
     """Shorthand: ``NiquestsAdapter(session)``."""
@@ -146,6 +163,38 @@ class AsyncNiquestsTransportResponse(AsyncTransportResponse):
                 yield chunk
 
 
+class AsyncNiquestsHeadTransportResponse(AsyncTransportResponse):
+    """HEAD via :class:`niquests.AsyncSession` returns a sync :class:`~niquests.Response`."""
+
+    __slots__ = ("_headers", "_resp")
+
+    def __init__(self, resp: niquests.Response) -> None:
+        self._resp = resp
+        self._headers: TransportHeaders | None = None
+
+    @property
+    def status_code(self) -> int:
+        """HTTP status code of the response."""
+        return cast("int", self._resp.status_code)
+
+    @property
+    def headers(self) -> TransportHeaders:
+        """Response headers, lazily parsed on first access."""
+        if self._headers is None:
+            self._headers = headers_from_niquests_response(self._resp)
+        return self._headers
+
+    def raise_for_status(self) -> None:
+        """Raise :exc:`~pyhaul.transport.errors.TransportHTTPError` for 4xx/5xx responses."""
+        with map_requests_like_transport_errors(_niquests_exceptions):
+            self._resp.raise_for_status()
+
+    async def aiter_raw_bytes(self, *, chunk_size: int) -> AsyncIterator[bytes]:
+        """HEAD responses carry no entity body; emit one empty chunk for API symmetry."""
+        del chunk_size
+        yield b""
+
+
 class AsyncNiquestsAdapter:
     """Wrap a :class:`niquests.AsyncSession` as an :class:`AsyncTransportSession`."""
 
@@ -174,6 +223,23 @@ class AsyncNiquestsAdapter:
                 yield AsyncNiquestsTransportResponse(resp)
             finally:
                 await resp.close()
+
+    @asynccontextmanager
+    async def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AsyncIterator[AsyncTransportResponse]:
+        """Open a HEAD request and yield the response."""
+        kwargs = request_options_to_requests_like_kwargs(options)
+        with map_requests_like_transport_errors(_niquests_exceptions):
+            resp = await self._session.head(url, headers=dict(headers), **kwargs)
+        try:
+            yield AsyncNiquestsHeadTransportResponse(resp)
+        finally:
+            resp.close()
 
 
 def async_niquests_transport(session: niquests.AsyncSession) -> AsyncTransportSession:

@@ -57,6 +57,16 @@ class MockSession:
         self._call_index += 1
         yield self.responses[idx]
 
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Iterator[TransportResponse]:
+        raise RuntimeError("MockSession.stream_head is not used by integrity tests")
+
 
 def _make_206_response(body: bytes, start: int, total: int | None, etag: str = '"test"') -> MockResponse:
     end = start + len(body) - 1

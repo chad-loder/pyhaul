@@ -155,6 +155,19 @@ class PinnedRedirectSyncTransport:
         with self._inner.stream_get(url, headers=headers, options=merged) as resp:
             yield resp
 
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Iterator[TransportResponse]:
+        """Pin redirect policy, then open HEAD."""
+        merged = merge_allow_redirects(options, pin=self._allow_redirects)
+        with self._inner.stream_head(url, headers=headers, options=merged) as resp:
+            yield resp
+
 
 class PinnedRedirectAsyncTransport:
     """Wraps an async adapter and merges ``TransportRequestOptions(allow_redirects=...)``."""
@@ -182,6 +195,23 @@ class PinnedRedirectAsyncTransport:
         @asynccontextmanager
         async def _cm() -> AsyncIterator[AsyncTransportResponse]:
             async with self._inner.stream_get(url, headers=headers, options=merged) as resp:
+                yield resp
+
+        return _cm()
+
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AbstractAsyncContextManager[AsyncTransportResponse]:
+        """Pin redirect policy, then open HEAD."""
+        merged = merge_allow_redirects(options, pin=self._allow_redirects)
+
+        @asynccontextmanager
+        async def _cm() -> AsyncIterator[AsyncTransportResponse]:
+            async with self._inner.stream_head(url, headers=headers, options=merged) as resp:
                 yield resp
 
         return _cm()

@@ -8,6 +8,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC
 from email.utils import parsedate_to_datetime
+from http import HTTPStatus
 from pathlib import Path
 from typing import NewType
 from urllib.parse import urlparse
@@ -42,21 +43,18 @@ _URL_SCHEMES: frozenset[str] = frozenset({"http", "https"})
 # or rate limiting — conservative superset for default retry hints.
 _TRANSIENT_HTTP_STATUSES: frozenset[int] = frozenset(
     {
-        408,  # Request Timeout
-        425,  # Too Early
-        429,  # Too Many Requests
-        500,  # Internal Server Error
-        502,  # Bad Gateway
-        503,  # Service Unavailable
-        504,  # Gateway Timeout
+        HTTPStatus.REQUEST_TIMEOUT,
+        HTTPStatus.TOO_EARLY,
+        HTTPStatus.TOO_MANY_REQUESTS,
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+        HTTPStatus.BAD_GATEWAY,
+        HTTPStatus.SERVICE_UNAVAILABLE,
+        HTTPStatus.GATEWAY_TIMEOUT,
         520,  # Cloudflare: unknown error
         522,  # Cloudflare: connection timed out
         524,  # Cloudflare: a timeout occurred
     },
 )
-
-_HTTP_SERVER_ERROR_MIN = 500
-_HTTP_SERVER_ERROR_MAX = 599
 
 
 def _retry_after_raw_to_seconds(
@@ -129,6 +127,42 @@ class ServerMeta:
     total_length: int | None = None
     last_modified: str = ""
     content_type: str = ""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProbeResult:
+    """Structured remote metadata from :func:`~pyhaul.probe.probe` / :func:`~pyhaul.async_probe.probe_async`.
+
+    The probe sequence mirrors common CDN/origin behaviour: send ``HEAD``, then — when
+    metadata is still incomplete — issue ``GET`` with ``Range: bytes=0-0`` (see pypdl-style
+    discovery). Values are best-effort hints for planners (concurrent range shards,
+    progress UI); they are not a substitute for download-time validation.
+    """
+
+    url: Url
+    status_code: int
+    """HTTP status from the response that supplied the merged snapshot (usually GET)."""
+
+    total_length: int | None
+    """Total entity length when inferable from ``Content-Length`` or ``Content-Range``."""
+
+    etag: ETag
+    last_modified: str
+    content_type: str
+    content_disposition: str
+    """Raw ``Content-Disposition`` field value, if any."""
+
+    accept_ranges_bytes: bool
+    """True when ``Accept-Ranges: bytes`` is advertised."""
+
+    head_attempted: bool
+    head_status_code: int | None
+    ranged_get_used: bool
+
+    @property
+    def supports_concurrent_byte_ranges(self) -> bool:
+        """Whether byte-range sharding is plausible: ranges supported and size known."""
+        return self.accept_ranges_bytes and self.total_length is not None
 
 
 @dataclass(slots=True)
@@ -232,7 +266,7 @@ class UnexpectedStatusError(HaulError):
     @property
     def is_server_error(self) -> bool:
         """True for HTTP 5xx responses (status ``500`` ≤ code ≤ ``599``)."""
-        return _HTTP_SERVER_ERROR_MIN <= self.status_code <= _HTTP_SERVER_ERROR_MAX
+        return self.status_code // 100 == 5  # noqa: PLR2004 -- RFC 9110 status class 5 (server error)
 
     @property
     def retry_after(self) -> str | None:
