@@ -24,6 +24,10 @@ jobs:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         id: rp
         with:
+          # Default `github.token` suppresses downstream workflows on release PRs (no CI / stuck checks).
+          # Optional PAT restores normal pull_request runs — same idea as Renovate (`renovate.yml`).
+          # https://github.com/googleapis/release-please/issues/922
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
 
