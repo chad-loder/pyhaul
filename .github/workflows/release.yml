@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    tags: ["v*"]
 
 permissions: {}
 
@@ -11,35 +11,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release-please:
-    name: Maintain release PR
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # create releases and tags
-      pull-requests: write # open/update release PR
-    outputs:
-      released: ${{ steps.rp.outputs.release_created }}
-      tag_name: ${{ steps.rp.outputs.tag_name }}
-    steps:
-      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
-        id: rp
-        with:
-          config-file: .release-please-config.json
-          manifest-file: .release-please-manifest.json
-
   build:
     name: Build & inspect package
-    needs: [release-please]
-    if: needs.release-please.outputs.released == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # SLSA provenance + GitHub attestations
+      id-token: write
       attestations: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
           persist-credentials: false
       - uses: hynek/build-and-inspect-python-package@fe0a0fb1925ca263d076ca4f2c13e93a6e92a33e # v2.17.0
         with:
@@ -47,17 +28,65 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: [release-please, build]
+    needs: [build]
     runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/p/pyhaul
     permissions:
-      id-token: write # Trusted Publishing (OIDC) for PyPI
+      id-token: write
     steps:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: Packages
           path: dist/
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+
+  upload-immutable-assets:
+    name: Attach assets to GitHub Release
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: Packages
+          path: dist/
+
+      - name: Verify build attestations
+        run: |
+          for f in dist/*; do
+            gh attestation verify "$f" --repo "$GITHUB_REPOSITORY"
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Generate checksums
+        run: cd dist && sha256sum ./* > SHA256SUMS
+
+      - name: Create draft release
+        run: |
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG" \
+            --generate-notes \
+            --draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+
+      - name: Upload assets to release
+        run: gh release upload "$TAG" dist/*
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+
+      - name: Publish release (locks immutability)
+        run: |
+          gh release edit "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}

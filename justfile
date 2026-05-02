@@ -111,8 +111,45 @@ check: lint test
 
 [group('build')]
 build:
-    uv run scripts/build/pypi_readme.py
     uv build
+
+# --- Release (maintainer) ---
+
+[doc('Prepare a release: PSR stamps version + changelog, creates branch')]
+[group('release')]
+release-prepare:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test -z "$(git status --porcelain)" || { echo "error: working tree not clean"; exit 1; }
+    git fetch origin main
+    git diff --quiet HEAD..origin/main || { echo "error: not up to date with origin/main"; exit 1; }
+    version=$(uv run semantic-release version --print 2>/dev/null) \
+      || { echo "error: no releasable commits (or not on main)"; exit 1; }
+    echo "Preparing release v${version}"
+    git checkout -b "release/v${version}"
+    uv run semantic-release version --no-commit --no-push --no-tag --no-vcs-release
+    echo ""
+    echo "Files stamped. Review CHANGELOG.md, then run:"
+    echo "  git add -A && git commit -m 'chore(release): v${version}'"
+    echo "  git push -u origin HEAD"
+    echo "  gh pr create --title 'chore(release): v${version}'"
+
+[doc('After release PR merges, tag to trigger release CI')]
+[group('release')]
+release-tag version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    git checkout main && git pull --ff-only
+    file_version=$(grep '__version__' src/pyhaul/_version.py | sed 's/.*"\(.*\)"/\1/')
+    test "${file_version}" = "{{ version }}" \
+      || { echo "error: _version.py says ${file_version}, expected {{ version }}"; exit 1; }
+    if git tag -l "v{{ version }}" | grep -q .; then
+      echo "error: tag v{{ version }} already exists"
+      exit 1
+    fi
+    git tag "v{{ version }}"
+    git push origin "v{{ version }}"
+    echo "Tag v{{ version }} pushed. Release CI will build and publish."
 
 # --- Docs ---
 
@@ -154,7 +191,7 @@ _lint-py:
     {{ _lint_bundle }}
     run_quiet "ruff check"        uv run ruff check --quiet .
     run_quiet "ruff format"       uv run ruff format --quiet --check .
-    run_quiet "mypy"              uv run mypy --no-error-summary src tests examples scripts
+    run_quiet "mypy"              uv run mypy --no-error-summary src tests examples
     run_quiet "pyright"           uv run pyright
     run_quiet "ty"                uv run ty check --quiet --quiet
     run_quiet "validate-pyproject" uv run validate-pyproject pyproject.toml
@@ -218,7 +255,7 @@ _lint-spell:
     #!/usr/bin/env bash
     set -euo pipefail
     {{ _lint_bundle }}
-    run_quiet "codespell" uv run codespell src tests docs examples scripts *.md *.toml
+    run_quiet "codespell" uv run codespell src tests docs examples *.md *.toml
 
 [private]
 _safe-install src dest:

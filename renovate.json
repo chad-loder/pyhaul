@@ -41,7 +41,7 @@
         "mypy",
         "pyright",
         "prek",
-        "markdown-it-py"
+        "python-semantic-release"
       ]
     },
     {
@@ -85,7 +85,7 @@
         "mypy",
         "pyright",
         "prek",
-        "markdown-it-py",
+        "python-semantic-release",
         "pytest",
         "pytest-cov",
         "hypothesis",

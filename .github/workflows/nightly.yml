@@ -62,27 +62,15 @@ jobs:
           enable-cache: false
 
       # Ephemeral edit on the runner only — never committed or pushed to main.
-      - name: Stamp dev version into pyproject.toml
+      # hatchling reads __version__ from _version.py at build time.
+      - name: Stamp dev version into _version.py
         id: ver
-        shell: python
         run: |
-          import datetime as dt
-          import os
-          import pathlib
-          import re
-          import tomllib
-
-          p = pathlib.Path("pyproject.toml")
-          txt = p.read_text()
-          base = tomllib.loads(txt)["project"]["version"]
-          stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%d")
-          dev = f"{base}.dev{stamp}"
-          new = re.sub(r'^version = "[^"]+"', f'version = "{dev}"', txt, count=1, flags=re.M)
-          p.write_text(new)
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"dev={dev}\n")
-          name = tomllib.loads(txt)["project"]["name"]
-          print(f"::notice::Stamped {name}=={dev}")
+          version=$(grep '__version__' src/pyhaul/_version.py | sed 's/.*"\(.*\)"/\1/')
+          dev="${version}.dev$(date +%Y%m%d)"
+          echo "__version__ = \"${dev}\"" > src/pyhaul/_version.py
+          echo "dev=${dev}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Stamped pyhaul==${dev}"
 
       - name: Build
         run: uv build

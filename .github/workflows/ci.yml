@@ -72,7 +72,7 @@ jobs:
             echo "run-tests=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Tri-OS: trunk merges, lockfile changes, CI workflow edits, or fs-sensitive code paths — not pyproject-only bumps (e.g. release-please version PRs).
+          # Tri-OS: trunk merges, lockfile changes, CI workflow edits, or fs-sensitive code paths.
           if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_OS" == "true" || "$CHANGED_LOCK" == "true" || "$CHANGED_CI" == "true" ]]; then
             echo 'os-matrix=["ubuntu-latest","windows-latest","macos-latest"]' >> "$GITHUB_OUTPUT"
             echo "coverage-floor=85" >> "$GITHUB_OUTPUT"
@@ -139,7 +139,7 @@ jobs:
       - name: ty
         run: uv run ty check
       - name: codespell
-        run: uv run codespell src tests docs examples scripts
+        run: uv run codespell src tests docs examples
       - name: validate-pyproject
         run: uv run validate-pyproject pyproject.toml
       - name: interrogate

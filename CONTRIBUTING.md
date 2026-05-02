@@ -131,7 +131,7 @@ iteration stays snappy.
 
 This repository uses [Conventional Commits](https://www.conventionalcommits.org/).
 The PR title is what matters most -- it's validated on every pull request
-and is what `release-please` reads when deciding the next version.
+and is what `python-semantic-release` reads when deciding the next version.
 
 | Type | Meaning | Pre-1.0 bump | Post-1.0 bump |
 |---|---|---|---|
@@ -155,6 +155,29 @@ Subject lines should:
 - start with a **lowercase** verb (`add ...`, not `Add ...`)
 - not end with a period
 - be in the imperative mood (`add`, not `adds` / `added`)
+
+## Releases (maintainers)
+
+Releases are cut locally using `python-semantic-release` and published
+via tag-triggered CI.
+
+```bash
+# 1. Prepare: stamps _version.py, CHANGELOG.md, creates release branch
+just release-prepare
+
+# 2. Review the changelog diff, commit, push, open PR
+git add -A && git commit -m 'chore(release): vX.Y.Z'
+git push -u origin HEAD
+gh pr create --title 'chore(release): vX.Y.Z'
+
+# 3. After CI passes and PR merges, tag to trigger release CI
+just release-tag X.Y.Z
+```
+
+The tag push triggers the release workflow, which builds with
+[BAIPP](https://github.com/hynek/build-and-inspect-python-package),
+publishes to PyPI via OIDC, and creates an immutable GitHub Release
+with SHA256 checksums and verified build attestations.
 
 ## Dependency updates
 
