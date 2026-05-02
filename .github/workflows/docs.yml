@@ -6,7 +6,8 @@ on:
     paths:
       - "docs/**"
       - "properdocs.yml"
-      - "src/pyhaul/**"
+      - "**/*.md"
+      - "src/**"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
