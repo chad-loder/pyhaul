@@ -280,7 +280,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   test-prospective:
-    name: Test (ubuntu / Python 3.15-dev, experimental)
+    name: Test (ubuntu / Python 3.15 preview, experimental)
     needs: [plan, lint]
     if: needs.plan.outputs.run-tests == 'true'
     runs-on: ubuntu-latest
@@ -296,15 +296,14 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
-          cache-suffix: python-3.15-dev-experimental
-      - name: Install CPython 3.15-dev
-        uses: deadsnakes/action@e640ac8743173a67cca4d7d77cd837e514bf98e8 # v3.2.0
-        with:
-          python-version: "3.15-dev"
+          cache-suffix: python-3.15-preview-experimental
+      # uv-managed CPython (python-build-standalone); avoids deadsnakes/Launchpad flakes on GHA.
+      - name: Install CPython 3.15 preview
+        run: uv python install 3.15
       # Only the `test` group: `lint` pulls semgrep → pydantic-core (Rust/PyO3) which
       # often lags CPython pre-releases; the lint job already runs on 3.14 in test-stable.
       - name: Install project
-        run: uv sync --python python3.15 --no-default-groups --group test
+        run: uv sync --python 3.15 --no-default-groups --group test
       - name: pytest
         run: uv run pytest
 
