@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/chad-loder/pyhaul/compare/v0.5.0...v0.6.0) (2026-05-02)
+
+
+### Features
+
+* **probe:** probe API, stream_head transport, and download stack updates ([#42](https://github.com/chad-loder/pyhaul/issues/42)) ([0e89255](https://github.com/chad-loder/pyhaul/commit/0e8925567af98109116473e06c26acf21c2a84b6))
+* **transport:** optional headers, prepare_headers hook, and session proxy ([#37](https://github.com/chad-loder/pyhaul/issues/37)) ([d3e383b](https://github.com/chad-loder/pyhaul/commit/d3e383b9cfef3d23f4e40e30db0ccb7d1dd6a0f9))
+
+
+### Bug Fixes
+
+* **ci:** correct action SHA pins in docs workflow ([#31](https://github.com/chad-loder/pyhaul/issues/31)) ([edf13cc](https://github.com/chad-loder/pyhaul/commit/edf13cc7c14d36ea50c3cbb1e203c3d1309e9d5a))
+* consistent PartialHaulError for retryable transport errors ([#36](https://github.com/chad-loder/pyhaul/issues/36)) ([a1f41dd](https://github.com/chad-loder/pyhaul/commit/a1f41dda39e0bd45279c76678e7407962bd0a54d))
+* http protocol edge cases for ETags, ranges, and headers ([#41](https://github.com/chad-loder/pyhaul/issues/41)) ([5de10d8](https://github.com/chad-loder/pyhaul/commit/5de10d8c4d867c8b8327a43bc8ae2251760e1acb))
+* **session:** thread-safe adapter registry with lock and tuple COW ([#39](https://github.com/chad-loder/pyhaul/issues/39)) ([a6486bb](https://github.com/chad-loder/pyhaul/commit/a6486bbf9941b8d10a12395dcbab8422652f68e2))
+
+
+### Documentation
+
+* tabbed examples for async and landing page, fix docstring rendering ([#33](https://github.com/chad-loder/pyhaul/issues/33)) ([215a0be](https://github.com/chad-loder/pyhaul/commit/215a0be827470cc6517474f86b32601f02d6da4a))
+
 ## [0.5.0](https://github.com/chad-loder/pyhaul/compare/v0.4.0...v0.5.0) (2026-04-28)
 
 
