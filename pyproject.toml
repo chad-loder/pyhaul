@@ -1,12 +1,11 @@
 [build-system]
-requires = ["uv_build>=0.11.7,<0.12"]
-build-backend = "uv_build"
+requires = ["hatchling", "hatch-fancy-pypi-readme>=24.1.0"]
+build-backend = "hatchling.build"
 
 [project]
 name = "pyhaul"
-version = "0.6.0"
 description = "Resumable, cursor-based, CDN-safe HTTP downloads for Python"
-readme = "docs/PYPI_README.md"
+dynamic = ["version", "readme"]
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
@@ -60,17 +59,29 @@ aiohttp = [
     "aiohttp>=3.10",
 ]
 
-[tool.uv.build-backend]
-module-name = "pyhaul"
-module-root = "src"
-source-include = ["src/pyhaul/py.typed"]
-source-exclude = [
-    "**/.mypy_cache",
-    "**/.ruff_cache",
-    "**/.pytest_cache",
-    "**/__pycache__",
-    "**/*.pyc",
-]
+[tool.hatch.version]
+path = "src/pyhaul/_version.py"
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+end-before = "<!-- pypi-end -->"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\[([^\]]+)\]\((?!https?://)([^)]+)\)'
+replacement = '[\1](https://github.com/chad-loder/pyhaul/blob/main/\2)'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\]\(LICENSE\)'
+replacement = '](https://github.com/chad-loder/pyhaul/blob/main/LICENSE)'
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyhaul"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/docs", "/CHANGELOG.md", "pyproject.toml", "LICENSE", "README.md"]
 
 [dependency-groups]
 # PEP 735 — not published as installable extras; for contributors / CI only.
@@ -96,7 +107,6 @@ lint = [
     "prek>=0.3.10",
     "pyright>=1.1.408",
     "tenacity>=9.1.4",
-    "markdown-it-py>=4.0.0,<5",
     "ty>=0.0.31",
     "codespell>=2.4.2",
     "validate-pyproject[all]>=0.25",
@@ -117,6 +127,7 @@ docs = [
 ]
 maintainer = [
     { include-group = "dev" },
+    "python-semantic-release>=10.5.3",
     "rumdl>=0.1.76",
     "check-jsonschema>=0.37.1",
     "zizmor>=1.24.1",
@@ -202,8 +213,7 @@ terms = ["TODO", "FIXME", "XXX", "HACK"]
 ".github/PULL_REQUEST_TEMPLATE.md" = ["MD041"]
 "SECURITY.md" = ["MD036"]
 "README.md" = ["MD044", "MD061"]
-"docs/PYPI_README.md" = ["MD044", "MD061"]
-# release-please output: list style / blank lines differ from repo-wide markdown rules
+# PSR changelog output: list style / blank lines differ from repo-wide markdown rules
 "CHANGELOG.md" = ["MD004", "MD012"]
 
 [tool.ruff]
@@ -267,7 +277,6 @@ known-first-party = ["pyhaul"]
 ]
 "**/conftest.py" = ["D", "ARG", "S101", "SLF001", "A002", "N802", "C901"]
 "examples/**" = ["T20", "INP001", "D", "ASYNC240"]
-"scripts/**" = ["T20", "INP001", "D"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -299,7 +308,7 @@ exclude = '''(?x)(
 pythonVersion = "3.12"
 pythonPlatform = "All"
 typeCheckingMode = "strict"
-include = ["src", "tests", "examples", "scripts"]
+include = ["src", "tests", "examples"]
 exclude = [".venv", "build", "dist", "**/__pycache__"]
 
 # Tests need repo root on the path for ``from tests.…``; relax noisy rules there only.
@@ -323,13 +332,6 @@ extraPaths = ["src"]
 reportUnknownParameterType = false
 reportUnknownArgumentType = false
 reportMissingTypeStubs = false
-
-[[tool.pyright.executionEnvironments]]
-root = "scripts"
-reportMissingTypeStubs = false
-reportUnknownVariableType = false
-reportUnknownMemberType = false
-reportUnknownArgumentType = false
 
 # ---------------------------------------------------------------------------
 # ty  (Astral's Rust-based type checker — scoped to library code only)
@@ -416,6 +418,36 @@ ignore-private = true
 ignore-semiprivate = true
 fail-under = 100
 exclude = ["tests", "examples"]
+
+# ---------------------------------------------------------------------------
+# python-semantic-release
+# ---------------------------------------------------------------------------
+[tool.semantic_release]
+commit_parser = "conventional"
+major_on_zero = false
+tag_format = "v{version}"
+version_variables = ["src/pyhaul/_version.py:__version__"]
+build_command = "uv lock --upgrade-package pyhaul"
+
+[tool.semantic_release.changelog]
+mode = "update"
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"
+exclude_commit_patterns = [
+    'chore\(release\): .*',
+    'ci\(.*\): .*',
+    'style\(.*\): .*',
+    'Merged? .*',
+]
+
+[tool.semantic_release.remote]
+type = "github"
+token = { env = "GH_TOKEN" }
+
+[tool.semantic_release.branches.main]
+match = "^main$"
+prerelease = false
 
 # ---------------------------------------------------------------------------
 # codespell

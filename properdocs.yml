@@ -37,7 +37,6 @@ exclude_docs: |
   DESIGN.md
   WHY.md
   SPEC.md
-  PYPI_README.md
 
 markdown_extensions:
   - admonition
