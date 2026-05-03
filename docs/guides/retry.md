@@ -226,7 +226,7 @@ never wraps them. The retryable base class varies by library:
 When the server returns a non-download status (anything other than 200, 206, or
 416), pyhaul raises [`UnexpectedStatusError`][pyhaul._types.UnexpectedStatusError]
 with structured metadata — `status_code`, `headers`,
-`is_transient` / `is_server_error`, and parsed `retry_after_seconds` — so you can branch on status codes and honour
+`is_transient` / `is_server_error`, and parsed `retry_after_seconds` — so you can branch on status codes and honor
 `Retry-After` (delay seconds or HTTP-date) without manual parsing:
 
 === "httpx"

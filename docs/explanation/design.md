@@ -91,8 +91,10 @@ opening any network connection or creating any files.
 
 `haul()` and `haul_async()` auto-detect supported client types and
 wrap them internally via a registry of adapter factories. The adapter
-protocol stays small: [`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers]
-(optional policy hook) plus [`stream_get()`][pyhaul.transport.protocols.TransportSession.stream_get].
+protocol stays small — three methods: [`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers]
+(optional policy hook), [`stream_get()`][pyhaul.transport.protocols.TransportSession.stream_get]
+(streaming download), and [`stream_head()`][pyhaul.transport.protocols.TransportSession.stream_head]
+(metadata probe for resume and content-length detection).
 
 ### Request headers
 
@@ -119,8 +121,8 @@ This design means:
   pools — everything passes through unchanged.
 - **Transport errors propagate unwrapped.** `httpx.ReadTimeout` stays
   `httpx.ReadTimeout`. You catch the types you already know.
-- **Custom transports are easy.** Implement [`TransportSession`][pyhaul.transport.protocols.TransportSession] (`prepare_headers` + `stream_get`)
-  and register it. See [Writing a Custom Adapter](../guides/custom-transport.md).
+- **Custom transports are easy.** Implement [`TransportSession`][pyhaul.transport.protocols.TransportSession]
+  (three methods) and register it. See [Writing a Custom Adapter](../guides/custom-transport.md).
 
 For the supported client types and per-adapter notes, see
 [HTTP Client Adapters](../guides/adapters.md).

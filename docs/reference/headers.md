@@ -75,7 +75,7 @@ Multi-value and ordering fidelity varies by HTTP client:
 | urllib3 | All preserved | Grouped by name |
 
 See [HTTP Client Adapters](../guides/adapters.md) for details on each
-adapter's behaviour.
+adapter's behavior.
 
 ## Full API reference
 
