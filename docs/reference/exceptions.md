@@ -27,6 +27,7 @@ HaulError
 | `ControlFileError` | `.part.ctrl` is corrupt or version-mismatched. | Auto-recovers — corrupt checkpoint is discarded on next attempt |
 | `DestinationError` | Destination path can't accommodate sidecar files. | No — fix the path |
 | *(native)* | Transport errors (`httpx.ReadTimeout`, `requests.ConnectionError`, etc.) pass through unwrapped. | Usually yes |
+| `TransportError` | Translated adapter / client I/O failure (timeout, TLS, reset, …) before pyhaul can complete the response. | Usually yes |
 
 ## Details
 
@@ -59,5 +60,25 @@ sensitive values in logs.
       show_source: false
 
 ::: pyhaul._types.DestinationError
+    options:
+      show_source: false
+
+::: pyhaul.transport.errors.TransportError
+    options:
+      show_source: false
+
+::: pyhaul.transport.errors.TransportConnectionError
+    options:
+      show_source: false
+
+::: pyhaul.transport.errors.TransportTLSError
+    options:
+      show_source: false
+
+::: pyhaul.transport.errors.TransportHTTPError
+    options:
+      show_source: false
+
+::: pyhaul.transport.errors.TransportUnsupportedError
     options:
       show_source: false

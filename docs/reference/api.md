@@ -12,6 +12,10 @@
 
 ## Types
 
+::: pyhaul._types.AsyncProgressCallback
+    options:
+      heading_level: 3
+
 ::: pyhaul._types.CompleteHaul
     options:
       heading_level: 3

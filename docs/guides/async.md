@@ -386,12 +386,12 @@ to run the sync `haul()` in a thread without blocking the event loop:
 either a synchronous callable or one whose return value is awaitable (for example
 `async def`). The engine awaits each chunk's hook before reading the next chunk,
 so you can push updates over websockets or similar without wrapping each call in
-[`asyncio.create_task`][asyncio.create_task]. Keep work bounded — progress runs on the
+[`asyncio.create_task`](https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task). Keep work bounded — progress runs on the
 download's critical path.
 
 [`haul()`][pyhaul.engine.haul] still accepts only synchronous callbacks.
 
-Pass a [`HaulState`][pyhaul._types.HaulState] to track progress. Example with a sync hook:
+Pass a [`HaulState`][pyhaul.HaulState] to track progress. Example with a sync hook:
 
 ```python
 import asyncio
@@ -435,5 +435,5 @@ asyncio.run(main())
     **Caller-owned** deadlines — `asyncio.wait_for(...)`, `asyncio.Task.cancel()`, or
     cooperative cancellation — surface as `asyncio.TimeoutError` or
     `asyncio.CancelledError`. Those bypass adapter translation and are **not**
-    turned into [`PartialHaulError`][pyhaul._types.PartialHaulError]; treat them as
+    turned into [`PartialHaulError`][pyhaul.PartialHaulError]; treat them as
     application policy, not transport failure.
