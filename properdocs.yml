@@ -33,11 +33,6 @@ theme:
 extra_css:
   - stylesheets/extra.css
 
-exclude_docs: |
-  DESIGN.md
-  WHY.md
-  SPEC.md
-
 markdown_extensions:
   - admonition
   - pymdownx.details

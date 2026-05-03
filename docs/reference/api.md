@@ -39,8 +39,7 @@
 ### TransportHeaders {#transport-headers-type}
 
 The immutable header type used for normalized responses and for merged outbound
-requests inside adapters. Full constructors and methods are documented on the
-dedicated [TransportHeaders](headers.md) page — duplicated here it would collide with that reference.
+requests inside adapters. See [TransportHeaders](headers.md) for constructors and methods.
 
 ## Utility functions
 

@@ -3,17 +3,16 @@
 If your application uses an HTTP library that pyhaul doesn't ship an adapter
 for, you can write your own. The adapter protocol is intentionally minimal:
 [`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers]
-(opt-in policy) plus one streaming GET context manager.
+(opt-in policy hook), [`stream_get()`][pyhaul.transport.protocols.TransportSession.stream_get]
+(streaming download), and [`stream_head()`][pyhaul.transport.protocols.TransportSession.stream_head]
+(metadata probe).
 
 ## Why the protocol is structured this way
 
-pyhaul needs exactly one thing from an HTTP client: a streaming GET request
-that yields raw bytes. No connection management, no cookie handling, no retry
-logic — just "prepare merged headers, open a stream, give me bytes, close the stream."
-
-This is why the surface area is `prepare_headers` plus `stream_get()` rather than
-a full-featured HTTP client interface. pyhaul delegates everything else
-(auth, proxies, TLS, pooling) to your session.
+pyhaul needs very little from an HTTP client: a streaming GET for downloads,
+a HEAD request for metadata probes, and an optional header hook. No connection
+management, no cookie handling, no retry logic. pyhaul delegates everything
+else (auth, proxies, TLS, pooling) to your session.
 
 ## The TransportSession protocol
 
@@ -35,6 +34,15 @@ class ExampleSyncTransport:
         ...
 
     def stream_get(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> AbstractContextManager[TransportResponse]:
+        ...
+
+    def stream_head(
         self,
         url: Url,
         *,
@@ -133,6 +141,22 @@ class MyAdapter:
             yield MyResponse(resp)
         finally:
             resp.release_conn()
+
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Iterator[TransportResponse]:
+        resp = self._pool.request(
+            "HEAD", str(url), headers=dict(headers), preload_content=False
+        )
+        try:
+            yield MyResponse(resp)
+        finally:
+            resp.release_conn()
 ```
 
 ## Registering your adapter
@@ -159,7 +183,7 @@ to wrap manually.
 The async protocol mirrors the sync one:
 
 - [`AsyncTransportSession`][pyhaul.transport.protocols.AsyncTransportSession] implements
-  `prepare_headers` and `.stream_get()` returning an
+  `prepare_headers`, `.stream_get()`, and `.stream_head()`, each returning an
   `AbstractAsyncContextManager[AsyncTransportResponse]`
 - `AsyncTransportResponse.aiter_raw_bytes()` returns an `AsyncIterator[bytes]`
 
@@ -172,7 +196,7 @@ without copying an entire adapter, use the fluent builders [`transport_session_p
 and [`async_transport_session_proxy()`][pyhaul.transport.proxy_transport_session.async_transport_session_proxy].
 They produce a [`TransportSession`][pyhaul.transport.protocols.TransportSession] /
 [`AsyncTransportSession`][pyhaul.transport.protocols.AsyncTransportSession] that forwards
-`stream_get` to an inner adapter and runs your function **after**
+`stream_get` / `stream_head` to an inner adapter and runs your function **after**
 `inner.prepare_headers`:
 
 ```python
