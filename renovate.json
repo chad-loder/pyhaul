@@ -73,9 +73,31 @@
       ]
     },
     {
-      "description": "Group GitHub Actions updates into a single PR",
-      "groupName": "github actions",
-      "matchManagers": ["github-actions"]
+      "description": "Privileged actions: individual PRs, 14-day cooldown, manual review required",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": [
+        "pypa/gh-action-pypi-publish",
+        "hynek/build-and-inspect-python-package",
+        "codecov/codecov-action",
+        "actions/checkout",
+        "googleapis/release-please-action"
+      ],
+      "groupName": null,
+      "minimumReleaseAge": "14 days",
+      "labels": ["security", "privileged-action"],
+      "prPriority": 10
+    },
+    {
+      "description": "Low-privilege actions: grouped, standard cooldown",
+      "matchManagers": ["github-actions"],
+      "excludePackageNames": [
+        "pypa/gh-action-pypi-publish",
+        "hynek/build-and-inspect-python-package",
+        "codecov/codecov-action",
+        "actions/checkout",
+        "googleapis/release-please-action"
+      ],
+      "groupName": "github actions (low-privilege)"
     },
     {
       "description": "Automerge non-major dev/lint dependency updates (skip 0.x)",

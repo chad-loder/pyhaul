@@ -48,7 +48,13 @@ jobs:
             config:
               - 'pyproject.toml'
             ci:
-              - '.github/workflows/**'
+              - '.github/**'
+            tooling:
+              - 'tools/**'
+              - 'scripts/**'
+              - 'justfile'
+              - 'renovate.json'
+              - '.pre-commit-config.yaml'
             docs:
               - 'docs/**'
               - 'properdocs.yml'
@@ -63,17 +69,18 @@ jobs:
           CHANGED_LOCK: ${{ steps.changes.outputs.lockfile }}
           CHANGED_CONFIG: ${{ steps.changes.outputs.config }}
           CHANGED_CI: ${{ steps.changes.outputs.ci }}
+          CHANGED_TOOLING: ${{ steps.changes.outputs.tooling }}
         shell: bash
         run: |
-          # run-tests: lockfile or pyproject config changes imply dependency or packaging inputs may affect installs/tests.
-          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_SRC" == "true" || "$CHANGED_TESTS" == "true" || "$CHANGED_LOCK" == "true" || "$CHANGED_CONFIG" == "true" || "$CHANGED_CI" == "true" ]]; then
+          # run-tests: lockfile, config, CI, or tooling changes may affect build/test/security outputs.
+          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_SRC" == "true" || "$CHANGED_TESTS" == "true" || "$CHANGED_LOCK" == "true" || "$CHANGED_CONFIG" == "true" || "$CHANGED_CI" == "true" || "$CHANGED_TOOLING" == "true" ]]; then
             echo "run-tests=true" >> "$GITHUB_OUTPUT"
           else
             echo "run-tests=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Tri-OS: trunk merges, lockfile changes, CI workflow edits, or fs-sensitive code paths.
-          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_OS" == "true" || "$CHANGED_LOCK" == "true" || "$CHANGED_CI" == "true" ]]; then
+          # Tri-OS: trunk merges, lockfile changes, CI/tooling edits, or fs-sensitive code paths.
+          if [[ "$ALWAYS_FULL" == "true" || "$CHANGED_OS" == "true" || "$CHANGED_LOCK" == "true" || "$CHANGED_CI" == "true" || "$CHANGED_TOOLING" == "true" ]]; then
             echo 'os-matrix=["ubuntu-latest","windows-latest","macos-latest"]' >> "$GITHUB_OUTPUT"
             echo "coverage-floor=85" >> "$GITHUB_OUTPUT"
           else
@@ -322,10 +329,26 @@ jobs:
       - name: Verify import
         run: python -c "import pyhaul; print(pyhaul.__version__)"
 
+  meta:
+    name: Validate CI config
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: actionlint
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s
+          ./actionlint -color
+      - name: Validate renovate config
+        run: npx --yes --package renovate -- renovate-config-validator renovate.json
+
   ci-ok:
     name: CI green
     if: always()
-    needs: [lint, build, test-stable, test-prospective, install-dev, coverage]
+    needs: [lint, build, test-stable, test-prospective, install-dev, coverage, meta]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
