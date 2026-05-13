@@ -432,6 +432,13 @@ build_command = "uv lock --upgrade-package pyhaul"
 
 [tool.semantic_release.changelog]
 mode = "update"
+# Custom Jinja2 templates under .semantic-release/templates/ inject a versioned
+# PyPI deep-link into each release heading — see
+# .semantic-release/templates/.components/versioned_changes.md.j2. When this
+# directory exists with any .j2 files, PSR uses these templates in place of its
+# bundled defaults (binary switch, no merge with defaults).
+template_dir = ".semantic-release/templates"
+insertion_flag = "<!-- version list -->"
 
 [tool.semantic_release.changelog.default_templates]
 changelog_file = "CHANGELOG.md"
