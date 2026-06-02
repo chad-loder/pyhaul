@@ -58,6 +58,9 @@ urllib3 = [
 aiohttp = [
     "aiohttp>=3.10",
 ]
+wreq = [
+    "wreq>=0.11",
+]
 
 [tool.hatch.version]
 path = "src/pyhaul/_version.py"
