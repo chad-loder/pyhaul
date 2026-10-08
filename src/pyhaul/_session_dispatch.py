@@ -113,6 +113,18 @@ def _try_async_aiohttp(obj: object) -> AsyncTransportSession | None:
     return None
 
 
+def _try_async_wreq(obj: object) -> AsyncTransportSession | None:
+    try:
+        import wreq
+    except ImportError:
+        return None
+    if isinstance(obj, wreq.Client):
+        from pyhaul.transport.wreq_adapter import AsyncWreqAdapter
+
+        return AsyncWreqAdapter(obj)
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Registries (immutable tuples; registration uses copy-on-write under lock)
 # ---------------------------------------------------------------------------
@@ -130,6 +142,7 @@ _async_factories: tuple[AsyncAdapterFactory, ...] = (
     _try_async_niquests,
     _try_async_httpx,
     _try_async_aiohttp,
+    _try_async_wreq,
 )
 
 

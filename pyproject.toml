@@ -58,6 +58,9 @@ urllib3 = [
 aiohttp = [
     "aiohttp>=3.10",
 ]
+wreq = [
+    "wreq>=0.11",
+]
 
 [tool.hatch.version]
 path = "src/pyhaul/_version.py"
@@ -93,6 +96,7 @@ compat-all = [
     "httpx>=0.27",
     "urllib3>=2.0",
     "aiohttp>=3.10",
+    "wreq>=0.11",
 ]
 test = [
     { include-group = "compat-all" },

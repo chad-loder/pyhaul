@@ -15,9 +15,8 @@ import pytest
 from pyhaul._types import CompleteHaul, UnexpectedStatusError, Url
 from pyhaul.async_engine import haul_async
 from pyhaul.engine import haul
-from tests.live_backends import LIVE_BACKENDS, close_native
+from tests.live_backends import LIVE_ASYNC_BACKENDS, LIVE_BACKENDS, close_native
 from tests.redirect_support import (
-    LIVE_ASYNC_BACKENDS,
     PinnedRedirectAsyncTransport,
     async_native_session,
     build_sync_pinned_transport,

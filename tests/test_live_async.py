@@ -2,7 +2,7 @@
 
 Exercises the ``TaskGroup`` + ``Semaphore`` concurrency pattern shown in
 ``docs/guides/async.md``, against a real threaded HTTP server, once per
-installed async client (httpx, aiohttp, niquests).
+installed async client (httpx, aiohttp, niquests, wreq).
 """
 
 from __future__ import annotations
@@ -23,8 +23,7 @@ import pytest
 
 from pyhaul._types import CompleteHaul, HashBuilder, HaulState, PartialHaulError
 from pyhaul.async_engine import haul_async
-
-ASYNC_BACKENDS: tuple[str, ...] = ("httpx", "aiohttp", "niquests")
+from tests.live_backends import LIVE_ASYNC_BACKENDS as ASYNC_BACKENDS
 
 # ---------------------------------------------------------------------------
 # Async client factories
@@ -49,6 +48,10 @@ async def _make_async_client(backend: str) -> AsyncIterator[object]:
 
         async with niquests.AsyncSession() as session:
             yield session
+    elif backend == "wreq":
+        import wreq
+
+        yield wreq.Client()
     else:
         msg = f"unknown async backend {backend!r}"
         raise ValueError(msg)
