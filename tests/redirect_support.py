@@ -31,8 +31,6 @@ from tests.live_backends import make_native, make_transport
 CONTENT = b"redirect-matrix-download-body"
 ETAG = '"matrix-redirect"'
 
-LIVE_ASYNC_BACKENDS: tuple[str, ...] = ("httpx", "aiohttp", "niquests", "wreq")
-
 
 def _parse_range(header: str, content_len: int) -> tuple[int, int] | None:
     if not header:

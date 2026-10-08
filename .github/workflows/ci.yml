@@ -224,8 +224,11 @@ jobs:
       # --no-sync: without src/, uv would try to build the workspace project; the wheel is already installed.
       # structlog: ``coverage run -m pytest`` (not ``pytest --cov``) so parallel data
       # files are consistently ``.coverage.*``; upload with that glob + hidden files.
+      # Linux and macOS on 3.14 run every live backend; other rows run a rotating third (tests/live_backends.py).
       - name: Run tests (coverage)
         shell: bash
+        env:
+          PYHAUL_LIVE_MATRIX: ${{ (matrix.python-version == '3.14' && matrix.os != 'windows-latest') && 'full' || 'reduced' }}
         run: uv run --no-sync coverage run -m pytest
       - name: Upload coverage data
         if: always()

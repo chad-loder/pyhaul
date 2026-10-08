@@ -1,18 +1,52 @@
 """Live HTTP transport matrix helpers for the test suite.
 
-Each supported optional client (niquests, requests, httpx, urllib3) gets the
-same integration coverage via :class:`tests.conftest.HttpTest`.
+Every sync client (niquests, requests, httpx, urllib3) and async client
+(niquests, aiohttp, httpx, wreq) gets the same integration coverage via
+:class:`tests.conftest.HttpTest`.
+
+``PYHAUL_LIVE_MATRIX=reduced`` keeps one third of the backends, chosen by
+``(rotation index + OS index + Python minor) % 3``. Across three Python
+versions on one OS, or three OSes on one Python version, every backend runs
+at least once. CI sets it on every row except the full Linux and macOS rows.
 """
 
 from __future__ import annotations
 
 import contextlib
+import os
+import sys
 from collections.abc import Iterable
 from typing import Any, cast
 
 from pyhaul.transport.protocols import TransportSession
 
-LIVE_BACKENDS: tuple[str, ...] = ("niquests", "requests", "httpx", "urllib3")
+ALL_SYNC_BACKENDS: tuple[str, ...] = ("niquests", "requests", "httpx", "urllib3")
+ALL_ASYNC_BACKENDS: tuple[str, ...] = ("niquests", "aiohttp", "httpx", "wreq")
+
+# Interleaves sync and async so each third holds both kinds. Reordering
+# changes which CI row runs which backend.
+_ROTATION: tuple[str, ...] = (
+    "sync:niquests",
+    "async:aiohttp",
+    "sync:requests",
+    "async:httpx",
+    "sync:httpx",
+    "async:niquests",
+    "sync:urllib3",
+    "async:wreq",
+)
+_OS_INDEX = {"linux": 0, "darwin": 1, "win32": 2}
+
+
+def _in_matrix(key: str) -> bool:
+    if os.environ.get("PYHAUL_LIVE_MATRIX", "full") != "reduced":
+        return True
+    row = _OS_INDEX.get(sys.platform, 0) + sys.version_info.minor
+    return (_ROTATION.index(key) + row) % 3 == 0
+
+
+LIVE_BACKENDS: tuple[str, ...] = tuple(b for b in ALL_SYNC_BACKENDS if _in_matrix(f"sync:{b}"))
+LIVE_ASYNC_BACKENDS: tuple[str, ...] = tuple(b for b in ALL_ASYNC_BACKENDS if _in_matrix(f"async:{b}"))
 
 
 def make_native(backend: str) -> object:

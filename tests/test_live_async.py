@@ -23,8 +23,7 @@ import pytest
 
 from pyhaul._types import CompleteHaul, HashBuilder, HaulState, PartialHaulError
 from pyhaul.async_engine import haul_async
-
-ASYNC_BACKENDS: tuple[str, ...] = ("httpx", "aiohttp", "niquests", "wreq")
+from tests.live_backends import LIVE_ASYNC_BACKENDS as ASYNC_BACKENDS
 
 # ---------------------------------------------------------------------------
 # Async client factories

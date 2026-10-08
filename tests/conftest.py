@@ -8,6 +8,7 @@ a temp destination path, fault injection helpers, and a shortcut for
 
 from __future__ import annotations
 
+import asyncio
 import gc
 import hashlib
 import http.server as _http_server
@@ -21,11 +22,13 @@ from typing import Any, Literal
 import pytest
 
 from pyhaul._types import CompleteHaul, Url
+from pyhaul.async_engine import haul_async
 from pyhaul.checkpoint import Checkpoint, registry
 from pyhaul.engine import haul as engine_haul
 from pyhaul.persist import ctrl_path_for
 from pyhaul.transport.protocols import TransportSession
-from tests.live_backends import LIVE_BACKENDS, close_native, make_native, make_transport
+from tests.live_backends import LIVE_ASYNC_BACKENDS, LIVE_BACKENDS, close_native, make_native, make_transport
+from tests.redirect_support import async_native_session, make_async_inner_transport
 
 
 class Content(bytes):
@@ -165,8 +168,16 @@ class HttpTest:
     # ---- Download convenience -----------------------------------------------
 
     def haul(self, **kwargs: Any) -> CompleteHaul:
-        """``engine.haul`` pre-filled with the fixture's url, dest, and backend."""
+        """``haul`` (or ``haul_async`` for ``*-async`` backends) pre-filled with url, dest, and backend."""
+        if self.backend.endswith(_ASYNC_SUFFIX):
+            return asyncio.run(self._haul_async(**kwargs))
         return engine_haul(self.url, self.transport, dest=str(self.dest), **kwargs)
+
+    async def _haul_async(self, **kwargs: Any) -> CompleteHaul:
+        backend = self.backend.removesuffix(_ASYNC_SUFFIX)
+        async with async_native_session(backend) as native:
+            transport = make_async_inner_transport(backend, native)
+            return await haul_async(self.url, transport, dest=str(self.dest), **kwargs)
 
     # ---- Output inspection --------------------------------------------------
 
@@ -343,8 +354,11 @@ def _yield_live_http_harness(tmp_path: Path, backend: str) -> Generator[HttpTest
         gc.collect()
 
 
-@pytest.fixture(params=LIVE_BACKENDS)
+_ASYNC_SUFFIX = "-async"
+
+
+@pytest.fixture(params=(*LIVE_BACKENDS, *(f"{b}{_ASYNC_SUFFIX}" for b in LIVE_ASYNC_BACKENDS)))
 def http(tmp_path: Path, request: pytest.FixtureRequest) -> Generator[HttpTest]:
-    """Per-test HTTP harness, once per live transport backend (N-matrix)."""
-    pytest.importorskip(request.param)
+    """Per-test HTTP harness, once per live sync and async transport backend."""
+    pytest.importorskip(request.param.removesuffix(_ASYNC_SUFFIX))
     yield from _yield_live_http_harness(tmp_path, request.param)
