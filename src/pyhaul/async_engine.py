@@ -189,7 +189,7 @@ async def haul_async(  # noqa: C901, PLR0912, PLR0915 — stream loop + transpor
             try:
                 async for chunk in resp.aiter_raw_bytes(chunk_size=chunk_size):
                     os.write(fd, chunk)
-                    n = len(chunk)
+                    n = memoryview(chunk).nbytes
                     plan.cursor += n
                     plan.bytes_since_flush += n
                     state.bytes_read += n
