@@ -87,6 +87,8 @@ jobs:
               --signer-workflow "$SIGNER_WORKFLOW" --source-ref "$SOURCE_REF" --deny-self-hosted-runners
           done
       - uses: $/.github/actions/pypi-publish
+        with:
+          index-host: ${{ vars.PYPI_INDEX_HOST }}
 
   upload-immutable-assets:
     name: Attach assets to GitHub Release

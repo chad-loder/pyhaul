@@ -93,5 +93,5 @@ jobs:
           path: dist/
       - uses: $/.github/actions/pypi-publish
         with:
-          publish-url: https://test.pypi.org/legacy/
-          check-url: https://test.pypi.org/simple/
+          index-host: ${{ vars.PYPI_INDEX_HOST }}
+          skip-existing: "true"
