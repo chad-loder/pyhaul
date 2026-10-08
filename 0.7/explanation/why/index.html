@@ -1,0 +1,1583 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Resumable, cursor-based, CDN-safe HTTP downloads for Python">
+      
+      
+      
+        <link rel="canonical" href="https://chad-loder.github.io/pyhaul/0.7/explanation/why/">
+      
+      
+        <link rel="prev" href="../../guides/custom-transport/">
+      
+      
+        <link rel="next" href="../design/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Why pyhaul Exists - pyhaul</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#why-pyhaul-exists" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="pyhaul" class="md-header__button md-logo" aria-label="pyhaul" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            pyhaul
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Why pyhaul Exists
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/chad-loder/pyhaul" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    chad-loder/pyhaul
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="pyhaul" class="md-nav__button md-logo" aria-label="pyhaul" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    pyhaul
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/chad-loder/pyhaul" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    chad-loder/pyhaul
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/bulk-downloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bulk Downloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/adapters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP Client Adapters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/retry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retry Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/custom-transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing a Custom Adapter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Explanation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Explanation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why pyhaul Exists
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why pyhaul Exists
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#bring-your-own-transport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bring your own transport
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zero-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Zero dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-sync-and-async" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real sync and async
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-a-session-manager-not-a-retry-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not a session manager, not a retry policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-a-weekend-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not a weekend project
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-existing-tools-handle-resume" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How existing tools handle resume
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The details
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#range-requests-that-might-be-ignored" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Range requests that might be ignored
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mid-download-resource-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mid-download resource changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lengths-nobody-knows-in-advance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lengths nobody knows in advance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compression-that-interacts-with-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compression that interacts with ranges
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#crash-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Crash safety
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design & Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/headers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Headers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/exceptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exceptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control File Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#bring-your-own-transport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bring your own transport
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zero-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Zero dependencies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-sync-and-async" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real sync and async
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-a-session-manager-not-a-retry-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not a session manager, not a retry policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-a-weekend-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not a weekend project
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-existing-tools-handle-resume" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How existing tools handle resume
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The details
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#range-requests-that-might-be-ignored" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Range requests that might be ignored
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mid-download-resource-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mid-download resource changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lengths-nobody-knows-in-advance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lengths nobody knows in advance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compression-that-interacts-with-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compression that interacts with ranges
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#crash-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Crash safety
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/chad-loder/pyhaul/edit/main/docs/explanation/why.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="why-pyhaul-exists">Why pyhaul exists<a class="headerlink" href="#why-pyhaul-exists" title="Permanent link">&para;</a></h1>
+<p><strong>See also:</strong> <a href="../design/">Design</a> · <a href="../../reference/spec/">Specification</a></p>
+<p>I wanted something that made resuming HTTP downloads easy. Not just
+"add a Range header" easy — actually easy, where you call a function,
+it either finishes or it doesn't, and in both cases the state on disk
+is correct.</p>
+<h2 id="bring-your-own-transport">Bring your own transport<a class="headerlink" href="#bring-your-own-transport" title="Permanent link">&para;</a></h2>
+<p>You hack on different codebases — some are async, some are legacy
+<code>requests</code> code, some use totally custom in-house HTTP stacks. They
+all share the same abstractions, they just expose them differently.
+<code>pyhaul</code> should work with any of them.</p>
+<h2 id="zero-dependencies">Zero dependencies<a class="headerlink" href="#zero-dependencies" title="Permanent link">&para;</a></h2>
+<p>The base <code>pyhaul</code> package is pure Python with zero required
+dependencies. You can't always install a native binary like <code>aria2</code>
+(as good as it is). The HTTP client adapters are optional extras you
+install if you want them.</p>
+<h2 id="real-sync-and-async">Real sync and async<a class="headerlink" href="#real-sync-and-async" title="Permanent link">&para;</a></h2>
+<p>Not a fake async wrapper around sync code — a real async engine that
+shares logic with the sync path but uses <code>async with</code> / <code>async for</code>
+natively.</p>
+<h2 id="not-a-session-manager-not-a-retry-policy">Not a session manager, not a retry policy<a class="headerlink" href="#not-a-session-manager-not-a-retry-policy" title="Permanent link">&para;</a></h2>
+<p><code>pyhaul</code> shouldn't initiate connections, create or own sessions, or
+contain its own retry or threading logic. I wanted to use it in
+contexts where sessions come out of a pool, where they're configured
+over separate proxies, where app code has added custom authentication
+headers. One <a class="autorefs autorefs-internal" title="            pyhaul.engine.haul(url: str, client: TransportSession | object, *, dest: str | Path, headers: Mapping[str, str] | None = None, state: HaulState | None = None, chunk_size: int = DEFAULT_CHUNK, flush_every: int = DEFAULT_FLUSH, on_progress: Callable[[HaulState], None] | None = None) -> CompleteHaul" href="../../reference/api/#pyhaul.engine.haul"><code>haul()</code></a> = one request. Retries are the caller's
+concern.</p>
+<h2 id="not-a-weekend-project">Not a weekend project<a class="headerlink" href="#not-a-weekend-project" title="Permanent link">&para;</a></h2>
+<p>And it had to correctly handle the weird, real-world corner cases that
+cause silent corruption. Whether that's a hardware crash, a flaky
+connection that drops every few seconds, your container getting
+OOM-killed, or a CDN edge server doing something unexpected with
+compression or range boundaries.</p>
+<p>When you first look at "resumable HTTP downloads," it seems fairly
+simple. Then you hit the first bug. You fix it. Then files are
+sometimes truncated. Oh, this particular client library
+auto-negotiates gzip compression — how does that interact with byte
+ranges? What about chunked transfer encoding? What about servers that
+just ignore your Range header entirely? What about a server that was
+serving version A of a file when you started, and version B when you
+resume two days later?</p>
+<p>And then there's the streaming layer itself. You can't use your HTTP
+library's convenient high-level body methods —
+<code>response.iter_content()</code> in requests, <code>response.iter_bytes()</code> in
+httpx — because those transparently decompress the body. Even when
+the server respects <code>Accept-Encoding: identity</code>, the decompressed
+byte count won't match the <code>Content-Range</code> or <code>Content-Length</code> values
+the server sent, so your checkpoint cursor drifts and your next
+resume starts from the wrong offset. Instead you have to drop down
+to the raw streaming layer: <code>response.raw.stream(decode_content=False)</code>
+for requests/urllib3, <code>response.iter_raw()</code> / <code>response.aiter_raw()</code>
+for httpx and niquests. These give you post-transfer-encoding,
+pre-content-encoding bytes — the exact bytes the server framed. But
+now you're responsible for understanding that "raw" doesn't mean
+"straight off the socket": on a persistent HTTP/1.1 connection,
+multiple responses share the same TCP stream, delimited by
+<code>Content-Length</code> or chunked transfer encoding. The library still
+handles that framing for you in the raw layer, but if you get the
+byte accounting wrong — or if the server lies about <code>Content-Length</code>,
+or a proxy silently re-compresses the stream despite <code>no-transform</code> —
+you can overread into the next response on the connection, corrupting
+both it and your download. These are the kinds of edges that only
+show up in production, on somebody else's CDN, at 3 AM.</p>
+<h2 id="how-existing-tools-handle-resume">How existing tools handle resume<a class="headerlink" href="#how-existing-tools-handle-resume" title="Permanent link">&para;</a></h2>
+<p>I looked at curl, wget, and aria2 — mature, battle-tested tools — to
+see how they approach these problems. Verified against their source
+code, not their documentation.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: center;">curl</th>
+<th style="text-align: center;">wget</th>
+<th style="text-align: center;">aria2</th>
+<th style="text-align: center;">pyhaul</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ETag / <code>If-Range</code> on resume</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Graceful 200 recovery</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Range-safe compression</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">partial</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td><code>Cache-Control: no-transform</code></td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Data flushed before checkpoint</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">partial</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Atomic file completion</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Pure Python / embeddable</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✗</td>
+<td style="text-align: center;">✓</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Notes on the table above:</strong></p>
+<ul>
+<li><strong>curl + 200 recovery:</strong> returns <code>CURLE_RANGE_ERROR</code> and stops.</li>
+<li><strong>wget + 200 recovery:</strong> skips leading bytes and appends. Works if
+  the resource hasn't changed; silently corrupts if it has, because
+  there's no ETag check.</li>
+<li><strong>aria2 + 200 recovery:</strong> aborts with <code>CANNOT_RESUME</code>.</li>
+<li><strong>wget + compression:</strong> sends <code>Accept-Encoding: identity</code> (good),
+  but doesn't send <code>Cache-Control: no-transform</code>, so an intermediate
+  proxy or CDN can still re-compress the response.</li>
+<li><strong>aria2 + flush ordering:</strong> calls <code>fsync</code> on close/save, but
+  doesn't enforce strict data-before-checkpoint ordering.</li>
+</ul>
+<p>None of these tools send <code>If-Range</code> with an ETag on resume. That
+means if the resource at a URL changes between your first attempt and
+your retry, all three will either fail or silently produce a file
+that's half version A and half version B. <code>pyhaul</code> records the ETag
+the server sent on the first request and sends it back via <code>If-Range</code>
+on every subsequent attempt. If the ETag still matches, the server
+appends. If it doesn't, the server returns the full new resource from
+byte 0 — no corruption.</p>
+<h2 id="the-details">The details<a class="headerlink" href="#the-details" title="Permanent link">&para;</a></h2>
+<h3 id="range-requests-that-might-be-ignored">Range requests that might be ignored<a class="headerlink" href="#range-requests-that-might-be-ignored" title="Permanent link">&para;</a></h3>
+<p>The server can honor the range (<code>206 Partial Content</code>), decide to
+resend the whole thing (<code>200 OK</code>), or reject it as out of bounds
+(<code>416</code>). All three happen in the wild. <code>pyhaul</code> handles each outcome
+without caller intervention — including rewinding the on-disk cursor
+when the server signals that prior progress is invalid (e.g. a <code>200</code>
+to a resume request), so fresh bytes are never spliced onto a stale
+prefix.</p>
+<h3 id="mid-download-resource-changes">Mid-download resource changes<a class="headerlink" href="#mid-download-resource-changes" title="Permanent link">&para;</a></h3>
+<p>Suppose your network drops and you retry 48 hours later. By then the
+object at that URL may have changed. <code>pyhaul</code> records the
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/ETag">ETag</a>
+the server sent — a short fingerprint of that exact representation —
+and on resume sends it back via <code>If-Range</code>. If the current ETag still
+matches, the server splices the next bytes onto the ones already on
+disk. If it doesn't, the server returns the new body from byte 0
+instead of corrupting the file with a half-old, half-new mix.</p>
+<h3 id="lengths-nobody-knows-in-advance">Lengths nobody knows in advance<a class="headerlink" href="#lengths-nobody-knows-in-advance" title="Permanent link">&para;</a></h3>
+<p>Some servers send <code>Content-Length: 0</code>, omit the header, or use chunked
+transfer encoding because they don't know (or don't want to compute)
+the full length up front. Chunked TE is HTTP's intended mechanism for
+exactly this: length-prefixed chunks ending in a zero-length sentinel
+that means "that's the end." The cost is that neither side knows the
+total until the last chunk arrives — easy to mishandle if your code
+assumes <code>Content-Length</code> is always present. <code>pyhaul</code> streams to the
+sentinel and treats the final byte count as authoritative.</p>
+<h3 id="compression-that-interacts-with-ranges">Compression that interacts with ranges<a class="headerlink" href="#compression-that-interacts-with-ranges" title="Permanent link">&para;</a></h3>
+<p>HTTP responses can come back compressed (gzip, brotli, zstd), and
+compression isn't guaranteed to produce the same output bytes for the
+same input — two different servers, or even the same server on
+different days, can compress the same asset slightly differently. That
+means asking for "bytes 1,000,000 onward" inside a compressed stream
+isn't a stable question; what you actually want is bytes 1,000,000
+onward of the original, <em>uncompressed</em> file. Worse, some CDN edges
+store <strong>only</strong> a compressed copy of an asset, so a careless resume
+request can come back gzipped even when the bytes already saved on
+disk are uncompressed — concatenate the two and the file is silently
+corrupted from that point forward. <code>pyhaul</code> defends against this with
+request-level headers that force an uncompressed byte stream end to
+end:
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Encoding"><code>Accept-Encoding: identity</code></a>
+asks the origin server not to compress; <code>Cache-Control: no-transform</code>
+(<a href="https://www.rfc-editor.org/rfc/rfc9111#section-5.2.2.6">RFC 9111 §5.2.2.6</a>)
+forbids every proxy and CDN in the chain from re-compressing on the
+way back; and <code>Range</code> / <code>If-Range</code> are always set by <code>pyhaul</code> itself
+even if the caller tried to override them.</p>
+<h3 id="crash-safety">Crash safety<a class="headerlink" href="#crash-safety" title="Permanent link">&para;</a></h3>
+<p>The order of writes matters. <code>pyhaul</code> flushes the <code>.part</code> data with
+<code>fdatasync</code> <em>before</em> updating the checkpoint, writes the checkpoint
+atomically (write-to-tmp, <code>fsync</code>, rename), and finalizes the download
+by atomically renaming <code>.part</code> onto the destination path. Sidecar
+files are constructed as siblings of the destination, so every rename
+is on the same filesystem and truly atomic. Data bytes are never marked
+committed until they are on disk; the destination path is only ever
+populated by that final rename.</p>
+<p>The payoff is a set of guarantees you can verify by inspecting a
+directory with no other context:</p>
+<ul>
+<li><strong>If the destination file exists at the requested path, it is
+  complete and uncorrupted.</strong> There is no in-between state where a
+  partially-written file sits at the final name.</li>
+<li><strong>If <code>.part</code> and <code>.part.ctrl</code> exist instead, the first
+  <code>valid_length</code> bytes of <code>.part</code> are durable and correct.</strong> The rest
+  is junk from preallocation or unflushed writes that gets trimmed on
+  completion. A subsequent <code>haul()</code> call against the same destination
+  picks up from byte <code>valid_length</code>.</li>
+</ul>
+<p>These invariants sound obvious. Enforcing them through process kills,
+OS-dependent sparse-allocation semantics, and writes that linger in
+kernel buffers is where most home-grown downloaders silently lose
+data. <code>pyhaul</code> handles the filesystem primitives correctly on Linux,
+macOS, and Windows.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../../guides/custom-transport/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Writing a Custom Adapter">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Writing a Custom Adapter
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../design/" class="md-footer__link md-footer__link--next" aria-label="Next: Design &amp; Architecture">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Design & Architecture
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "content.tabs.link", "content.action.edit", "navigation.footer", "navigation.sections", "navigation.expand", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
