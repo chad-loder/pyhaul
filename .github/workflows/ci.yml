@@ -16,6 +16,9 @@ concurrency:
 
 env:
   FORCE_COLOR: "1"
+  # Only trusted main pushes write the uv cache; PR runs restore but never save, so
+  # nothing a PR controls can reach a cache entry, whatever the cache scoping rules.
+  UV_CACHE_SAVE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
 jobs:
   plan:
@@ -138,6 +141,7 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
+          save-cache: ${{ env.UV_CACHE_SAVE }}
           cache-dependency-glob: uv.lock
           python-version: "3.14"
       - name: Install project
@@ -218,6 +222,7 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
+          save-cache: ${{ env.UV_CACHE_SAVE }}
           cache-dependency-glob: uv.lock
           python-version: ${{ matrix.python-version }}
       - name: Install deps + wheel
@@ -265,6 +270,7 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
+          save-cache: ${{ env.UV_CACHE_SAVE }}
           cache-dependency-glob: uv.lock
           python-version: "3.14"
       - name: Install project
@@ -312,6 +318,7 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
+          save-cache: ${{ env.UV_CACHE_SAVE }}
           cache-dependency-glob: uv.lock
           cache-suffix: python-3.15-preview-experimental
       # uv-managed CPython (python-build-standalone); avoids deadsnakes/Launchpad flakes on GHA.
@@ -339,6 +346,7 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: "3.12"
+          save-cache: ${{ env.UV_CACHE_SAVE }}
       # lowest-direct installs each extra at its declared minimum; transitive deps stay at latest.
       - name: Install extras at their minimums
         run: |
@@ -372,12 +380,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: actionlint
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s
-          ./actionlint -color
-      - name: Validate renovate config
-        run: npx --yes --package renovate -- renovate-config-validator renovate.json
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          save-cache: ${{ env.UV_CACHE_SAVE }}
+          cache-dependency-glob: uv.lock
+          python-version: "3.14"
+      - name: Install prek
+        run: uv sync --frozen --only-group lint
+      # The repo's pinned pre-push hooks: actionlint, workflow and Renovate schemas, zizmor.
+      - name: Workflow and config hooks
+        run: uv run --frozen prek run --hook-stage pre-push --all-files --show-diff-on-failure
 
   ci-ok:
     name: CI green

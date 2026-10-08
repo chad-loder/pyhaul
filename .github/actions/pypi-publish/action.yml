@@ -1,0 +1,43 @@
+name: Publish to PyPI
+description: >-
+  Signs PEP 740 attestations and uploads distributions with Trusted Publishing.
+  Every tool that sees the OIDC token is pinned in this repo: uv by version and
+  embedded checksum, the signing stack by hash (requirements.txt). No Actions
+  cache, no container image. The calling job needs id-token: write and nothing
+  else that writes.
+inputs:
+  packages-dir:
+    description: Directory holding the sdist and wheel to publish.
+    default: dist
+  publish-url:
+    description: Upload endpoint.
+    default: https://upload.pypi.org/legacy/
+  check-url:
+    description: Index URL used to skip files that are already uploaded; empty disables the check.
+    default: ""
+runs:
+  using: composite
+  steps:
+    - uses: $/.github/actions/setup-uv-pinned
+    - name: Install signing tools (hash-locked)
+      shell: bash
+      env:
+        VENV: ${{ runner.temp }}/pypi-publish-venv
+        REQUIREMENTS: ${{ github.action_path }}/requirements.txt
+      run: |
+        uv venv --no-cache --quiet --python 3.12 "$VENV"
+        uv pip install --no-cache --quiet --require-hashes --python "$VENV" -r "$REQUIREMENTS"
+    - name: Sign PEP 740 attestations
+      shell: bash
+      env:
+        VENV: ${{ runner.temp }}/pypi-publish-venv
+        ATTEST: ${{ github.action_path }}/attest.py
+        PACKAGES_DIR: ${{ inputs.packages-dir }}
+      run: '"$VENV/bin/python" -I "$ATTEST" "$PACKAGES_DIR"'
+    - name: Upload with Trusted Publishing
+      shell: bash
+      env:
+        PACKAGES_DIR: ${{ inputs.packages-dir }}
+        UV_PUBLISH_URL: ${{ inputs.publish-url }}
+        UV_PUBLISH_CHECK_URL: ${{ inputs.check-url }}
+      run: uv publish --no-cache --trusted-publishing always "$PACKAGES_DIR"/*.whl "$PACKAGES_DIR"/*.tar.gz
