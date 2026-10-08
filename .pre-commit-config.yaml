@@ -56,7 +56,7 @@ repos:
         stages: [pre-push]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: ed81924a8b1cecdaa570b072528fa80c9c4d6ccd  # frozen: 0.37.1
+    rev: 0494aa7fa1314e98913a41227d8f0a515b2c1049  # frozen: 0.38.2
     hooks:
       - id: check-github-workflows
         stages: [pre-push]
@@ -65,7 +65,7 @@ repos:
         stages: [pre-push]
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: a4727cbbcd26d7098e96b9cb738169b59711ae51  # frozen: v1.24.1
+    rev: fa412071e4f5d44d44f9e365f4676f9df92456a2  # frozen: v1.30.1
     hooks:
       - id: zizmor
         stages: [pre-push]
