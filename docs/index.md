@@ -129,6 +129,34 @@ Install [`pyhaul`](https://pypi.org/project/pyhaul/) from PyPI — pick the extr
     pool.clear()
     ```
 
+=== "wreq"
+
+    ```bash
+    pip install pyhaul[wreq]
+    ```
+
+    ```python
+    import asyncio
+    import wreq
+    from pathlib import Path
+    from pyhaul import haul_async, PartialHaulError
+
+
+    async def main():
+        dest = Path("big.zip")
+        async with wreq.Client() as client:
+            for _ in range(10):
+                try:
+                    result = await haul_async("https://example.com/big.zip", client, dest=dest)
+                    break
+                except PartialHaulError:
+                    pass
+        print(f"done: {dest.stat().st_size:,} bytes")
+
+
+    asyncio.run(main())
+    ```
+
 ## Guarantees
 
 - **The destination file will not exist until download is complete.** Incomplete

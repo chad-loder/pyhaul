@@ -191,6 +191,38 @@ client = httpx.Client(headers={"Authorization": "Bearer sk-..."})
     session.auth = ("user", "password")
     ```
 
+=== "niquests"
+
+    ```python
+    session = niquests.Session()
+    session.auth = ("user", "password")
+    ```
+
+=== "aiohttp"
+
+    aiohttp 3.14 deprecates `auth=aiohttp.BasicAuth(...)`. A default
+    `Authorization` header works on every supported aiohttp version:
+
+    ```python
+    token = base64.b64encode(b"user:password").decode()
+    session = aiohttp.ClientSession(headers={"Authorization": f"Basic {token}"})
+    ```
+
+=== "urllib3"
+
+    ```python
+    http = urllib3.PoolManager(headers=urllib3.make_headers(basic_auth="user:password"))
+    ```
+
+=== "wreq"
+
+    `wreq.Client` takes basic auth only per request, so set the header on the client:
+
+    ```python
+    token = base64.b64encode(b"user:password").decode()
+    client = wreq.Client(headers={"Authorization": f"Basic {token}"})
+    ```
+
 ### Custom auth flows
 
 If your application uses a custom auth handler (e.g. OAuth token refresh),
@@ -220,10 +252,20 @@ result = haul(url, client, dest="file.bin")
     client = httpx.Client(proxy="http://proxy.corp:3128")
     ```
 
-=== "requests / niquests"
+=== "requests"
 
     ```python
     session = requests.Session()
+    session.proxies = {
+        "http": "http://proxy.corp:3128",
+        "https": "http://proxy.corp:3128",
+    }
+    ```
+
+=== "niquests"
+
+    ```python
+    session = niquests.Session()
     session.proxies = {
         "http": "http://proxy.corp:3128",
         "https": "http://proxy.corp:3128",
@@ -234,6 +276,21 @@ result = haul(url, client, dest="file.bin")
 
     ```python
     http = urllib3.ProxyManager("http://proxy.corp:3128")
+    ```
+
+=== "aiohttp"
+
+    Session-level `proxy=` needs aiohttp 3.11 or later. On aiohttp 3.10, pass
+    `trust_env=True` and set `HTTP_PROXY` / `HTTPS_PROXY` in the environment.
+
+    ```python
+    session = aiohttp.ClientSession(proxy="http://proxy.corp:3128")
+    ```
+
+=== "wreq"
+
+    ```python
+    client = wreq.Client(proxies=[wreq.Proxy.all("http://proxy.corp:3128")])
     ```
 
 ### Connection pooling

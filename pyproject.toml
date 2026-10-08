@@ -267,8 +267,10 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 known-first-party = ["pyhaul"]
 
 [tool.ruff.lint.per-file-ignores]
-# Scripts run by path inside composite actions, not imported.
+# Standalone CI, action, and docs-build scripts, run by path rather than imported.
 ".github/actions/**/*.py" = ["INP001", "D1", "T201"]
+".github/scripts/*.py" = ["INP001", "D1", "S603", "S607"]
+"docs/.hooks/*.py" = ["INP001", "D1"]
 "**/test_*.py" = [
     "S101",     # assert is how you test
     "D",        # no docstrings in tests

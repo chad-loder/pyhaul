@@ -83,6 +83,27 @@ non-I/O logic with the sync path.
     asyncio.run(main())
     ```
 
+=== "wreq"
+
+    ```python
+    import asyncio
+    import wreq
+    from pyhaul import haul_async
+
+
+    async def main():
+        async with wreq.Client() as client:
+            result = await haul_async(
+                "https://example.com/file.bin",
+                client,
+                dest="file.bin",
+            )
+            print(f"done: sha256={result.sha256[:16]}…")
+
+
+    asyncio.run(main())
+    ```
+
 !!! note
     pyhaul sets `auto_decompress=False` on aiohttp requests internally to
     ensure raw bytes for accurate resume. Your session's other settings
@@ -207,6 +228,44 @@ files concurrently:
     asyncio.run(main())
     ```
 
+=== "wreq"
+
+    ```python
+    import asyncio
+    from pathlib import Path
+    import wreq
+    from pyhaul import haul_async, PartialHaulError
+
+    URLS = [
+        ("https://data.example.edu/census/2024-vol01.csv.gz", Path("data/vol01.csv.gz")),
+        ("https://data.example.edu/census/2024-vol02.csv.gz", Path("data/vol02.csv.gz")),
+        ("https://data.example.edu/census/2024-vol03.csv.gz", Path("data/vol03.csv.gz")),
+    ]
+
+
+    async def download_one(client: wreq.Client, url: str, dest: Path):
+        for attempt in range(1, 11):
+            try:
+                await haul_async(url, client, dest=dest)
+                return dest
+            except PartialHaulError:
+                if attempt == 10:
+                    raise
+                await asyncio.sleep(min(2**attempt, 30))
+
+
+    async def main():
+        Path("data").mkdir(exist_ok=True)
+        async with wreq.Client() as client:
+            async with asyncio.TaskGroup() as tg:
+                tasks = [tg.create_task(download_one(client, url, dest)) for url, dest in URLS]
+        for task in tasks:
+            print(f"done: {task.result()}")
+
+
+    asyncio.run(main())
+    ```
+
 Each `haul_async()` call manages its own checkpoint independently. A crash
 partway through leaves each file in a separately resumable state.
 
@@ -262,6 +321,24 @@ server or exhausting file descriptors:
             for attempt in range(1, 11):
                 try:
                     await haul_async(url, session, dest=dest)
+                    return dest
+                except PartialHaulError:
+                    if attempt == 10:
+                        raise
+                    await asyncio.sleep(min(2**attempt, 30))
+    ```
+
+=== "wreq"
+
+    ```python
+    sem = asyncio.Semaphore(8)
+
+
+    async def download_one(client: wreq.Client, url: str, dest: str):
+        async with sem:
+            for attempt in range(1, 11):
+                try:
+                    await haul_async(url, client, dest=dest)
                     return dest
                 except PartialHaulError:
                     if attempt == 10:
@@ -356,6 +433,34 @@ an `async def` and tenacity handles the await:
     )
     async def download(session: niquests.AsyncSession, url: str, dest: str):
         return await haul_async(url, session, dest=dest)
+    ```
+
+=== "wreq"
+
+    ```python
+    from tenacity import (
+        retry,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_exponential_jitter,
+    )
+    import wreq
+    from pyhaul import haul_async, PartialHaulError, UnexpectedStatusError
+
+
+    def _retryable(exc: BaseException) -> bool:
+        if isinstance(exc, (PartialHaulError, wreq.ConnectionError, wreq.ConnectionResetError, wreq.TimeoutError)):
+            return True
+        return isinstance(exc, UnexpectedStatusError) and exc.is_transient
+
+
+    @retry(
+        retry=retry_if_exception(_retryable),
+        wait=wait_exponential_jitter(initial=2, max=60),
+        stop=stop_after_attempt(10),
+    )
+    async def download(client: wreq.Client, url: str, dest: str):
+        return await haul_async(url, client, dest=dest)
     ```
 
 ## Mixing sync clients with asyncio

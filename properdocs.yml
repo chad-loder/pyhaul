@@ -1,12 +1,23 @@
 site_name: pyhaul
 site_description: Resumable, cursor-based, CDN-safe HTTP downloads for Python
-site_url: https://chad-loder.github.io/pyhaul
+site_url: https://chad-loder.github.io/pyhaul/
 repo_url: https://github.com/chad-loder/pyhaul
 repo_name: chad-loder/pyhaul
 edit_uri: edit/main/docs/
 
+strict: true
+
 validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
   anchors: warn
+
+hooks:
+  - docs/.hooks/client_tabs.py
+
+watch:
+  - src
 
 theme:
   name: material
@@ -54,6 +65,8 @@ markdown_extensions:
 
 plugins:
   - search
+  - mike:
+      canonical_version: !ENV [DOCS_CANONICAL_VERSION, latest]
   - code-validator:
       identifiers:
         python:

@@ -160,7 +160,12 @@ release-tag version:
 [doc('Build docs site to site/ directory')]
 [group('docs')]
 docs:
-    uv run --group docs properdocs build --strict
+    uv run --group docs properdocs build
+
+[doc('Serve docs locally with live reload')]
+[group('docs')]
+docs-serve:
+    uv run --group docs properdocs serve
 
 # --- Dev ---
 

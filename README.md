@@ -72,11 +72,11 @@ No hard dependency on any HTTP library. Pick one (or several) as extras.
 
 **[Full documentation](https://chad-loder.github.io/pyhaul/)** — Quick start, guides, and API reference.
 
-- [Quick Start](https://chad-loder.github.io/pyhaul/quickstart/) — install, first download, async usage
-- [Why pyhaul Exists](https://chad-loder.github.io/pyhaul/explanation/why/) — silent failure modes in HTTP resume, comparison with curl/wget/aria2c
-- [Design & Architecture](https://chad-loder.github.io/pyhaul/explanation/design/) — transport adapters, checkpoint state, download lifecycle
-- [API Reference](https://chad-loder.github.io/pyhaul/reference/api/) — `haul()`, `haul_async()`, `HaulState`, exceptions
-- [Control File Spec](https://chad-loder.github.io/pyhaul/reference/spec/) — checkpoint format for implementers
+- [Quick Start](https://chad-loder.github.io/pyhaul/latest/quickstart/) — install, first download, async usage
+- [Why pyhaul Exists](https://chad-loder.github.io/pyhaul/latest/explanation/why/) — silent failure modes in HTTP resume, comparison with curl/wget/aria2c
+- [Design & Architecture](https://chad-loder.github.io/pyhaul/latest/explanation/design/) — transport adapters, checkpoint state, download lifecycle
+- [API Reference](https://chad-loder.github.io/pyhaul/latest/reference/api/) — `haul()`, `haul_async()`, `HaulState`, exceptions
+- [Control File Spec](https://chad-loder.github.io/pyhaul/latest/reference/spec/) — checkpoint format for implementers
 
 <!-- pypi-end -->
 
