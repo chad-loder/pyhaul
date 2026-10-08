@@ -11,9 +11,11 @@ inputs:
     default: dist
   index-host:
     description: >-
-      Index to publish to: pypi.org (release tags only) or test.pypi.org. No
-      default, so a caller with a misspelled or stale input name fails instead
-      of falling through to production PyPI.
+      Index to publish to: pypi.org (release tags only) or test.pypi.org. Pass
+      the job's deployment environment variable `vars.PYPI_INDEX_HOST`, so the
+      destination comes from the GitHub environment (and its reviewer and ref
+      policies), not the workflow text. No default: a missing or misnamed value
+      fails instead of falling through to production PyPI.
     required: true
   skip-existing:
     description: Skip files the index already has (compared by hash) instead of failing.
