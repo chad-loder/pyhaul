@@ -21,6 +21,7 @@ will treat decompressed bytes as the canonical stream.
 
 from __future__ import annotations
 
+import datetime
 from collections.abc import AsyncIterator, Iterator, Mapping
 from contextlib import asynccontextmanager, contextmanager
 from typing import TypedDict
@@ -44,10 +45,17 @@ from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
 def headers_from_wreq_response(resp: wreq.Response) -> TransportHeaders:
     """Build :class:`TransportHeaders` from a ``wreq.Response`` (multi-value safe).
 
-    ``wreq.HeaderMap.items()`` preserves both multi-value headers and
-    wire order, the same invariant the aiohttp adapter relies on.
+    ``wreq.HeaderMap`` has no ``items()``; it exposes ``keys()`` and
+    ``get_all(name)``, both yielding ``bytes``. Names and values decode
+    as ``latin-1`` (HTTP's wire encoding), and ``get_all`` keeps repeated
+    headers such as ``Set-Cookie`` as separate pairs.
     """
-    return TransportHeaders.from_pairs(transport_header_pairs(resp.headers.items()))
+    hm = resp.headers
+    pairs: list[tuple[str, str]] = []
+    for raw_name in hm.keys():  # noqa: SIM118 — wreq HeaderMap is not iterable
+        name = raw_name.decode("latin-1")
+        pairs.extend((name, raw_value.decode("latin-1")) for raw_value in hm.get_all(name))
+    return TransportHeaders.from_pairs(transport_header_pairs(pairs))
 
 
 # Exception translation: wreq has a flat hierarchy in `wreq.exceptions`
@@ -122,8 +130,9 @@ async def map_wreq_transport_errors_async() -> AsyncIterator[None]:
 
 
 class _WreqRequestKwargs(TypedDict, total=False):
-    timeout: float
-    allow_redirects: bool
+    timeout: datetime.timedelta
+    read_timeout: datetime.timedelta
+    redirect: wreq.redirect.Policy
 
 
 def _request_options_to_wreq_kwargs(
@@ -131,21 +140,22 @@ def _request_options_to_wreq_kwargs(
 ) -> _WreqRequestKwargs:
     """Translate pyhaul's ``TransportRequestOptions`` to ``wreq``-shaped kwargs.
 
-    pyhaul's timeout supports either a scalar (total) or a
-    ``(connect, read)`` tuple. ``wreq`` only exposes a scalar
-    per-request timeout, so a tuple is reduced to ``sock_read``
-    (the bound the caller almost certainly cares about for downloads).
-    Verify behaviour matches caller expectations on the first integration
-    pass.
+    A scalar timeout maps to wreq's total ``timeout``. A ``(connect, read)``
+    tuple maps only its read half to ``read_timeout``: wreq sets connect
+    timeouts at Client-build time, not per request. wreq ignores unknown
+    kwargs, so ``allow_redirects`` must become a ``redirect`` policy.
     """
     if options is None:
         return {}
     kw: _WreqRequestKwargs = {}
     if options.timeout is not None:
         t = options.timeout
-        kw["timeout"] = float(t[1] if isinstance(t, tuple) else t)
+        if isinstance(t, tuple):
+            kw["read_timeout"] = datetime.timedelta(seconds=t[1])
+        else:
+            kw["timeout"] = datetime.timedelta(seconds=t)
     if options.allow_redirects is not None:
-        kw["allow_redirects"] = options.allow_redirects
+        kw["redirect"] = wreq.redirect.Policy.limited() if options.allow_redirects else wreq.redirect.Policy.none()
     # `options.verify` is intentionally unwired: TLS verification in wreq
     # is configured at Client-build time (not per-request), so caller
     # owns it via the wreq.Client they pass us. Documented constraint.
@@ -163,8 +173,12 @@ class WreqTransportResponse(AsyncTransportResponse):
 
     @property
     def status_code(self) -> int:
-        """HTTP status code of the response (wreq uses ``.status``, we expose ``.status_code``)."""
-        return int(self._resp.status)
+        """HTTP status code of the response.
+
+        ``wreq.StatusCode`` defines no ``__int__``, so ``int()`` raises
+        ``TypeError``; ``as_int()`` is the integer view.
+        """
+        return self._resp.status.as_int()
 
     @property
     def headers(self) -> TransportHeaders:

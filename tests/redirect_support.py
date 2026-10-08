@@ -31,7 +31,7 @@ from tests.live_backends import make_native, make_transport
 CONTENT = b"redirect-matrix-download-body"
 ETAG = '"matrix-redirect"'
 
-LIVE_ASYNC_BACKENDS: tuple[str, ...] = ("httpx", "aiohttp", "niquests")
+LIVE_ASYNC_BACKENDS: tuple[str, ...] = ("httpx", "aiohttp", "niquests", "wreq")
 
 
 def _parse_range(header: str, content_len: int) -> tuple[int, int] | None:
@@ -238,6 +238,10 @@ def make_async_inner_transport(backend: str, native: object) -> AsyncTransportSe
         from pyhaul.transport.niquests_adapter import AsyncNiquestsAdapter
 
         return AsyncNiquestsAdapter(native)  # type: ignore[arg-type]
+    if backend == "wreq":
+        from pyhaul.transport.wreq_adapter import AsyncWreqAdapter
+
+        return AsyncWreqAdapter(native)  # type: ignore[arg-type]
     msg = f"unknown async backend {backend!r}"
     raise ValueError(msg)
 
@@ -260,6 +264,10 @@ async def async_native_session(backend: str) -> AsyncIterator[object]:
 
         async with niquests.AsyncSession() as session:
             yield session
+    elif backend == "wreq":
+        import wreq
+
+        yield wreq.Client()
     else:
         msg = f"unknown async backend {backend!r}"
         raise ValueError(msg)
