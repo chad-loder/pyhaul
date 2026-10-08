@@ -30,6 +30,11 @@ theme:
     - navigation.expand
     - toc.follow
 
+extra:
+  version:
+    provider: mike
+    default: latest
+
 extra_css:
   - stylesheets/extra.css
 

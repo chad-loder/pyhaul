@@ -1,8 +1,13 @@
 name: Docs
 
+# Versioned site on the gh-pages branch (mike):
+#   tag vX.Y.Z  -> version X.Y, alias `latest` (the site default)
+#   push main   -> version `dev`
+#   dispatch    -> rebuild `ref` (a release tag redeploys its X.Y; anything else deploys `dev`)
 on:
   push:
     branches: [main]
+    tags: ["v*"]
     paths:
       - "docs/**"
       - "properdocs.yml"
@@ -10,41 +15,60 @@ on:
       - "src/**"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or branch to build (e.g. v0.7.0)"
+        required: true
+        default: main
 
 permissions:
   contents: read
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: gh-pages
+  cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
+    name: Deploy docs
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # mike pushes to gh-pages
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+          persist-credentials: true # zizmor: ignore[artipacked] mike pushes gh-pages; no artifacts are uploaded
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          enable-cache: true
       - run: uv sync --group docs
-      - run: uv run properdocs build --strict
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Strict build
+        run: uv run properdocs build --strict
+      - name: Resolve docs version
+        id: version
+        env:
+          REF: ${{ inputs.ref || github.ref_name }}
+        run: |
+          if [[ "$REF" =~ ^v([0-9]+)\.([0-9]+)\.[0-9]+$ ]]; then
+            echo "name=${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=dev" >> "$GITHUB_OUTPUT"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy with mike
+        # --with: release tags cut before mike joined the docs group still deploy.
+        env:
+          VERSION: ${{ steps.version.outputs.name }}
+          RELEASE: ${{ steps.version.outputs.release }}
+          MIKE: uv run --with mike==2.2.0 mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages:gh-pages || true
+          if [[ "$RELEASE" == "true" ]]; then
+            $MIKE deploy --push --update-aliases "$VERSION" latest
+            $MIKE set-default --push latest
+          else
+            $MIKE deploy --push "$VERSION"
+          fi
