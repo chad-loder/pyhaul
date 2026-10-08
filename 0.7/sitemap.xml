@@ -1,67 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/contributing/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/contributing/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/quickstart/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/quickstart/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/explanation/design/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/explanation/design/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/explanation/why/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/explanation/why/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/guides/adapters/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/guides/adapters/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/guides/async/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/guides/async/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/guides/bulk-downloads/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/guides/bulk-downloads/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/guides/custom-transport/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/guides/custom-transport/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/guides/retry/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/guides/retry/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/reference/api/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/reference/api/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/reference/changelog/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/reference/changelog/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/reference/cli/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/reference/cli/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/reference/exceptions/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/reference/exceptions/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/reference/headers/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/reference/headers/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
     <url>
-         <loc>https://chad-loder.github.io/pyhaul/0.7/reference/spec/</loc>
+         <loc>https://chad-loder.github.io/pyhaul/latest/reference/spec/</loc>
          <lastmod>2026-10-08</lastmod>
     </url>
 </urlset>
