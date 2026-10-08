@@ -126,8 +126,11 @@ release-prepare:
     version=$(uv run semantic-release version --print 2>/dev/null) \
       || { echo "error: no releasable commits (or not on main)"; exit 1; }
     echo "Preparing release v${version}"
-    git checkout -b "release/v${version}"
+    # PSR stamps only on a branch in its release groups (main); the branch is cut after.
     uv run semantic-release version --no-commit --no-push --no-tag --no-vcs-release
+    grep -q "\"${version}\"" src/pyhaul/_version.py \
+      || { echo "error: semantic-release did not stamp ${version}"; exit 1; }
+    git checkout -b "release/v${version}"
     echo ""
     echo "Files stamped. Review CHANGELOG.md, then run:"
     echo "  git add -A && git commit -m 'chore(release): v${version}'"

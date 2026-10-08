@@ -9,6 +9,64 @@ Released versions are published to PyPI at <https://pypi.org/project/pyhaul/#his
 
 <!-- version list -->
 
+## v0.7.0 (2026-10-08) — [Release](https://github.com/chad-loder/pyhaul/releases/tag/v0.7.0) · [PyPI](https://pypi.org/project/pyhaul/0.7.0)
+
+### Bug Fixes
+
+- **alloc**: Fall back to sparse sizing when Darwin F_PREALLOCATE returns ENOSPC
+  ([#78](https://github.com/chad-loder/pyhaul/pull/78),
+  [`2c71fc1`](https://github.com/chad-loder/pyhaul/commit/2c71fc1356c3a53a9a58e52e4f9e8aaf10a0f88d))
+
+- **release**: Add --repo flag to gh release upload and upgrade download-artifact
+  ([#51](https://github.com/chad-loder/pyhaul/pull/51),
+  [`0fb66ac`](https://github.com/chad-loder/pyhaul/commit/0fb66acf150a324543b484ce5f32a187469de758))
+
+- **transport**: Support wreq 0.13 memoryview chunks zero-copy and always close wreq responses
+  ([#81](https://github.com/chad-loder/pyhaul/pull/81),
+  [`06c8d61`](https://github.com/chad-loder/pyhaul/commit/06c8d6159035d8bd2ce14759266949348000bc8b))
+
+### Chores
+
+- **config**: Migrate config renovate.json ([#54](https://github.com/chad-loder/pyhaul/pull/54),
+  [`fadf50d`](https://github.com/chad-loder/pyhaul/commit/fadf50d7ac48685e507251e07179cfe4ecf0277e))
+
+- **deps**: Refresh lockfile, dev tools, actions, and hooks; add HTTP client minimum-version policy
+  ([#82](https://github.com/chad-loder/pyhaul/pull/82),
+  [`d86a46b`](https://github.com/chad-loder/pyhaul/commit/d86a46b24c8d224c1747836bfcad74c932184c52))
+
+### Continuous Integration
+
+- Bump build-and-inspect-python-package to v3.0.1 for metadata 2.5 support
+  ([#80](https://github.com/chad-loder/pyhaul/pull/80),
+  [`fb8d51e`](https://github.com/chad-loder/pyhaul/commit/fb8d51e83def651310454c1af662aeb8fb3f02d7))
+
+### Documentation
+
+- Fix mkdocs strict autoref targets for async guide
+  ([#53](https://github.com/chad-loder/pyhaul/pull/53),
+  [`03cb1ea`](https://github.com/chad-loder/pyhaul/commit/03cb1eaebbc7012a3cd5bbae32342914acbdf7f9))
+
+- Streamline readme and consolidate documentation
+  ([#52](https://github.com/chad-loder/pyhaul/pull/52),
+  [`4244a1e`](https://github.com/chad-loder/pyhaul/commit/4244a1ef87fdb8a835bcc7e4577b4b21fc3eb97c))
+
+- **pypi**: Backlink to PyPI from README, docs, CHANGELOG, and future releases
+  ([#59](https://github.com/chad-loder/pyhaul/pull/59),
+  [`11c4a96`](https://github.com/chad-loder/pyhaul/commit/11c4a961093c1bd7554abbfa7e8d4990e17fce61))
+
+### Features
+
+- **transport**: Add wreq-python async adapter + pyhaul[wreq] extra
+  ([#79](https://github.com/chad-loder/pyhaul/pull/79),
+  [`878261e`](https://github.com/chad-loder/pyhaul/commit/878261eed7eb870f054bf6ad2a7df155b4c16411))
+
+### Testing
+
+- Run the live fault suite against async adapters with a rotating reduced CI matrix
+  ([#79](https://github.com/chad-loder/pyhaul/pull/79),
+  [`878261e`](https://github.com/chad-loder/pyhaul/commit/878261eed7eb870f054bf6ad2a7df155b4c16411))
+
+
 ## [0.6.0](https://github.com/chad-loder/pyhaul/compare/v0.5.0...v0.6.0) (2026-05-02)
 
 
