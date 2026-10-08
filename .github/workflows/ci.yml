@@ -23,7 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
     outputs:
       run-tests: ${{ steps.decide.outputs.run-tests }}
       os-matrix: ${{ steps.decide.outputs.os-matrix }}
@@ -87,8 +86,16 @@ jobs:
             echo 'os-matrix=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
             echo "coverage-floor=80" >> "$GITHUB_OUTPUT"
           fi
+
+  # Not part of the CI green gate. Fork PRs get a read-only token, so labeling is skipped for them.
+  label:
+    name: Label PR
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
       - name: Label PR from conventional commit type
-        if: github.event_name == 'pull_request'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
