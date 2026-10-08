@@ -13,6 +13,7 @@
   "pre-commit": {
     "enabled": true
   },
+  "platformCommit": "enabled",
   "customManagers": [
     {
       "description": "PyPI tools pinned inline in workflow run steps (uv run --with <pkg>==<version>)",
@@ -144,7 +145,8 @@
       "matchCurrentVersion": "!/^0/",
       "matchUpdateTypes": ["minor", "patch"],
       "automerge": true,
-      "automergeType": "branch"
+      "automergeType": "pr",
+      "platformAutomerge": true
     }
   ]
 }
