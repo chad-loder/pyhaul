@@ -38,7 +38,10 @@ runs:
         UV_PYTHON_DOWNLOADS: never
         VENV: ${{ runner.temp }}/pypi-publish-venv
         REQUIREMENTS: ${{ github.action_path }}/requirements.txt
+      # Steps that neither sign nor upload drop the OIDC request credentials GitHub
+      # injects into every step of an id-token job, so their child processes never see them.
       run: |
+        unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL
         uv venv --no-cache --quiet --python 3.12 "$VENV"
         uv pip install --no-cache --quiet --no-build --require-hashes --python "$VENV" -r "$REQUIREMENTS"
     - name: Check distribution metadata
@@ -47,6 +50,7 @@ runs:
         VENV: ${{ runner.temp }}/pypi-publish-venv
         PACKAGES_DIR: ${{ inputs.packages-dir }}
       run: |
+        unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL
         "$VENV/bin/python" -I -m twine check --strict "$PACKAGES_DIR"/*
         sha256sum "$PACKAGES_DIR"/*
     - name: Sign PEP 740 attestations
@@ -76,4 +80,6 @@ runs:
         VERIFY: ${{ github.action_path }}/verify_provenance.py
         INDEX_HOST: ${{ inputs.index-host }}
         PACKAGES_DIR: ${{ inputs.packages-dir }}
-      run: '"$VENV/bin/python" -I "$VERIFY" "$INDEX_HOST" "$PACKAGES_DIR"'
+      run: |
+        unset ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL
+        "$VENV/bin/python" -I "$VERIFY" "$INDEX_HOST" "$PACKAGES_DIR"

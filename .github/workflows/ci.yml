@@ -408,19 +408,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh attestation verify "oci://${SCAN_IMAGE%%@*}@${SCAN_IMAGE##*@}" --repo astral-sh/uv
-      - name: Run scanners in the container
+      - name: Install tools and run token-free scanners (semgrep, uv audit)
+        run: |
+          mkdir -p "$RUNNER_TEMP/scan-venv" "$RUNNER_TEMP/findings"
+          docker run --rm --pull always --user "$(id -u):$(id -g)" \
+            --read-only --tmpfs /tmp:rw,exec,size=4g --cap-drop ALL --security-opt no-new-privileges \
+            --env HOME=/tmp \
+            -v "$PWD:/src:ro" -v "$RUNNER_TEMP/scan-venv:/venv" -v "$RUNNER_TEMP/findings:/out" \
+            "$SCAN_IMAGE" bash /src/.github/online-scans/scan.sh tools
+      # The only step that sees a token; the tools are already installed and mounted read-only.
+      - name: Run zizmor online audits
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p "$RUNNER_TEMP/scan-venv" "$RUNNER_TEMP/findings"
-          run_scan() {
-            docker run --rm --pull always --user "$(id -u):$(id -g)" \
-              --read-only --tmpfs /tmp:rw,exec,size=4g --cap-drop ALL --security-opt no-new-privileges \
-              --env HOME=/tmp "$@"
-          }
-          run_scan -v "$PWD:/src:ro" -v "$RUNNER_TEMP/scan-venv:/venv" -v "$RUNNER_TEMP/findings:/out" \
-            "$SCAN_IMAGE" bash /src/.github/online-scans/scan.sh tools
-          run_scan --env GH_TOKEN -v "$PWD:/src:ro" -v "$RUNNER_TEMP/scan-venv:/venv:ro" -v "$RUNNER_TEMP/findings:/out" \
+          docker run --rm --pull never --user "$(id -u):$(id -g)" \
+            --read-only --tmpfs /tmp:rw,size=256m --cap-drop ALL --security-opt no-new-privileges \
+            --env HOME=/tmp --env GH_TOKEN \
+            -v "$PWD:/src:ro" -v "$RUNNER_TEMP/scan-venv:/venv:ro" -v "$RUNNER_TEMP/findings:/out" \
             "$SCAN_IMAGE" bash /src/.github/online-scans/scan.sh zizmor
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
