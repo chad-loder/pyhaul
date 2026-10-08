@@ -15,15 +15,14 @@
     client) and ``create_pypi_url`` filters, so the same template works
     whether the HVCS is GitHub, GitLab, or Codeberg without edits.
 
-    Assumes the PyPI distribution name equals ``ctx.repo_name``. Hard-code
-    the package name in the ``create_pypi_url`` call below if it ever
-    diverges from the GitHub repo name.
+    The PyPI distribution name is literal: this component also renders
+    the GitHub release notes, where ``ctx`` has no ``repo_name``.
 #}{{
 "## %s (%s) — [Release](%s) · [PyPI](%s)\n" | format(
   release.version.as_semver_tag(),
   release.tagged_date.strftime("%Y-%m-%d"),
   release.version.as_semver_tag() | create_release_url,
-  ctx.repo_name | create_pypi_url(release.version | string),
+  "pyhaul" | create_pypi_url(release.version | string),
 )
 }}{%  if license_name is defined and license_name
 %}{{    "\n_This release is published under the %s License._\n" | format(license_name)
