@@ -22,7 +22,7 @@ will treat decompressed bytes as the canonical stream.
 from __future__ import annotations
 
 import datetime
-from collections.abc import AsyncIterator, Iterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Buffer, Generator, Mapping
 from contextlib import asynccontextmanager, contextmanager
 from typing import TypedDict
 
@@ -46,15 +46,16 @@ def headers_from_wreq_response(resp: wreq.Response) -> TransportHeaders:
     """Build :class:`TransportHeaders` from a ``wreq.Response`` (multi-value safe).
 
     ``wreq.HeaderMap`` has no ``items()``; it exposes ``keys()`` and
-    ``get_all(name)``, both yielding ``bytes``. Names and values decode
-    as ``latin-1`` (HTTP's wire encoding), and ``get_all`` keeps repeated
-    headers such as ``Set-Cookie`` as separate pairs.
+    ``get_all(name)``, both yielding byte buffers (``memoryview`` per the
+    stubs). Names and values decode as ``latin-1`` (HTTP's wire encoding),
+    and ``get_all`` keeps repeated headers such as ``Set-Cookie`` as
+    separate pairs.
     """
     hm = resp.headers
     pairs: list[tuple[str, str]] = []
     for raw_name in hm.keys():  # noqa: SIM118 — wreq HeaderMap is not iterable
-        name = raw_name.decode("latin-1")
-        pairs.extend((name, raw_value.decode("latin-1")) for raw_value in hm.get_all(name))
+        name = bytes(raw_name).decode("latin-1")
+        pairs.extend((name, bytes(raw_value).decode("latin-1")) for raw_value in hm.get_all(name))
     return TransportHeaders.from_pairs(transport_header_pairs(pairs))
 
 
@@ -100,7 +101,7 @@ def _translate_error(exc: Exception) -> TransportError:
 
 
 @contextmanager
-def map_wreq_transport_errors() -> Iterator[None]:
+def map_wreq_transport_errors() -> Generator[None]:
     """Map :mod:`wreq` failures to :mod:`pyhaul.transport.errors` (sync helper for tests)."""
     try:
         yield
@@ -115,7 +116,7 @@ def map_wreq_transport_errors() -> Iterator[None]:
 
 
 @asynccontextmanager
-async def map_wreq_transport_errors_async() -> AsyncIterator[None]:
+async def map_wreq_transport_errors_async() -> AsyncGenerator[None]:
     """Async variant of :func:`map_wreq_transport_errors`."""
     try:
         yield
@@ -196,21 +197,19 @@ class WreqTransportResponse(AsyncTransportResponse):
                 status_code=code,
             )
 
-    async def aiter_raw_bytes(self, *, chunk_size: int) -> AsyncIterator[bytes]:
-        """Yield raw response body chunks without decoding.
+    async def aiter_raw_bytes(self, *, chunk_size: int) -> AsyncIterator[Buffer]:
+        """Yield raw response body chunks without decoding or copying.
 
-        ``wreq``'s streamer yields either ``bytes`` (body chunks) or
-        ``HeaderMap`` (HTTP trailers). We filter to body bytes only.
-
-        ``chunk_size`` is honoured by wreq's underlying reader; the
-        value is a hint, not a strict bound — wreq may yield smaller
-        chunks at end-of-frame boundaries.
+        ``wreq``'s streamer yields body chunks (``bytes`` before 0.13,
+        read-only ``memoryview`` from 0.13) and ``HeaderMap`` frames for
+        HTTP trailers; body chunks pass through as-is. Chunk sizes follow
+        wreq's framing, not ``chunk_size``.
         """
-        del chunk_size  # wreq's streamer does not currently accept a chunk_size hint
+        del chunk_size
         async with map_wreq_transport_errors_async(), self._resp.stream() as streamer:
             async for chunk in streamer:
-                if isinstance(chunk, (bytes, bytearray)) and chunk:
-                    yield bytes(chunk)
+                if not isinstance(chunk, wreq.HeaderMap) and chunk:
+                    yield chunk
 
 
 class AsyncWreqAdapter:
@@ -236,7 +235,7 @@ class AsyncWreqAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         """Open a streaming GET request and yield the response."""
         kwargs = _request_options_to_wreq_kwargs(options)
         async with map_wreq_transport_errors_async():
@@ -245,12 +244,9 @@ class AsyncWreqAdapter:
                 headers=dict(headers),
                 **kwargs,
             )
-            try:
+            # Closing releases the connection even when the body is never read.
+            async with resp:
                 yield WreqTransportResponse(resp)
-            finally:
-                # wreq.Response does not require explicit close; the
-                # underlying streamer handles cleanup when exited.
-                pass
 
     @asynccontextmanager
     async def stream_head(
@@ -259,7 +255,7 @@ class AsyncWreqAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         """Open a HEAD request and yield the response."""
         kwargs = _request_options_to_wreq_kwargs(options)
         async with map_wreq_transport_errors_async():
@@ -268,7 +264,8 @@ class AsyncWreqAdapter:
                 headers=dict(headers),
                 **kwargs,
             )
-            yield WreqTransportResponse(resp)
+            async with resp:
+                yield WreqTransportResponse(resp)
 
 
 def async_wreq_transport(client: wreq.Client) -> AsyncTransportSession:

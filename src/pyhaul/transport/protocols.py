@@ -8,7 +8,7 @@ contracts.
 All four protocols are :func:`typing.runtime_checkable`.
 """
 
-from collections.abc import AsyncIterator, Iterator, Mapping
+from collections.abc import AsyncIterator, Buffer, Iterator, Mapping
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from typing import Protocol, runtime_checkable
 
@@ -116,8 +116,13 @@ class AsyncTransportResponse(Protocol):
 
     # CPD-ON
 
-    def aiter_raw_bytes(self, *, chunk_size: int) -> AsyncIterator[bytes]:
-        """Async version of :meth:`TransportResponse.iter_raw_bytes`."""
+    def aiter_raw_bytes(self, *, chunk_size: int) -> AsyncIterator[Buffer]:
+        """Async version of :meth:`TransportResponse.iter_raw_bytes`.
+
+        Chunks may be any byte buffer (``bytes``, ``memoryview``, ...), so
+        zero-copy clients can yield views without copying. The engine
+        consumes each chunk before requesting the next.
+        """
         ...
 
 

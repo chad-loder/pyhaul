@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Buffer, Callable
 from dataclasses import dataclass, field
 from datetime import UTC
 from email.utils import parsedate_to_datetime
@@ -193,7 +193,7 @@ class HaulState:
     hashes: list[bytes] = field(default_factory=list[bytes])
 
 
-AsyncProgressCallback = Callable[[HaulState], None | Awaitable[None]]
+AsyncProgressCallback = Callable[[HaulState], Awaitable[None] | None]
 """Progress hook for :func:`~pyhaul.async_engine.haul_async`.
 
 May be an ordinary function (returns ``None``) or return an awaitable
@@ -327,10 +327,11 @@ class HashBuilder:
             return self._current_hash.digest()
         return None
 
-    def update(self, data: bytes) -> list[bytes]:
+    def update(self, data: Buffer) -> list[bytes]:
         """Feed data. Returns any hashes completed during this update."""
         newly_completed: list[bytes] = []
 
+        data = memoryview(data).cast("B")
         offset = 0
         to_process = len(data)
 
