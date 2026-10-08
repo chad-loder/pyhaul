@@ -16,10 +16,13 @@
   "platformCommit": "enabled",
   "customManagers": [
     {
-      "description": "PyPI tools pinned inline in workflow run steps (uv run --with <pkg>==<version>)",
+      "description": "PyPI tools pinned inline in workflow run steps (uv run --with <pkg>==<version>, uvx <pkg>@<version>)",
       "customType": "regex",
       "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
-      "matchStrings": ["--with (?<depName>[A-Za-z0-9_.-]+)==(?<currentValue>[0-9][^\\s\"']*)"],
+      "matchStrings": [
+        "--with (?<depName>[A-Za-z0-9_.-]+)==(?<currentValue>[0-9][^\\s\"']*)",
+        "uvx (?:--[a-z-]+ )*(?<depName>[A-Za-z0-9_.-]+)@(?<currentValue>[0-9][^\\s\"']*)"
+      ],
       "datasourceTemplate": "pypi"
     }
   ],

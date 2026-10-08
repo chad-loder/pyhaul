@@ -19,8 +19,7 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: renovate
@@ -31,6 +30,8 @@ jobs:
     name: Self-hosted Renovate
     runs-on: ubuntu-latest
     environment: renovate
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -1,8 +1,7 @@
 name: PR title lint
 
 on:
-  # Safe: only reads PR title via github context, never checks out code.
-  pull_request_target: # zizmor: ignore[dangerous-triggers]
+  pull_request:
     types: [opened, edited, synchronize, reopened]
   # The title was checked when the PR entered the merge queue; this reports the required check there.
   merge_group:
@@ -19,7 +18,7 @@ jobs:
     name: Enforce conventional commit PR title
     runs-on: ubuntu-latest
     steps:
-      - if: github.event_name == 'pull_request_target'
+      - if: github.event_name == 'pull_request'
         uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
