@@ -101,6 +101,55 @@ The most straightforward approach — no dependencies:
             raise RuntimeError("download failed after 10 attempts")
     ```
 
+=== "urllib3"
+
+    ```python
+    import time
+    import urllib3
+    from pyhaul import haul, PartialHaulError, HaulState
+
+    state = HaulState()
+
+    pool = urllib3.PoolManager()
+    for attempt in range(1, 11):
+        try:
+            result = haul(url, pool, dest="file.bin", state=state)
+            print(f"done: {state.valid_length:,} bytes")
+            break
+        except PartialHaulError as exc:
+            print(f"attempt {attempt}: {exc.reason}")
+            time.sleep(min(2**attempt, 30))
+    else:
+        raise RuntimeError("download failed after 10 attempts")
+    pool.clear()
+    ```
+
+=== "wreq"
+
+    ```python
+    import asyncio
+    import wreq
+    from pyhaul import haul_async, PartialHaulError, HaulState
+
+
+    async def main():
+        state = HaulState()
+
+        async with wreq.Client() as client:
+            for attempt in range(1, 11):
+                try:
+                    result = await haul_async(url, client, dest="file.bin", state=state)
+                    print(f"done: {state.valid_length:,} bytes")
+                    return
+                except PartialHaulError as exc:
+                    print(f"attempt {attempt}: {exc.reason}")
+                    await asyncio.sleep(min(2**attempt, 30))
+            raise RuntimeError("download failed after 10 attempts")
+
+
+    asyncio.run(main())
+    ```
+
 ## tenacity
 
 [tenacity](https://tenacity.readthedocs.io/) is the standard Python retry
@@ -219,6 +268,62 @@ transient HTTP status errors in one decorator:
         return haul(url, session, dest=dest)
     ```
 
+=== "urllib3"
+
+    ```python
+    from tenacity import (
+        retry,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_exponential_jitter,
+    )
+    import urllib3
+    from pyhaul import haul, PartialHaulError, UnexpectedStatusError
+
+
+    def _retryable(exc: BaseException) -> bool:
+        if isinstance(exc, (PartialHaulError, urllib3.exceptions.HTTPError)):
+            return True
+        return isinstance(exc, UnexpectedStatusError) and exc.is_transient
+
+
+    @retry(
+        retry=retry_if_exception(_retryable),
+        wait=wait_exponential_jitter(initial=2, max=60),
+        stop=stop_after_attempt(10),
+    )
+    def download(pool, url, dest):
+        return haul(url, pool, dest=dest)
+    ```
+
+=== "wreq"
+
+    ```python
+    from tenacity import (
+        retry,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_exponential_jitter,
+    )
+    import wreq
+    from pyhaul import haul_async, PartialHaulError, UnexpectedStatusError
+
+
+    def _retryable(exc: BaseException) -> bool:
+        if isinstance(exc, (PartialHaulError, wreq.ConnectionError, wreq.ConnectionResetError, wreq.TimeoutError)):
+            return True
+        return isinstance(exc, UnexpectedStatusError) and exc.is_transient
+
+
+    @retry(
+        retry=retry_if_exception(_retryable),
+        wait=wait_exponential_jitter(initial=2, max=60),
+        stop=stop_after_attempt(10),
+    )
+    async def download(client, url, dest):
+        return await haul_async(url, client, dest=dest)
+    ```
+
 tenacity's async support works transparently with `haul_async`.
 
 ## What to retry and what not to retry
@@ -242,6 +347,7 @@ never wraps them. The retryable base class varies by library:
 | requests | `requests.ConnectionError`, `requests.Timeout` |
 | niquests | `niquests.ConnectionError`, `niquests.Timeout` |
 | urllib3 | `urllib3.exceptions.HTTPError` |
+| wreq | `wreq.ConnectionError`, `wreq.ConnectionResetError`, `wreq.TimeoutError` |
 
 ## Transient HTTP status errors
 
@@ -342,6 +448,56 @@ with structured metadata — `status_code`, `headers`,
                     time.sleep(wait)
                 else:
                     raise  # 404, 403, etc. — not retryable
+    ```
+
+=== "urllib3"
+
+    ```python
+    import time
+    import urllib3
+    from pyhaul import haul, PartialHaulError, UnexpectedStatusError
+
+    pool = urllib3.PoolManager()
+    for attempt in range(1, 11):
+        try:
+            result = haul(url, pool, dest="file.bin")
+            break
+        except PartialHaulError:
+            time.sleep(min(2**attempt, 30))
+        except UnexpectedStatusError as exc:
+            if exc.is_transient:
+                wait = exc.retry_after_seconds if exc.retry_after_seconds is not None else min(2**attempt, 60)
+                time.sleep(wait)
+            else:
+                raise  # 404, 403, etc. — not retryable
+    pool.clear()
+    ```
+
+=== "wreq"
+
+    ```python
+    import asyncio
+    import wreq
+    from pyhaul import haul_async, PartialHaulError, UnexpectedStatusError
+
+
+    async def main():
+        async with wreq.Client() as client:
+            for attempt in range(1, 11):
+                try:
+                    result = await haul_async(url, client, dest="file.bin")
+                    break
+                except PartialHaulError:
+                    await asyncio.sleep(min(2**attempt, 30))
+                except UnexpectedStatusError as exc:
+                    if exc.is_transient:
+                        wait = exc.retry_after_seconds if exc.retry_after_seconds is not None else min(2**attempt, 60)
+                        await asyncio.sleep(wait)
+                    else:
+                        raise  # 404, 403, etc. — not retryable
+
+
+    asyncio.run(main())
     ```
 
 !!! note

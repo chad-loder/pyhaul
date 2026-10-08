@@ -1,9 +1,7 @@
 name: Docs
 
-# Versioned site on the gh-pages branch (mike):
-#   tag vX.Y.Z  -> version X.Y, alias `latest` (the site default)
-#   push main   -> version `dev`
-#   dispatch    -> rebuild `ref` (a release tag redeploys its X.Y; anything else deploys `dev`)
+# Versioned site on the gh-pages branch; see .github/scripts/deploy_docs.py.
+# Run manually against a tag ("Use workflow from") to redeploy that release.
 on:
   push:
     branches: [main]
@@ -14,61 +12,76 @@ on:
       - "**/*.md"
       - "src/**"
       - ".github/workflows/docs.yml"
+      - ".github/scripts/deploy_docs.py"
   workflow_dispatch:
-    inputs:
-      ref:
-        description: "Tag or branch to build (e.g. v0.7.0)"
-        required: true
-        default: main
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: gh-pages
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy docs
+  # Runs the docs toolchain (third-party plugins, hooks) with a read-only token.
+  build:
+    name: Build docs deploy
     runs-on: ubuntu-latest
     permissions:
-      contents: write # mike pushes to gh-pages
+      contents: read
+    outputs:
+      branch: ${{ steps.deploy.outputs.branch }}
+      bundle: ${{ steps.deploy.outputs.bundle }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.ref }}
-          fetch-depth: 0
-          persist-credentials: true # zizmor: ignore[artipacked] mike pushes gh-pages; no artifacts are uploaded
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - run: uv sync --group docs
-      - name: Strict build
-        run: uv run properdocs build --strict
-      - name: Resolve docs version
-        id: version
+          persist-credentials: false
+      - uses: $/.github/actions/setup-uv-pinned
+      - run: uv sync --locked --group docs
+      - id: deploy
+        name: Commit deploy to local pages branch
         env:
-          REF: ${{ inputs.ref || github.ref_name }}
-        run: |
-          if [[ "$REF" =~ ^v([0-9]+)\.([0-9]+)\.[0-9]+$ ]]; then
-            echo "name=${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
-            echo "release=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=dev" >> "$GITHUB_OUTPUT"
-            echo "release=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Deploy with mike
-        # --with: release tags cut before mike joined the docs group still deploy.
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: uv run --frozen python .github/scripts/deploy_docs.py
+      - if: steps.deploy.outputs.bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs-deploy
+          path: ${{ steps.deploy.outputs.bundle }}
+          retention-days: 1
+
+  # Holds the write token; runs only git, and only fast-forwards the pages branch.
+  publish:
+    name: Publish docs
+    needs: build
+    if: needs.build.outputs.bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # fast-forward the pages branch
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.build.outputs.branch }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: docs-deploy
+          path: ${{ runner.temp }}/docs-deploy
+      - name: Fetch the deploy commits
         env:
-          VERSION: ${{ steps.version.outputs.name }}
-          RELEASE: ${{ steps.version.outputs.release }}
-          MIKE: uv run --with mike==2.2.0 mike
+          BRANCH: ${{ needs.build.outputs.branch }}
+          BUNDLE: ${{ runner.temp }}/docs-deploy/${{ needs.build.outputs.bundle }}
+        run: git fetch --quiet "$BUNDLE" "$BRANCH:refs/deploy/$BRANCH"
+      # The write token exists only in this step, reaches git through a one-shot
+      # credential helper (never argv or .git/config), and only fast-forwards.
+      - name: Fast-forward pages branch
+        env:
+          BRANCH: ${{ needs.build.outputs.branch }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin gh-pages:gh-pages || true
-          if [[ "$RELEASE" == "true" ]]; then
-            $MIKE deploy --push --update-aliases "$VERSION" latest
-            $MIKE set-default --push latest
-          else
-            $MIKE deploy --push "$VERSION"
-          fi
+          # shellcheck disable=SC2016 # $GH_TOKEN expands in git's helper shell, keeping it out of argv
+          git -c credential.helper= \
+            -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
+            push --quiet origin "refs/deploy/$BRANCH:refs/heads/$BRANCH"
