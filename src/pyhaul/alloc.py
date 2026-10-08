@@ -114,7 +114,13 @@ _POSIX_FALLOCATE_FALLBACK_ERRNOS = frozenset(
 
 
 def _darwin_preallocate_from_peof(fd: int, *, delta: int) -> bool:
-    """Reserve *delta* bytes from the current physical EOF (Darwin only)."""
+    """Reserve *delta* bytes from the current physical EOF (Darwin only).
+
+    Returns ``False`` when neither attempt succeeds, including ``ENOSPC``:
+    APFS reports ``ENOSPC`` for a contiguous request on a fragmented volume
+    with ample free space, so the caller falls back to sparse sizing and the
+    write itself reports real exhaustion.
+    """
     if sys.platform != "darwin" or delta <= 0:
         return False
 
@@ -124,9 +130,7 @@ def _darwin_preallocate_from_peof(fd: int, *, delta: int) -> bool:
         buf = struct.pack(_FSTORE_FMT, flags, _F_PEOFPOSMODE, 0, delta, 0)
         try:
             fcntl.fcntl(fd, _F_PREALLOCATE, buf)
-        except OSError as e:
-            if e.errno == errno.ENOSPC:
-                raise
+        except OSError:
             continue
         return True
     return False
