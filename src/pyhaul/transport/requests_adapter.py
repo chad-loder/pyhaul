@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Iterator, Mapping
 from contextlib import contextmanager
 
 import requests
@@ -77,7 +77,7 @@ class RequestsAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         """Open a streaming GET request and yield the response."""
         kwargs = request_options_to_requests_like_kwargs(options)
         with (
@@ -93,7 +93,7 @@ class RequestsAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         """Open a HEAD request and yield the response."""
         kwargs = request_options_to_requests_like_kwargs(options)
         with map_requests_like_transport_errors(_requests_exceptions):

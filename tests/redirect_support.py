@@ -13,7 +13,7 @@ import gc
 import http.server as http_server
 import threading
 import time
-from collections.abc import AsyncIterator, Iterator, Mapping
+from collections.abc import AsyncGenerator, Generator, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager, contextmanager
 from typing import cast
 from urllib.parse import urlparse
@@ -100,7 +100,7 @@ class _ThreadingHTTPServer(http_server.ThreadingHTTPServer):
 
 
 @contextmanager
-def redirect_server_context() -> Iterator[tuple[Url, bytes]]:
+def redirect_server_context() -> Generator[tuple[Url, bytes]]:
     """Serve ``GET /redirect`` → 302 ``/final`` until context exits."""
     srv = _ThreadingHTTPServer(("127.0.0.1", 0), _RedirectFollowHandler)
     thread = threading.Thread(target=srv.serve_forever, daemon=True)
@@ -147,7 +147,7 @@ class PinnedRedirectSyncTransport:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         """Pin redirect policy, then open a streaming GET."""
         merged = merge_allow_redirects(options, pin=self._allow_redirects)
         with self._inner.stream_get(url, headers=headers, options=merged) as resp:
@@ -160,7 +160,7 @@ class PinnedRedirectSyncTransport:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         """Pin redirect policy, then open HEAD."""
         merged = merge_allow_redirects(options, pin=self._allow_redirects)
         with self._inner.stream_head(url, headers=headers, options=merged) as resp:
@@ -191,7 +191,7 @@ class PinnedRedirectAsyncTransport:
         merged = merge_allow_redirects(options, pin=self._allow_redirects)
 
         @asynccontextmanager
-        async def _cm() -> AsyncIterator[AsyncTransportResponse]:
+        async def _cm() -> AsyncGenerator[AsyncTransportResponse]:
             async with self._inner.stream_get(url, headers=headers, options=merged) as resp:
                 yield resp
 
@@ -208,7 +208,7 @@ class PinnedRedirectAsyncTransport:
         merged = merge_allow_redirects(options, pin=self._allow_redirects)
 
         @asynccontextmanager
-        async def _cm() -> AsyncIterator[AsyncTransportResponse]:
+        async def _cm() -> AsyncGenerator[AsyncTransportResponse]:
             async with self._inner.stream_head(url, headers=headers, options=merged) as resp:
                 yield resp
 
@@ -245,7 +245,7 @@ def make_async_inner_transport(backend: str, native: object) -> AsyncTransportSe
 
 
 @asynccontextmanager
-async def async_native_session(backend: str) -> AsyncIterator[object]:
+async def async_native_session(backend: str) -> AsyncGenerator[object]:
     """Yield an async HTTP client for *backend* (caller must ``importorskip`` first)."""
     if backend == "httpx":
         import httpx

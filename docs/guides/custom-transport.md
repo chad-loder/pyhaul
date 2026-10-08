@@ -30,8 +30,7 @@ from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
 class ExampleSyncTransport:
     """Structural sketch — your adapter must satisfy TransportSession."""
 
-    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
-        ...
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders: ...
 
     def stream_get(
         self,
@@ -39,8 +38,7 @@ class ExampleSyncTransport:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AbstractContextManager[TransportResponse]:
-        ...
+    ) -> AbstractContextManager[TransportResponse]: ...
 
     def stream_head(
         self,
@@ -48,8 +46,7 @@ class ExampleSyncTransport:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AbstractContextManager[TransportResponse]:
-        ...
+    ) -> AbstractContextManager[TransportResponse]: ...
 ```
 
 [`prepare_headers()`][pyhaul.transport.protocols.TransportSession.prepare_headers]
@@ -106,9 +103,7 @@ class MyResponse(TransportResponse):
     @property
     def headers(self) -> TransportHeaders:
         if self._headers is None:
-            self._headers = TransportHeaders.from_pairs(
-                list(self._resp.headers.items())
-            )
+            self._headers = TransportHeaders.from_pairs(list(self._resp.headers.items()))
         return self._headers
 
     def raise_for_status(self) -> None:
@@ -134,9 +129,7 @@ class MyAdapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> Iterator[TransportResponse]:
-        resp = self._pool.request(
-            "GET", str(url), headers=dict(headers), preload_content=False
-        )
+        resp = self._pool.request("GET", str(url), headers=dict(headers), preload_content=False)
         try:
             yield MyResponse(resp)
         finally:
@@ -150,9 +143,7 @@ class MyAdapter:
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
     ) -> Iterator[TransportResponse]:
-        resp = self._pool.request(
-            "HEAD", str(url), headers=dict(headers), preload_content=False
-        )
+        resp = self._pool.request("HEAD", str(url), headers=dict(headers), preload_content=False)
         try:
             yield MyResponse(resp)
         finally:
@@ -167,10 +158,12 @@ client type with [`register_sync_adapter()`][pyhaul._session_dispatch.register_s
 ```python
 from pyhaul import register_sync_adapter
 
+
 def my_factory(obj):
     if isinstance(obj, urllib3.PoolManager):
         return MyAdapter(obj)
     return None
+
 
 register_sync_adapter(my_factory)
 ```
@@ -209,12 +202,7 @@ def tag(headers: TransportHeaders) -> TransportHeaders:
 
 
 inner = MyAdapter(pool)
-wrapped = (
-    transport_session_proxy()
-    .around(inner)
-    .preparing_headers_with(tag)
-    .build()
-)
+wrapped = transport_session_proxy().around(inner).preparing_headers_with(tag).build()
 
 result = haul(url, wrapped, dest="file.bin")
 ```
@@ -229,11 +217,13 @@ internal use. Build one from the response's header pairs:
 ```python
 from pyhaul.transport.types import TransportHeaders
 
-headers = TransportHeaders.from_pairs([
-    ("Content-Type", "application/octet-stream"),
-    ("Content-Length", "1048576"),
-    ("ETag", '"abc123"'),
-])
+headers = TransportHeaders.from_pairs(
+    [
+        ("Content-Type", "application/octet-stream"),
+        ("Content-Length", "1048576"),
+        ("ETag", '"abc123"'),
+    ]
+)
 ```
 
 This handles case-insensitive lookups and multi-value headers. The same type is

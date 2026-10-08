@@ -89,7 +89,7 @@ def haul(
             fd = open_part_file(plan, prep.part_path)
             try:
                 for chunk in resp.iter_raw_bytes(chunk_size=chunk_size):
-                    write_chunk(fd, chunk, plan, prep, state, flush_every)
+                    write_chunk(fd, chunk, plan, prep, state, flush_every=flush_every)
                     if on_progress is not None:
                         on_progress(state)
                 datasync(fd)

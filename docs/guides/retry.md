@@ -38,6 +38,7 @@ The most straightforward approach — no dependencies:
     import aiohttp
     from pyhaul import haul_async, PartialHaulError, HaulState
 
+
     async def main():
         state = HaulState()
 
@@ -51,6 +52,7 @@ The most straightforward approach — no dependencies:
                     print(f"attempt {attempt}: {exc.reason}")
                     await asyncio.sleep(min(2**attempt, 30))
             raise RuntimeError("download failed after 10 attempts")
+
 
     asyncio.run(main())
     ```
@@ -109,15 +111,20 @@ transient HTTP status errors in one decorator:
 
     ```python
     from tenacity import (
-        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+        retry,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_exponential_jitter,
     )
     import httpx
     from pyhaul import haul, PartialHaulError, UnexpectedStatusError
+
 
     def _retryable(exc: BaseException) -> bool:
         if isinstance(exc, (PartialHaulError, httpx.TransportError)):
             return True
         return isinstance(exc, UnexpectedStatusError) and exc.is_transient
+
 
     @retry(
         retry=retry_if_exception(_retryable),
@@ -132,15 +139,20 @@ transient HTTP status errors in one decorator:
 
     ```python
     from tenacity import (
-        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+        retry,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_exponential_jitter,
     )
     import aiohttp
     from pyhaul import haul_async, PartialHaulError, UnexpectedStatusError
+
 
     def _retryable(exc: BaseException) -> bool:
         if isinstance(exc, (PartialHaulError, aiohttp.ClientError)):
             return True
         return isinstance(exc, UnexpectedStatusError) and exc.is_transient
+
 
     @retry(
         retry=retry_if_exception(_retryable),
@@ -155,15 +167,20 @@ transient HTTP status errors in one decorator:
 
     ```python
     from tenacity import (
-        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+        retry,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_exponential_jitter,
     )
     import requests
     from pyhaul import haul, PartialHaulError, UnexpectedStatusError
+
 
     def _retryable(exc: BaseException) -> bool:
         if isinstance(exc, (PartialHaulError, requests.ConnectionError, requests.Timeout)):
             return True
         return isinstance(exc, UnexpectedStatusError) and exc.is_transient
+
 
     @retry(
         retry=retry_if_exception(_retryable),
@@ -178,15 +195,20 @@ transient HTTP status errors in one decorator:
 
     ```python
     from tenacity import (
-        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+        retry,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_exponential_jitter,
     )
     import niquests
     from pyhaul import haul, PartialHaulError, UnexpectedStatusError
+
 
     def _retryable(exc: BaseException) -> bool:
         if isinstance(exc, (PartialHaulError, niquests.ConnectionError, niquests.Timeout)):
             return True
         return isinstance(exc, UnexpectedStatusError) and exc.is_transient
+
 
     @retry(
         retry=retry_if_exception(_retryable),
@@ -258,6 +280,7 @@ with structured metadata — `status_code`, `headers`,
     import aiohttp
     from pyhaul import haul_async, PartialHaulError, UnexpectedStatusError
 
+
     async def main():
         async with aiohttp.ClientSession() as session:
             for attempt in range(1, 11):
@@ -272,6 +295,7 @@ with structured metadata — `status_code`, `headers`,
                         await asyncio.sleep(wait)
                     else:
                         raise  # 404, 403, etc. — not retryable
+
 
     asyncio.run(main())
     ```
@@ -340,7 +364,7 @@ Best for most cases — prevents thundering herd when multiple downloads
 retry simultaneously:
 
 ```python
-wait=wait_exponential_jitter(initial=2, max=60)
+wait = wait_exponential_jitter(initial=2, max=60)
 ```
 
 ### Skip backoff when progress was made

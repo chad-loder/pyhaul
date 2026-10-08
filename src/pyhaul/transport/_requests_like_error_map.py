@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from types import ModuleType
 from typing import Any
@@ -17,11 +17,11 @@ from pyhaul.transport.errors import (
 try:
     import urllib3.exceptions as _urllib3_exc
 except ImportError:  # pragma: no cover
-    _urllib3_exc = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    _urllib3_exc = None  # type: ignore[assignment]
 
 
 @contextmanager
-def map_requests_like_transport_errors(exc: ModuleType) -> Iterator[None]:
+def map_requests_like_transport_errors(exc: ModuleType) -> Generator[None]:
     """Translate *exc* (``niquests.exceptions`` or ``requests.exceptions``) to transport errors."""
     try:
         yield

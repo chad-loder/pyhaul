@@ -38,6 +38,12 @@ what you already use:
     pip install pyhaul[urllib3]
     ```
 
+=== "wreq"
+
+    ```bash
+    pip install pyhaul[wreq]
+    ```
+
 ## Download a file
 
 The entire API surface fits in one function: [`haul()`][pyhaul.engine.haul] (or [`haul_async()`][pyhaul.async_engine.haul_async] for
@@ -106,8 +112,7 @@ with httpx.Client() as client:
             print(f"done: {state.valid_length:,} bytes")
             break
         except PartialHaulError as exc:
-            print(f"attempt {attempt}: {exc.reason} "
-                  f"({state.valid_length:,} bytes so far)")
+            print(f"attempt {attempt}: {exc.reason} ({state.valid_length:,} bytes so far)")
             time.sleep(min(2**attempt, 30))
 ```
 
@@ -123,6 +128,7 @@ def show_progress(state: HaulState) -> None:
     if state.reported_length:
         pct = state.valid_length / state.reported_length * 100
         print(f"\r{pct:.1f}%", end="", flush=True)
+
 
 result = haul(url, client, dest="big.zip", state=state, on_progress=show_progress)
 ```

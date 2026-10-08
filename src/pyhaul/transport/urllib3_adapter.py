@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Iterator, Mapping
 from contextlib import contextmanager
 from http import HTTPStatus
 from typing import TypedDict
@@ -32,7 +32,7 @@ def headers_from_urllib3_response(resp: urllib3.HTTPResponse) -> TransportHeader
 
 
 @contextmanager
-def map_urllib3_transport_errors() -> Iterator[None]:
+def map_urllib3_transport_errors() -> Generator[None]:
     """Map :mod:`urllib3` failures to :mod:`pyhaul.transport.errors`."""
     try:
         yield
@@ -136,7 +136,7 @@ class Urllib3Adapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         """Open a streaming GET request and yield the response."""
         kw = _build_urlopen_kwargs(options)
         with map_urllib3_transport_errors():
@@ -160,7 +160,7 @@ class Urllib3Adapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         """Open a HEAD request and yield the response."""
         kw = _build_urlopen_kwargs(options)
         with map_urllib3_transport_errors():

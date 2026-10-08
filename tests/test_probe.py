@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator, Mapping
 from contextlib import asynccontextmanager, contextmanager
 
 import pytest
@@ -61,7 +61,7 @@ class FakeSyncTransport(TransportSession):
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         del url, headers, options
         self.head_calls += 1
         yield self._head
@@ -73,7 +73,7 @@ class FakeSyncTransport(TransportSession):
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         del url, headers, options
         self.get_calls += 1
         yield self._get
@@ -96,7 +96,7 @@ class FakeAsyncTransport(AsyncTransportSession):
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         del url, headers, options
         self.head_calls += 1
         yield self._head
@@ -108,7 +108,7 @@ class FakeAsyncTransport(AsyncTransportSession):
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         del url, headers, options
         self.get_calls += 1
         yield self._get

@@ -20,6 +20,17 @@
   "prConcurrentLimit": 3,
   "packageRules": [
     {
+      "description": ".python-version pins the oldest supported Python, not the newest",
+      "matchManagers": ["pyenv"],
+      "enabled": false
+    },
+    {
+      "description": "check-jsonschema 0.38.2+ needs click>=8.5; semgrep pins click<8.5",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": ["check-jsonschema"],
+      "allowedVersions": "<0.38.2"
+    },
+    {
       "description": "7-day cooldown for all dependency managers",
       "matchManagers": ["pep621", "pre-commit", "github-actions"],
       "minimumReleaseAge": "7 days"

@@ -6,13 +6,26 @@ wraps it internally.
 
 ## Supported clients
 
-| Extra | Client type | Async | Install |
-| --- | --- | --- | --- |
-| `httpx` | `httpx.Client` / `httpx.AsyncClient` | Yes | `pip install pyhaul[httpx]` |
-| `niquests` | `niquests.Session` / `niquests.AsyncSession` | Yes | `pip install pyhaul[niquests]` |
-| `aiohttp` | `aiohttp.ClientSession` | Async only | `pip install pyhaul[aiohttp]` |
-| `requests` | `requests.Session` | Sync only | `pip install pyhaul[requests]` |
-| `urllib3` | `urllib3.PoolManager` | Sync only | `pip install pyhaul[urllib3]` |
+| Extra | Client type | Async | Minimum | Install |
+| --- | --- | --- | --- | --- |
+| `httpx` | `httpx.Client` / `httpx.AsyncClient` | Yes | 0.27 | `pip install pyhaul[httpx]` |
+| `niquests` | `niquests.Session` / `niquests.AsyncSession` | Yes | 3.14 | `pip install pyhaul[niquests]` |
+| `aiohttp` | `aiohttp.ClientSession` | Async only | 3.10 | `pip install pyhaul[aiohttp]` |
+| `wreq` | `wreq.Client` | Async only | 0.11 | `pip install pyhaul[wreq]` |
+| `requests` | `requests.Session` | Sync only | 2.32 | `pip install pyhaul[requests]` |
+| `urllib3` | `urllib3.PoolManager` | Sync only | 2.0 | `pip install pyhaul[urllib3]` |
+
+## Supported client versions
+
+Each pyhaul release supports every client release published in the 24
+months before that pyhaul release's date, and often older ones. A pyhaul
+version's window is fixed when it ships.
+
+- A minimum version rises only in a pyhaul minor release, and only to a
+  client release published at least 24 months before that pyhaul release.
+- A security fix or a hard technical need can raise a minimum sooner. The
+  changelog calls out every raise.
+- CI runs the full suite against each minimum on the oldest supported Python.
 
 ## Your session, your config
 
@@ -79,11 +92,11 @@ import asyncio
 import httpx
 from pyhaul import haul_async
 
+
 async def main():
     async with httpx.AsyncClient() as client:
-        result = await haul_async(
-            "https://example.com/file.bin", client, dest="file.bin"
-        )
+        result = await haul_async("https://example.com/file.bin", client, dest="file.bin")
+
 
 asyncio.run(main())
 ```
@@ -115,11 +128,11 @@ import asyncio
 import niquests
 from pyhaul import haul_async
 
+
 async def main():
     async with niquests.AsyncSession() as session:
-        result = await haul_async(
-            "https://example.com/file.bin", session, dest="file.bin"
-        )
+        result = await haul_async("https://example.com/file.bin", session, dest="file.bin")
+
 
 asyncio.run(main())
 ```
@@ -133,11 +146,11 @@ import asyncio
 import aiohttp
 from pyhaul import haul_async
 
+
 async def main():
     async with aiohttp.ClientSession() as session:
-        result = await haul_async(
-            "https://example.com/file.bin", session, dest="file.bin"
-        )
+        result = await haul_async("https://example.com/file.bin", session, dest="file.bin")
+
 
 asyncio.run(main())
 ```
@@ -186,13 +199,14 @@ attach it to the session before passing it to pyhaul:
 ```python
 from httpx import Auth, Request, Response
 
+
 class TokenRefreshAuth(Auth):
     def auth_flow(self, request: Request):
         request.headers["Authorization"] = f"Bearer {self.get_token()}"
         yield request
 
-    def get_token(self) -> str:
-        ...  # your token refresh logic
+    def get_token(self) -> str: ...  # your token refresh logic
+
 
 client = httpx.Client(auth=TokenRefreshAuth())
 result = haul(url, client, dest="file.bin")

@@ -189,7 +189,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: Packages
           path: dist/
@@ -232,7 +232,7 @@ jobs:
         run: uv run --no-sync coverage run -m pytest
       - name: Upload coverage data
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-data-${{ matrix.os }}-${{ matrix.python-version }}
           # structlog: ``path: .coverage.*``; include hidden files. Also upload
@@ -263,7 +263,7 @@ jobs:
       - name: Install project
         run: uv sync --frozen --all-groups
       - name: Download coverage data
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: coverage-data-*
           merge-multiple: true
@@ -278,7 +278,7 @@ jobs:
           uv run coverage xml -o coverage.xml
       - name: Upload HTML report if check failed
         if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: htmlcov-report
           path: htmlcov
@@ -317,18 +317,42 @@ jobs:
       - name: pytest
         run: uv run pytest
 
+  test-floors:
+    name: Test (ubuntu / Python 3.12 / HTTP client minimums)
+    needs: [plan, lint]
+    if: needs.plan.outputs.run-tests == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.12"
+      # lowest-direct installs each extra at its declared minimum; transitive deps stay at latest.
+      - name: Install extras at their minimums
+        run: |
+          uv venv
+          uv pip install --resolution lowest-direct --group test \
+            -e ".[niquests,requests,httpx,urllib3,aiohttp,wreq]"
+      - name: pytest
+        run: .venv/bin/pytest
+
   install-dev:
     name: Verify extras install
     needs: [build]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: Packages
           path: dist/
       - name: Install wheel with all extras
-        run: pip install "$(ls dist/pyhaul-*.whl)[niquests,requests,httpx,aiohttp]"
+        run: pip install "$(ls dist/pyhaul-*.whl)[niquests,requests,httpx,urllib3,aiohttp,wreq]"
       - name: Verify import
         run: python -c "import pyhaul; print(pyhaul.__version__)"
 
@@ -351,12 +375,12 @@ jobs:
   ci-ok:
     name: CI green
     if: always()
-    needs: [lint, build, test-stable, test-prospective, install-dev, coverage, meta]
+    needs: [lint, build, test-stable, test-prospective, test-floors, install-dev, coverage, meta]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
       - uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
           allowed-failures: test-prospective
-          allowed-skips: test-stable, test-prospective, coverage
+          allowed-skips: test-stable, test-prospective, test-floors, coverage
           jobs: ${{ toJSON(needs) }}
