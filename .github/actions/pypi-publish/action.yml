@@ -10,8 +10,11 @@ inputs:
     description: Directory holding only the sdist and wheel to publish.
     default: dist
   index-host:
-    description: Index to publish to; pypi.org or test.pypi.org.
-    default: pypi.org
+    description: >-
+      Index to publish to: pypi.org (release tags only) or test.pypi.org. No
+      default, so a caller with a misspelled or stale input name fails instead
+      of falling through to production PyPI.
+    required: true
   skip-existing:
     description: Skip files the index already has (compared by hash) instead of failing.
     default: "false"
@@ -27,7 +30,11 @@ runs:
         fail() { echo "::error::$1"; exit 1; }
         [[ "$RUNNER_OS" == Linux && "$RUNNER_ARCH_NAME" == X64 ]] || fail "requirements.txt is locked for Linux x86_64"
         case "$GITHUB_EVENT_NAME" in push|schedule|workflow_dispatch) ;; *) fail "refusing to publish from a $GITHUB_EVENT_NAME event" ;; esac
-        case "$INDEX_HOST" in pypi.org|test.pypi.org) ;; *) fail "unsupported index host: $INDEX_HOST" ;; esac
+        case "$INDEX_HOST" in
+          pypi.org) [[ "$GITHUB_REF" == refs/tags/v* ]] || fail "production PyPI accepts only v* release tags, not $GITHUB_REF" ;;
+          test.pypi.org) ;;
+          *) fail "unsupported index host: '$INDEX_HOST'" ;;
+        esac
         stray=$(env | cut -d= -f1 | grep -E '^(UV_|PIP_|RUST_LOG$|SSL_CERT_|REQUESTS_CA_BUNDLE$|PYTHON)' || true)
         [[ -z "$stray" ]] || fail "environment would steer uv or Python: $(echo $stray)"
     - uses: $/.github/actions/setup-uv-pinned
