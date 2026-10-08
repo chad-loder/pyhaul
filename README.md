@@ -19,7 +19,7 @@ Install [`pyhaul`](https://pypi.org/project/pyhaul/) from PyPI — pick the extr
 HTTP client:
 
 ```bash
-pip install pyhaul[httpx]   # or: niquests, requests, urllib3, aiohttp
+pip install pyhaul[httpx]   # or: niquests, requests, urllib3, aiohttp, wreq
 ```
 
 ```python

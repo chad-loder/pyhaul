@@ -43,6 +43,7 @@ Install [`pyhaul`](https://pypi.org/project/pyhaul/) from PyPI — pick the extr
     from pathlib import Path
     from pyhaul import haul_async, PartialHaulError
 
+
     async def main():
         dest = Path("big.zip")
         async with aiohttp.ClientSession() as session:
@@ -53,6 +54,7 @@ Install [`pyhaul`](https://pypi.org/project/pyhaul/) from PyPI — pick the extr
                 except PartialHaulError:
                     pass
         print(f"done: {dest.stat().st_size:,} bytes")
+
 
     asyncio.run(main())
     ```

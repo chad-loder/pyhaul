@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Generator, Mapping
 from contextlib import asynccontextmanager, contextmanager
 from typing import TypedDict
 
@@ -60,7 +60,7 @@ def _translate_error(exc: _aiohttp_errors.ClientError) -> TransportError:
 
 
 @contextmanager
-def map_aiohttp_transport_errors() -> Iterator[None]:
+def map_aiohttp_transport_errors() -> Generator[None]:
     """Map :mod:`aiohttp` failures to :mod:`pyhaul.transport.errors` (sync)."""
     try:
         yield
@@ -71,7 +71,7 @@ def map_aiohttp_transport_errors() -> Iterator[None]:
 
 
 @asynccontextmanager
-async def map_aiohttp_transport_errors_async() -> AsyncIterator[None]:
+async def map_aiohttp_transport_errors_async() -> AsyncGenerator[None]:
     """Map :mod:`aiohttp` failures to :mod:`pyhaul.transport.errors` (async)."""
     try:
         yield
@@ -159,7 +159,7 @@ class AsyncAiohttpAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         """Open a streaming GET request and yield the response."""
         kwargs = _request_options_to_aiohttp_kwargs(options)
         async with (
@@ -181,7 +181,7 @@ class AsyncAiohttpAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         """Open a HEAD request and yield the response."""
         kwargs = _request_options_to_aiohttp_kwargs(options)
         async with (

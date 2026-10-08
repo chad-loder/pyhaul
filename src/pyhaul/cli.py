@@ -398,9 +398,9 @@ def _build_urllib3(args: argparse.Namespace) -> object:
 def _close_client(client: object) -> None:
     obj: Any = client
     if hasattr(obj, "close") and callable(obj.close):
-        obj.close()  # ty: ignore[call-top-callable]
+        obj.close()
     elif hasattr(obj, "clear") and callable(obj.clear):
-        obj.clear()  # ty: ignore[call-top-callable]
+        obj.clear()
 
 
 # ---------------------------------------------------------------------------

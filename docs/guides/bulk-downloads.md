@@ -75,10 +75,7 @@ Path("data").mkdir(exist_ok=True)
 
 with httpx.Client() as client:
     with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = {
-            pool.submit(download_with_retry, client, url, dest): url
-            for url, dest in FILES
-        }
+        futures = {pool.submit(download_with_retry, client, url, dest): url for url, dest in FILES}
         for future in as_completed(futures):
             url = futures[future]
             try:
@@ -112,9 +109,7 @@ FILES = [
 ]
 
 
-async def download_one(
-    client: httpx.AsyncClient, url: str, dest: Path
-) -> Path:
+async def download_one(client: httpx.AsyncClient, url: str, dest: Path) -> Path:
     for attempt in range(1, 11):
         try:
             await haul_async(url, client, dest=dest)
@@ -130,10 +125,7 @@ async def main() -> None:
     Path("data").mkdir(exist_ok=True)
     async with httpx.AsyncClient() as client:
         async with asyncio.TaskGroup() as tg:
-            tasks = [
-                tg.create_task(download_one(client, url, dest))
-                for url, dest in FILES
-            ]
+            tasks = [tg.create_task(download_one(client, url, dest)) for url, dest in FILES]
         for task in tasks:
             print(f"done: {task.result()}")
 
@@ -147,6 +139,7 @@ If you're downloading hundreds of files, limit concurrency with a semaphore:
 
 ```python
 sem = asyncio.Semaphore(8)
+
 
 async def download_one(client, url, dest):
     async with sem:

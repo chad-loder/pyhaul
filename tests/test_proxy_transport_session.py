@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator, Mapping
 from contextlib import asynccontextmanager, contextmanager
 
 from pyhaul._types import Url, parse_url
@@ -58,7 +58,7 @@ class StubTransport(TransportSession):
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[StubResponse]:
+    ) -> Generator[StubResponse]:
         self.stream_head_calls += 1
         yield StubResponse()
 
@@ -69,7 +69,7 @@ class StubTransport(TransportSession):
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[StubResponse]:
+    ) -> Generator[StubResponse]:
         self.stream_get_calls += 1
         yield StubResponse()
 
@@ -178,7 +178,7 @@ class AsyncStubTransport(AsyncTransportSession):
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[_MiniAsyncResp]:
+    ) -> AsyncGenerator[_MiniAsyncResp]:
         self.stream_head_calls += 1
         yield _MiniAsyncResp()
 
@@ -189,7 +189,7 @@ class AsyncStubTransport(AsyncTransportSession):
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[_MiniAsyncResp]:
+    ) -> AsyncGenerator[_MiniAsyncResp]:
         yield _MiniAsyncResp()
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator, Mapping
 from contextlib import asynccontextmanager, contextmanager
 from typing import TypedDict
 
@@ -32,7 +32,7 @@ def headers_from_httpx_response(resp: httpx.Response) -> TransportHeaders:
 
 
 @contextmanager
-def map_httpx_transport_errors() -> Iterator[None]:
+def map_httpx_transport_errors() -> Generator[None]:
     """Map :mod:`httpx` failures to :mod:`pyhaul.transport.errors`."""
     try:
         yield
@@ -138,7 +138,7 @@ class HttpxAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         """Open a streaming GET request and yield the response."""
         kwargs = _request_options_to_httpx_kwargs(options)
         with (
@@ -154,7 +154,7 @@ class HttpxAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         """Open a HEAD request and yield the response."""
         kwargs = _request_options_to_httpx_kwargs(options)
         with (
@@ -226,7 +226,7 @@ class AsyncHttpxAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         """Open a streaming GET request and yield the response."""
         kwargs = _request_options_to_httpx_kwargs(options)
         with map_httpx_transport_errors():
@@ -240,7 +240,7 @@ class AsyncHttpxAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         """Open a HEAD request and yield the response."""
         kwargs = _request_options_to_httpx_kwargs(options)
         with map_httpx_transport_errors():

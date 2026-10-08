@@ -15,7 +15,7 @@ import os
 import socket
 import threading
 import time
-from collections.abc import AsyncIterator, Generator
+from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -31,7 +31,7 @@ from tests.live_backends import LIVE_ASYNC_BACKENDS as ASYNC_BACKENDS
 
 
 @asynccontextmanager
-async def _make_async_client(backend: str) -> AsyncIterator[object]:
+async def _make_async_client(backend: str) -> AsyncGenerator[object]:
     """Create and yield a native async HTTP client for *backend*."""
     if backend == "httpx":
         import httpx

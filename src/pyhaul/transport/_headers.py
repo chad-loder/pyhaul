@@ -170,12 +170,13 @@ class TransportHeaders(Mapping[str, str]):
     @overload
     def get(self, key: str, default: str, /) -> str: ...
     @overload
-    def get[T](self, key: str, default: T, /) -> str | T: ...
+    def get[T](self, key: object, default: T, /) -> str | T: ...
 
+    # ty compares this implementation, not the overloads above, against Mapping.get.
     @override
-    def get[T](self, key: str, default: T | None = None, /) -> str | T | None:
-        """Return the first value for *key*, or *default* if absent."""
-        idx = self._index.get(_norm_name(key))
+    def get[T](self, key: object, default: T | None = None, /) -> str | T | None:  # ty: ignore[invalid-method-override]
+        """Return the first value for *key*, or *default* if absent or not a ``str``."""
+        idx = self._index.get(_norm_name(key)) if isinstance(key, str) else None
         return self._items[idx[0]][1] if idx is not None else default
 
     # ------------------------------------------------------------------

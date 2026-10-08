@@ -11,6 +11,7 @@ non-I/O logic with the sync path.
 | httpx | `httpx.AsyncClient` | `pip install pyhaul[httpx]` |
 | aiohttp | `aiohttp.ClientSession` | `pip install pyhaul[aiohttp]` |
 | niquests | `niquests.AsyncSession` | `pip install pyhaul[niquests]` |
+| wreq | `wreq.Client` | `pip install pyhaul[wreq]` |
 
 !!! tip "What about urllib3?"
     urllib3 is sync-only. For async downloads with urllib3, use
@@ -26,6 +27,7 @@ non-I/O logic with the sync path.
     import httpx
     from pyhaul import haul_async
 
+
     async def main():
         async with httpx.AsyncClient() as client:
             result = await haul_async(
@@ -34,6 +36,7 @@ non-I/O logic with the sync path.
                 dest="file.bin",
             )
             print(f"done: sha256={result.sha256[:16]}…")
+
 
     asyncio.run(main())
     ```
@@ -45,6 +48,7 @@ non-I/O logic with the sync path.
     import aiohttp
     from pyhaul import haul_async
 
+
     async def main():
         async with aiohttp.ClientSession() as session:
             result = await haul_async(
@@ -53,6 +57,7 @@ non-I/O logic with the sync path.
                 dest="file.bin",
             )
             print(f"done: sha256={result.sha256[:16]}…")
+
 
     asyncio.run(main())
     ```
@@ -64,6 +69,7 @@ non-I/O logic with the sync path.
     import niquests
     from pyhaul import haul_async
 
+
     async def main():
         async with niquests.AsyncSession() as session:
             result = await haul_async(
@@ -72,6 +78,7 @@ non-I/O logic with the sync path.
                 dest="file.bin",
             )
             print(f"done: sha256={result.sha256[:16]}…")
+
 
     asyncio.run(main())
     ```
@@ -100,6 +107,7 @@ files concurrently:
         ("https://data.example.edu/census/2024-vol03.csv.gz", Path("data/vol03.csv.gz")),
     ]
 
+
     async def download_one(client: httpx.AsyncClient, url: str, dest: Path):
         for attempt in range(1, 11):
             try:
@@ -110,16 +118,15 @@ files concurrently:
                     raise
                 await asyncio.sleep(min(2**attempt, 30))
 
+
     async def main():
         Path("data").mkdir(exist_ok=True)
         async with httpx.AsyncClient() as client:
             async with asyncio.TaskGroup() as tg:
-                tasks = [
-                    tg.create_task(download_one(client, url, dest))
-                    for url, dest in URLS
-                ]
+                tasks = [tg.create_task(download_one(client, url, dest)) for url, dest in URLS]
         for task in tasks:
             print(f"done: {task.result()}")
+
 
     asyncio.run(main())
     ```
@@ -138,6 +145,7 @@ files concurrently:
         ("https://data.example.edu/census/2024-vol03.csv.gz", Path("data/vol03.csv.gz")),
     ]
 
+
     async def download_one(session: aiohttp.ClientSession, url: str, dest: Path):
         for attempt in range(1, 11):
             try:
@@ -148,16 +156,15 @@ files concurrently:
                     raise
                 await asyncio.sleep(min(2**attempt, 30))
 
+
     async def main():
         Path("data").mkdir(exist_ok=True)
         async with aiohttp.ClientSession() as session:
             async with asyncio.TaskGroup() as tg:
-                tasks = [
-                    tg.create_task(download_one(session, url, dest))
-                    for url, dest in URLS
-                ]
+                tasks = [tg.create_task(download_one(session, url, dest)) for url, dest in URLS]
         for task in tasks:
             print(f"done: {task.result()}")
+
 
     asyncio.run(main())
     ```
@@ -176,6 +183,7 @@ files concurrently:
         ("https://data.example.edu/census/2024-vol03.csv.gz", Path("data/vol03.csv.gz")),
     ]
 
+
     async def download_one(session: niquests.AsyncSession, url: str, dest: Path):
         for attempt in range(1, 11):
             try:
@@ -186,16 +194,15 @@ files concurrently:
                     raise
                 await asyncio.sleep(min(2**attempt, 30))
 
+
     async def main():
         Path("data").mkdir(exist_ok=True)
         async with niquests.AsyncSession() as session:
             async with asyncio.TaskGroup() as tg:
-                tasks = [
-                    tg.create_task(download_one(session, url, dest))
-                    for url, dest in URLS
-                ]
+                tasks = [tg.create_task(download_one(session, url, dest)) for url, dest in URLS]
         for task in tasks:
             print(f"done: {task.result()}")
+
 
     asyncio.run(main())
     ```
@@ -212,6 +219,7 @@ server or exhausting file descriptors:
 
     ```python
     sem = asyncio.Semaphore(8)
+
 
     async def download_one(client: httpx.AsyncClient, url: str, dest: str):
         async with sem:
@@ -230,6 +238,7 @@ server or exhausting file descriptors:
     ```python
     sem = asyncio.Semaphore(8)
 
+
     async def download_one(session: aiohttp.ClientSession, url: str, dest: str):
         async with sem:
             for attempt in range(1, 11):
@@ -246,6 +255,7 @@ server or exhausting file descriptors:
 
     ```python
     sem = asyncio.Semaphore(8)
+
 
     async def download_one(session: niquests.AsyncSession, url: str, dest: str):
         async with sem:
@@ -268,15 +278,20 @@ an `async def` and tenacity handles the await:
 
     ```python
     from tenacity import (
-        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+        retry,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_exponential_jitter,
     )
     import httpx
     from pyhaul import haul_async, PartialHaulError, UnexpectedStatusError
+
 
     def _retryable(exc: BaseException) -> bool:
         if isinstance(exc, (PartialHaulError, httpx.TransportError)):
             return True
         return isinstance(exc, UnexpectedStatusError) and exc.is_transient
+
 
     @retry(
         retry=retry_if_exception(_retryable),
@@ -291,15 +306,20 @@ an `async def` and tenacity handles the await:
 
     ```python
     from tenacity import (
-        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+        retry,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_exponential_jitter,
     )
     import aiohttp
     from pyhaul import haul_async, PartialHaulError, UnexpectedStatusError
+
 
     def _retryable(exc: BaseException) -> bool:
         if isinstance(exc, (PartialHaulError, aiohttp.ClientError)):
             return True
         return isinstance(exc, UnexpectedStatusError) and exc.is_transient
+
 
     @retry(
         retry=retry_if_exception(_retryable),
@@ -314,15 +334,20 @@ an `async def` and tenacity handles the await:
 
     ```python
     from tenacity import (
-        retry, retry_if_exception, stop_after_attempt, wait_exponential_jitter,
+        retry,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_exponential_jitter,
     )
     import niquests
     from pyhaul import haul_async, PartialHaulError, UnexpectedStatusError
+
 
     def _retryable(exc: BaseException) -> bool:
         if isinstance(exc, (PartialHaulError, niquests.RequestException)):
             return True
         return isinstance(exc, UnexpectedStatusError) and exc.is_transient
+
 
     @retry(
         retry=retry_if_exception(_retryable),
@@ -346,13 +371,18 @@ to run the sync `haul()` in a thread without blocking the event loop:
     import urllib3
     from pyhaul import haul
 
+
     async def main():
         pool = urllib3.PoolManager()
         result = await asyncio.to_thread(
-            haul, "https://example.com/file.bin", pool, dest="file.bin",
+            haul,
+            "https://example.com/file.bin",
+            pool,
+            dest="file.bin",
         )
         print(f"done: sha256={result.sha256[:16]}…")
         pool.clear()
+
 
     asyncio.run(main())
     ```
@@ -364,12 +394,17 @@ to run the sync `haul()` in a thread without blocking the event loop:
     import requests
     from pyhaul import haul
 
+
     async def main():
         with requests.Session() as session:
             result = await asyncio.to_thread(
-                haul, "https://example.com/file.bin", session, dest="file.bin",
+                haul,
+                "https://example.com/file.bin",
+                session,
+                dest="file.bin",
             )
             print(f"done: sha256={result.sha256[:16]}…")
+
 
     asyncio.run(main())
     ```

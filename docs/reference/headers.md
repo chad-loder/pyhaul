@@ -23,13 +23,13 @@ try:
 except UnexpectedStatusError as exc:
     h = exc.headers
 
-    h["Content-Type"]              # first value or KeyError
-    h.get("Retry-After")           # first value or None
-    h.get("Retry-After", "60")     # first value or default
-    "etag" in h                    # case-insensitive membership
-    len(h)                         # number of unique header names
+    h["Content-Type"]  # first value or KeyError
+    h.get("Retry-After")  # first value or None
+    h.get("Retry-After", "60")  # first value or default
+    "etag" in h  # case-insensitive membership
+    len(h)  # number of unique header names
 
-    h.get_all("Set-Cookie")        # all values in order → tuple[str, ...]
+    h.get_all("Set-Cookie")  # all values in order → tuple[str, ...]
 
     merged = h | {"X-Extra": "v"}  # merge → new TransportHeaders
     new = h.replace("Accept", "application/json")  # functional update
@@ -47,10 +47,12 @@ exceptions, cache, or pass across threads.
 ```python
 from pyhaul.transport._headers import TransportHeaders
 
-h = TransportHeaders.from_pairs([
-    ("Content-Type", "text/html"),
-    ("Authorization", "Bearer sk-secret-token"),
-])
+h = TransportHeaders.from_pairs(
+    [
+        ("Content-Type", "text/html"),
+        ("Authorization", "Bearer sk-secret-token"),
+    ]
+)
 
 repr(h)
 # "TransportHeaders([('content-type', 'text/html'), ('authorization', '[redacted]')])"

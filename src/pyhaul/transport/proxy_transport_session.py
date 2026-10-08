@@ -21,7 +21,7 @@ through** without re-running reflective dispatch; forwarded calls delegate to ``
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable, Mapping
+from collections.abc import AsyncGenerator, Callable, Mapping
 from contextlib import AbstractContextManager, asynccontextmanager
 from dataclasses import dataclass
 from typing import Self, final
@@ -175,7 +175,7 @@ class _ProxiedAsyncTransportSession:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         async with self._inner.stream_get(url, headers=headers, options=options) as resp:
             yield resp
 
@@ -186,7 +186,7 @@ class _ProxiedAsyncTransportSession:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         async with self._inner.stream_head(url, headers=headers, options=options) as resp:
             yield resp
 

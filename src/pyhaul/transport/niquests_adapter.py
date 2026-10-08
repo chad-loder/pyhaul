@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator, Mapping
 from contextlib import asynccontextmanager, contextmanager
 from typing import cast
 
@@ -93,7 +93,7 @@ class NiquestsAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         """Open a streaming GET request and yield the response."""
         kwargs = request_options_to_requests_like_kwargs(options)
         with (
@@ -109,7 +109,7 @@ class NiquestsAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         """Open a HEAD request and yield the response."""
         kwargs = request_options_to_requests_like_kwargs(options)
         with map_requests_like_transport_errors(_niquests_exceptions):
@@ -214,7 +214,7 @@ class AsyncNiquestsAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         """Open a streaming GET request and yield the response."""
         kwargs = request_options_to_requests_like_kwargs(options)
         with map_requests_like_transport_errors(_niquests_exceptions):
@@ -231,7 +231,7 @@ class AsyncNiquestsAdapter:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         """Open a HEAD request and yield the response."""
         kwargs = request_options_to_requests_like_kwargs(options)
         with map_requests_like_transport_errors(_niquests_exceptions):

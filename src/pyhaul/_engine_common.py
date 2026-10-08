@@ -488,6 +488,7 @@ def write_chunk(
     plan: StreamPlan,
     prep: PrepareHaul,
     state: HaulState,
+    *,
     flush_every: int,
 ) -> None:
     """Write *chunk* to *fd*, advance counters, and flush ctrl if threshold hit."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
@@ -78,7 +78,7 @@ class MockSession:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         self.requests.append({"url": url, "headers": headers, "options": options})
         idx = self._call_index
         self._call_index += 1
@@ -94,7 +94,7 @@ class MockSession:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> Iterator[TransportResponse]:
+    ) -> Generator[TransportResponse]:
         raise RuntimeError("MockSession.stream_head is not used by haul tests")
 
 

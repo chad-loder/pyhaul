@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -76,7 +76,7 @@ class AsyncMockSession:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         self.requests.append({"url": url, "headers": headers, "options": options})
         idx = self._call_index
         self._call_index += 1
@@ -92,7 +92,7 @@ class AsyncMockSession:
         *,
         headers: Mapping[str, str],
         options: TransportRequestOptions | None = None,
-    ) -> AsyncIterator[AsyncTransportResponse]:
+    ) -> AsyncGenerator[AsyncTransportResponse]:
         raise RuntimeError("AsyncMockSession.stream_head is not used by haul_async tests")
         yield self.responses[0]
 
