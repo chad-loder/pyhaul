@@ -15,7 +15,10 @@
   },
   "platformCommit": "enabled",
   "pip-compile": {
-    "managerFilePatterns": ["/^\\.github/actions/pypi-publish/requirements\\.txt$/"]
+    "managerFilePatterns": [
+      "/^\\.github/actions/pypi-publish/requirements\\.txt$/",
+      "/^\\.github/build-constraints\\.txt$/"
+    ]
   },
   "customManagers": [
     {
@@ -50,8 +53,8 @@
       "labels": ["security", "privileged-action"]
     },
     {
-      "description": "Publish-path tooling outside pyproject: privileged cooldown, manual review",
-      "matchFileNames": [".github/actions/**"],
+      "description": "Publish-path and build-backend tooling outside pyproject: privileged cooldown, manual review",
+      "matchFileNames": [".github/actions/**", ".github/build-constraints.*", ".github/online-scans/**"],
       "minimumReleaseAge": "14 days",
       "automerge": false,
       "labels": ["security", "privileged-action"]

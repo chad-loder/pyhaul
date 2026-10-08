@@ -22,13 +22,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Integration branch: nightlies match default development (trunk on main).
-          ref: main
           persist-credentials: false
       - name: Check for recent commits on main
         id: check
         run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
             echo "Manual trigger — building unconditionally"
             echo "should_build=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -51,7 +49,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
           persist-credentials: false
       - uses: $/.github/actions/setup-uv-pinned
 
@@ -67,7 +64,7 @@ jobs:
           echo "::notice::Stamped pyhaul==${dev}"
 
       - name: Build
-        run: uv build --no-cache
+        run: uv build --no-cache --no-build --build-constraint .github/build-constraints.txt --require-hashes
 
       - name: Check distribution metadata
         run: uvx --no-cache twine@7.0.0 check --strict dist/*

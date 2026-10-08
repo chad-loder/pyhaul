@@ -142,7 +142,8 @@ maintainer = [
 default-groups = ["test", "lint", "maintainer"]
 # Resolver cutoff: ignore PyPI uploads newer than this (relative to lock/sync resolve time).
 # 72h balances fast incident response on PyPI with a buffer past typical detection and
-# weekend-drop windows. For an urgent CVE fix: `uv lock --exclude-newer=0h --upgrade-package <name>`.
+# weekend-drop windows. For an urgent CVE fix, exempt only that package until the fix ages past
+# 72h: add `exclude-newer-package = { <name> = false }` here, then `uv lock --upgrade-package <name>`.
 exclude-newer = "72h"
 
 # ---------------------------------------------------------------------------
@@ -219,7 +220,7 @@ terms = ["TODO", "FIXME", "XXX", "HACK"]
 "SECURITY.md" = ["MD036"]
 "README.md" = ["MD044", "MD061"]
 # PSR changelog output: list style / blank lines differ from repo-wide markdown rules
-"CHANGELOG.md" = ["MD004", "MD012"]
+"CHANGELOG.md" = ["MD004", "MD012", "MD044"]
 
 [tool.ruff]
 line-length = 120

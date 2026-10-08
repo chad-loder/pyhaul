@@ -1,12 +1,25 @@
 name: Set up pinned uv
 description: >-
-  Installs a fixed uv release, verified against the SHA-256 that the pinned
-  setup-uv commit embeds for that version, with the Actions cache off.
-  For jobs that build, sign, publish, or deploy.
+  Installs the repo's fixed uv release, verified against the SHA-256 that the
+  pinned setup-uv commit embeds for that version. The Actions cache is off by
+  default; only unprivileged CI jobs turn it on, and only trusted main pushes save it.
+inputs:
+  python-version:
+    description: Python to install and put first on PATH; empty leaves it to the caller.
+    default: ""
+  enable-cache:
+    description: Restore the uv cache. Never set this in jobs that build, sign, publish, or deploy.
+    default: "false"
+  save-cache:
+    description: Save the uv cache after the job.
+    default: "false"
 runs:
   using: composite
   steps:
     - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
         version: "0.12.17" # renovate: datasource=github-releases depName=astral-sh/uv
-        enable-cache: false
+        python-version: ${{ inputs.python-version }}
+        enable-cache: ${{ inputs.enable-cache }}
+        save-cache: ${{ inputs.save-cache }}
+        cache-dependency-glob: uv.lock

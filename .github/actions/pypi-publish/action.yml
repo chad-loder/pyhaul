@@ -1,32 +1,54 @@
 name: Publish to PyPI
 description: >-
-  Signs PEP 740 attestations and uploads distributions with Trusted Publishing.
-  Every tool that sees the OIDC token is pinned in this repo: uv by version and
-  embedded checksum, the signing stack by hash (requirements.txt). No Actions
-  cache, no container image. The calling job needs id-token: write and nothing
-  else that writes.
+  Checks, signs (PEP 740), uploads with Trusted Publishing, and confirms the
+  index serves the provenance. Every tool that sees the OIDC token is pinned in
+  this repo: uv by version and embedded checksum, the signing and checking stack
+  by hash (requirements.txt, wheels only). No container image, no Actions cache,
+  no repo checkout, no uv config files. The calling job needs id-token: write.
 inputs:
   packages-dir:
-    description: Directory holding the sdist and wheel to publish.
+    description: Directory holding only the sdist and wheel to publish.
     default: dist
-  publish-url:
-    description: Upload endpoint.
-    default: https://upload.pypi.org/legacy/
-  check-url:
-    description: Index URL used to skip files that are already uploaded; empty disables the check.
-    default: ""
+  index-host:
+    description: Index to publish to; pypi.org or test.pypi.org.
+    default: pypi.org
+  skip-existing:
+    description: Skip files the index already has (compared by hash) instead of failing.
+    default: "false"
 runs:
   using: composite
   steps:
-    - uses: $/.github/actions/setup-uv-pinned
-    - name: Install signing tools (hash-locked)
+    - name: Refuse unexpected contexts
       shell: bash
       env:
+        INDEX_HOST: ${{ inputs.index-host }}
+        RUNNER_ARCH_NAME: ${{ runner.arch }}
+      run: |
+        fail() { echo "::error::$1"; exit 1; }
+        [[ "$RUNNER_OS" == Linux && "$RUNNER_ARCH_NAME" == X64 ]] || fail "requirements.txt is locked for Linux x86_64"
+        case "$GITHUB_EVENT_NAME" in push|schedule|workflow_dispatch) ;; *) fail "refusing to publish from a $GITHUB_EVENT_NAME event" ;; esac
+        case "$INDEX_HOST" in pypi.org|test.pypi.org) ;; *) fail "unsupported index host: $INDEX_HOST" ;; esac
+        stray=$(env | cut -d= -f1 | grep -E '^(UV_|PIP_|RUST_LOG$|SSL_CERT_|REQUESTS_CA_BUNDLE$|PYTHON)' || true)
+        [[ -z "$stray" ]] || fail "environment would steer uv or Python: $(echo $stray)"
+    - uses: $/.github/actions/setup-uv-pinned
+    - name: Install checking and signing tools (hash-locked wheels)
+      shell: bash
+      env:
+        UV_NO_CONFIG: "1"
+        UV_PYTHON_DOWNLOADS: never
         VENV: ${{ runner.temp }}/pypi-publish-venv
         REQUIREMENTS: ${{ github.action_path }}/requirements.txt
       run: |
         uv venv --no-cache --quiet --python 3.12 "$VENV"
-        uv pip install --no-cache --quiet --require-hashes --python "$VENV" -r "$REQUIREMENTS"
+        uv pip install --no-cache --quiet --no-build --require-hashes --python "$VENV" -r "$REQUIREMENTS"
+    - name: Check distribution metadata
+      shell: bash
+      env:
+        VENV: ${{ runner.temp }}/pypi-publish-venv
+        PACKAGES_DIR: ${{ inputs.packages-dir }}
+      run: |
+        "$VENV/bin/python" -I -m twine check --strict "$PACKAGES_DIR"/*
+        sha256sum "$PACKAGES_DIR"/*
     - name: Sign PEP 740 attestations
       shell: bash
       env:
@@ -37,7 +59,21 @@ runs:
     - name: Upload with Trusted Publishing
       shell: bash
       env:
+        UV_NO_CONFIG: "1"
         PACKAGES_DIR: ${{ inputs.packages-dir }}
-        UV_PUBLISH_URL: ${{ inputs.publish-url }}
-        UV_PUBLISH_CHECK_URL: ${{ inputs.check-url }}
-      run: uv publish --no-cache --trusted-publishing always "$PACKAGES_DIR"/*.whl "$PACKAGES_DIR"/*.tar.gz
+        INDEX_HOST: ${{ inputs.index-host }}
+        SKIP_EXISTING: ${{ inputs.skip-existing }}
+      run: |
+        if [[ "$INDEX_HOST" == pypi.org ]]; then upload=https://upload.pypi.org/legacy/; else upload="https://$INDEX_HOST/legacy/"; fi
+        check=()
+        [[ "$SKIP_EXISTING" == true ]] && check=(--check-url "https://$INDEX_HOST/simple/")
+        # uv pairs attestations only from its argument list, so pass the whole directory.
+        uv publish --no-cache --trusted-publishing always --publish-url "$upload" "${check[@]}" "$PACKAGES_DIR"/*
+    - name: Confirm the index serves provenance for each file
+      shell: bash
+      env:
+        VENV: ${{ runner.temp }}/pypi-publish-venv
+        VERIFY: ${{ github.action_path }}/verify_provenance.py
+        INDEX_HOST: ${{ inputs.index-host }}
+        PACKAGES_DIR: ${{ inputs.packages-dir }}
+      run: '"$VENV/bin/python" -I "$VERIFY" "$INDEX_HOST" "$PACKAGES_DIR"'

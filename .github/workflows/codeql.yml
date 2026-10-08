@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
+      security-events: write # upload CodeQL results to code scanning
     strategy:
       fail-fast: false
       matrix:
