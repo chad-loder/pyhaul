@@ -9,6 +9,35 @@ Released versions are published to PyPI at <https://pypi.org/project/pyhaul/#his
 
 <!-- version list -->
 
+## v0.7.1 (2026-10-08) — [Release](https://github.com/chad-loder/pyhaul/releases/tag/v0.7.1) · [PyPI](https://pypi.org/project/pyhaul/0.7.1)
+
+### Bug Fixes
+
+- **ci**: Bind the publish index to the deployment environment and allow production PyPI only from
+  release tags ([#88](https://github.com/chad-loder/pyhaul/pull/88),
+  [`bd6f3aa`](https://github.com/chad-loder/pyhaul/commit/bd6f3aa5cdf8f610c3e8a9f6da5bc7836aa42e1f))
+
+- **release**: Create annotated tags in release-tag so signed-tag configs work
+  ([#84](https://github.com/chad-loder/pyhaul/pull/84),
+  [`26257e4`](https://github.com/chad-loder/pyhaul/commit/26257e47d5ca661a46b0cba383d2083c8ea3928a))
+
+### Continuous Integration
+
+- Harden CI gating for forks, merge queues, workflow scanning, and Renovate
+  ([#87](https://github.com/chad-loder/pyhaul/pull/87),
+  [`54f40ba`](https://github.com/chad-loder/pyhaul/commit/54f40ba870a76d9a510935c86c5bda33f9f0ce92))
+
+### Documentation
+
+- Cover every HTTP client in snippet tabs, enforce it in the docs build, and harden versioned
+  deploys ([#86](https://github.com/chad-loder/pyhaul/pull/86),
+  [`4dbe8a7`](https://github.com/chad-loder/pyhaul/commit/4dbe8a77d9a09fad3aefc5a77bba0e2798fa5bbe))
+
+- Publish versioned docs with mike (release tags as X.Y/latest, main as dev)
+  ([#85](https://github.com/chad-loder/pyhaul/pull/85),
+  [`a8a01da`](https://github.com/chad-loder/pyhaul/commit/a8a01daa6a87e94f84f621c910f94f8ebc8e995c))
+
+
 ## v0.7.0 (2026-10-08) — [Release](https://github.com/chad-loder/pyhaul/releases/tag/v0.7.0) · [PyPI](https://pypi.org/project/pyhaul/0.7.0)
 
 ### Bug Fixes
