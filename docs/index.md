@@ -6,6 +6,8 @@ pyhaul borrows your existing HTTP session and handles byte-range negotiation,
 crash-safe checkpointing, and validation. One call to [`haul()`][pyhaul.engine.haul] = one request.
 It either succeeds, or it saves progress so the next call resumes.
 
+Install [`pyhaul`](https://pypi.org/project/pyhaul/) from PyPI — pick the extra matching your HTTP client:
+
 === "httpx"
 
     ```bash

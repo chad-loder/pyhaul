@@ -1,0 +1,34 @@
+{#  Customised from PSR's bundled template to deep-link version headings
+    to BOTH the GitHub release tag and the matching PyPI release page,
+    e.g.:
+
+      ## v0.7.0 (2026-06-01) — [Release](https://github.com/owner/repo/releases/tag/v0.7.0) · [PyPI](https://pypi.org/project/repo/0.7.0)
+
+    Format constraint: the heading MUST contain the literal substring
+    ``# vX.Y.Z `` (one hash + space + tag + space) so PSR's update-mode
+    dedup check in ``changelog_update.md.j2`` recognises an already-added
+    release and does not double-add on a CI retry. The format here
+    satisfies that (``## vX.Y.Z (...)`` → search finds ``# vX.Y.Z `` at
+    offset 1) while still surfacing the deep-links inline.
+
+    Uses PSR's built-in ``create_release_url`` (registered by the HVCS
+    client) and ``create_pypi_url`` filters, so the same template works
+    whether the HVCS is GitHub, GitLab, or Codeberg without edits.
+
+    Assumes the PyPI distribution name equals ``ctx.repo_name``. Hard-code
+    the package name in the ``create_pypi_url`` call below if it ever
+    diverges from the GitHub repo name.
+#}{{
+"## %s (%s) — [Release](%s) · [PyPI](%s)\n" | format(
+  release.version.as_semver_tag(),
+  release.tagged_date.strftime("%Y-%m-%d"),
+  release.version.as_semver_tag() | create_release_url,
+  ctx.repo_name | create_pypi_url(release.version | string),
+)
+}}{%  if license_name is defined and license_name
+%}{{    "\n_This release is published under the %s License._\n" | format(license_name)
+}}{%  endif
+%}{#
+#}{%  set commit_objects = release["elements"] | dictsort
+%}{%  include "changes.md.j2"
+-%}

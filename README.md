@@ -15,6 +15,9 @@ session and handles byte-range negotiation, crash-safe checkpointing, and valida
 [![requests](https://img.shields.io/badge/requests-sync-059669.svg)](https://requests.readthedocs.io/)
 [![urllib3](https://img.shields.io/badge/urllib3-sync-059669.svg)](https://urllib3.readthedocs.io/)
 
+Install [`pyhaul`](https://pypi.org/project/pyhaul/) from PyPI — pick the extra matching your
+HTTP client:
+
 ```bash
 pip install pyhaul[httpx]   # or: niquests, requests, urllib3, aiohttp
 ```
