@@ -5,8 +5,7 @@ on:
     - cron: "17 4 * * *" # 04:17 UTC daily
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: nightly
@@ -16,18 +15,18 @@ jobs:
   check:
     name: Check for changes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Integration branch: nightlies match default development (trunk on main).
-          ref: main
           persist-credentials: false
       - name: Check for recent commits on main
         id: check
         run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
             echo "Manual trigger — building unconditionally"
             echo "should_build=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -40,26 +39,18 @@ jobs:
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           fi
 
-  nightly:
-    name: Build & publish nightly
+  build:
+    name: Build nightly
     needs: check
     if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-latest
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/p/pyhaul
     permissions:
-      id-token: write # Trusted Publishing (OIDC) for TestPyPI
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
           persist-credentials: false
-      - name: Set up uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          enable-cache: false
+      - uses: $/.github/actions/setup-uv-pinned
 
       # Ephemeral edit on the runner only — never committed or pushed to main.
       # hatchling reads __version__ from _version.py at build time.
@@ -73,13 +64,34 @@ jobs:
           echo "::notice::Stamped pyhaul==${dev}"
 
       - name: Build
-        run: uv build
+        run: uv build --no-cache --no-build --build-constraint .github/build-constraints.txt --require-hashes
 
       - name: Check distribution metadata
-        run: uvx twine check dist/*
+        run: uvx --no-cache twine@7.0.0 check --strict dist/*
 
-      - name: Publish to TestPyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          repository-url: https://test.pypi.org/legacy/
-          skip-existing: true
+          name: Packages
+          path: dist/
+          if-no-files-found: error
+
+  # Holds the OIDC token; runs no build or project code.
+  publish:
+    name: Publish nightly to TestPyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/pyhaul
+    permissions:
+      contents: read
+      id-token: write # Trusted Publishing (OIDC) and PEP 740 signing for TestPyPI
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: Packages
+          path: dist/
+      - uses: $/.github/actions/pypi-publish
+        with:
+          publish-url: https://test.pypi.org/legacy/
+          check-url: https://test.pypi.org/simple/

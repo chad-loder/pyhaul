@@ -15,10 +15,11 @@ concurrency:
 
 jobs:
   submit:
+    name: Submit uv.lock dependency graph
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: write
+      contents: write # the dependency submission API requires it
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

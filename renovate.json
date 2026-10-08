@@ -13,13 +13,29 @@
   "pre-commit": {
     "enabled": true
   },
+  "platformCommit": "enabled",
+  "pip-compile": {
+    "managerFilePatterns": [
+      "/^\\.github/actions/pypi-publish/requirements\\.txt$/",
+      "/^\\.github/build-constraints\\.txt$/"
+    ]
+  },
   "customManagers": [
     {
-      "description": "PyPI tools pinned inline in workflow run steps (uv run --with <pkg>==<version>)",
+      "description": "PyPI tools pinned inline in workflow run steps (uv run --with <pkg>==<version>, uvx <pkg>@<version>)",
       "customType": "regex",
-      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
-      "matchStrings": ["--with (?<depName>[A-Za-z0-9_.-]+)==(?<currentValue>[0-9][^\\s\"']*)"],
+      "managerFilePatterns": ["/^\\.github/(workflows|actions)/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "--with (?<depName>[A-Za-z0-9_.-]+)==(?<currentValue>[0-9][^\\s\"']*)",
+        "uvx (?:--[a-z-]+ )*(?<depName>[A-Za-z0-9_.-]+)@(?<currentValue>[0-9][^\\s\"']*)"
+      ],
       "datasourceTemplate": "pypi"
+    },
+    {
+      "description": "Values annotated with # renovate: datasource=<ds> depName=<name>",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/(workflows|actions)/.+\\.ya?ml$/"],
+      "matchStrings": ["\"(?<currentValue>[^\"]+)\" # renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)"]
     }
   ],
   "schedule": ["* 0-4 * * 1"],
@@ -28,6 +44,21 @@
   "internalChecksFilter": "strict",
   "prConcurrentLimit": 3,
   "packageRules": [
+    {
+      "description": "Build backend that produces release artifacts: privileged cooldown, manual review",
+      "matchManagers": ["pep621"],
+      "matchDepTypes": ["build-system.requires"],
+      "minimumReleaseAge": "14 days",
+      "automerge": false,
+      "labels": ["security", "privileged-action"]
+    },
+    {
+      "description": "Publish-path and build-backend tooling outside pyproject: privileged cooldown, manual review",
+      "matchFileNames": [".github/actions/**", ".github/build-constraints.*", ".github/online-scans/**"],
+      "minimumReleaseAge": "14 days",
+      "automerge": false,
+      "labels": ["security", "privileged-action"]
+    },
     {
       "description": ".python-version pins the oldest supported Python, not the newest",
       "matchManagers": ["pyenv"],
@@ -144,7 +175,8 @@
       "matchCurrentVersion": "!/^0/",
       "matchUpdateTypes": ["minor", "patch"],
       "automerge": true,
-      "automergeType": "branch"
+      "automergeType": "pr",
+      "platformAutomerge": true
     }
   ]
 }
