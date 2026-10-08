@@ -232,6 +232,57 @@ def test_pyhaul_alloc_resolves_posix_fallocate_via_hasattr(
         os.close(fd)
 
 
+def _allocate(tmp_path: Path, total_length: int) -> AllocationResult:
+    fd = os.open(str(tmp_path / "darwin.part"), os.O_CREAT | os.O_RDWR)
+    try:
+        result = allocate_file(fd, total_length=total_length)
+        assert os.fstat(fd).st_size == total_length
+        return result
+    finally:
+        os.close(fd)
+
+
+@pytest.mark.parametrize(
+    ("outcomes", "expected_outcome", "expected_attempts"),
+    [
+        pytest.param([errno.ENOSPC, None], AllocationOutcome.RESERVED, 2, id="contig-enospc-then-all"),
+        pytest.param([errno.ENOSPC, errno.ENOSPC], AllocationOutcome.SPARSE, 2, id="all-enospc-sparse"),
+        pytest.param([None], AllocationOutcome.RESERVED, 1, id="contig-ok"),
+    ],
+)
+def test_darwin_preallocate_enospc_falls_back(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    outcomes: list[int | None],
+    expected_outcome: AllocationOutcome,
+    expected_attempts: int,
+) -> None:
+    fcntl = pytest.importorskip("fcntl")
+    import struct
+
+    from pyhaul import alloc
+
+    attempts: list[int] = []
+    pending = list(outcomes)
+
+    def fake_fcntl(_fd: int, _cmd: int, buf: bytes) -> bytes:
+        attempts.append(struct.unpack(alloc._FSTORE_FMT, buf)[0])
+        err = pending.pop(0)
+        if err is not None:
+            raise OSError(err, os.strerror(err))
+        return buf
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.delattr("pyhaul.alloc.os.posix_fallocate", raising=False)
+    monkeypatch.setattr(fcntl, "fcntl", fake_fcntl)
+
+    result = _allocate(tmp_path, 7_272_678)
+
+    assert result.outcome == expected_outcome
+    assert len(attempts) == expected_attempts
+    assert attempts[0] == alloc._F_ALLOCATECONTIG | alloc._F_ALLOCATEALL
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="F_PREALLOCATE is Darwin-specific")
 def test_allocate_file_darwin_sets_final_size_from_empty(tmp_path: Path) -> None:
     p = tmp_path / "darwin_empty.part"
