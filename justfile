@@ -150,7 +150,8 @@ release-tag version:
       echo "error: tag v{{ version }} already exists"
       exit 1
     fi
-    git tag "v{{ version }}"
+    # Annotated so a tag.gpgSign config can sign it; a bare `git tag` then fails for want of a message.
+    git tag -a "v{{ version }}" -m "v{{ version }}"
     git push origin "v{{ version }}"
     echo "Tag v{{ version }} pushed. Release CI will build and publish."
 
