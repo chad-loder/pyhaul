@@ -46,7 +46,8 @@ def haul(
     """Download a single byte range to *dest*, resumably.
 
     *client* is your HTTP session — ``requests.Session``,
-    ``httpx.Client``, ``niquests.Session``, or ``urllib3.PoolManager``.
+    ``httpx.Client``, ``niquests.Session``, ``urllib3.PoolManager``, or
+    ``wreq.blocking.Client``.
 
     *url* is validated on entry; invalid schemes or missing hosts raise
     :class:`ValueError`.

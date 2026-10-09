@@ -251,7 +251,7 @@ class TestBuildParser:
 
     def test_all_backends_accepted(self) -> None:
         parser = build_parser()
-        for backend in ("niquests", "requests", "httpx", "urllib3"):
+        for backend in ("niquests", "requests", "httpx", "urllib3", "wreq"):
             args = parser.parse_args(["--http-backend", backend, "https://x.com/f"])
             assert args.http_backend == backend
 
@@ -431,6 +431,20 @@ class TestBuildClient:
         ns = build_parser().parse_args(["--http-backend", "urllib3", "https://x.com/f"])
         client = _build_client(ns)
         assert isinstance(client, urllib3.PoolManager)
+
+    @pytest.mark.parametrize(
+        "extra",
+        [[], ["--connect-timeout", "3", "--read-timeout", "9"], ["-x", "http://proxy:8080", "-k"]],
+    )
+    def test_build_wreq(self, extra: list[str]) -> None:
+        pytest.importorskip("wreq")
+        import wreq.blocking
+
+        from pyhaul.cli import _build_client
+
+        ns = build_parser().parse_args(["--http-backend", "wreq", *extra, "https://x.com/f"])
+        client = _build_client(ns)
+        assert isinstance(client, wreq.blocking.Client)
 
     def test_build_niquests_with_proxy(self) -> None:
         niquests = pytest.importorskip("niquests")

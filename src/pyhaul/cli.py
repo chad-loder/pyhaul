@@ -1,7 +1,7 @@
 """Minimal curl-compatible CLI for one-off pyhaul downloads.
 
 Uses one optional HTTP stack at runtime (``--http-backend``: ``niquests``,
-``requests``, ``httpx``, or ``urllib3``; default ``niquests``).  Install a
+``requests``, ``httpx``, ``urllib3``, or ``wreq``; default ``niquests``).  Install a
 matching extra (e.g. ``pyhaul[niquests]``).
 
 Exit codes follow UNIX convention::
@@ -245,7 +245,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     net.add_argument(
         "--http-backend",
-        choices=("niquests", "requests", "httpx", "urllib3"),
+        choices=("niquests", "requests", "httpx", "urllib3", "wreq"),
         default="niquests",
         metavar="NAME",
         help="HTTP client library (default: niquests)",
@@ -340,6 +340,8 @@ def _build_client(args: argparse.Namespace) -> object:
             return _build_httpx(args)
         case "urllib3":
             return _build_urllib3(args)
+        case "wreq":
+            return _build_wreq(args)
         case _:
             msg = f"unknown http backend: {backend!r}"
             raise ValueError(msg)
@@ -393,6 +395,26 @@ def _build_urllib3(args: argparse.Namespace) -> object:
     if args.proxy:
         return urllib3.ProxyManager(args.proxy, **kw)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     return urllib3.PoolManager(**kw)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+
+
+def _build_wreq(args: argparse.Namespace) -> object:
+    import datetime
+
+    import wreq
+    import wreq.blocking
+
+    kw: dict[str, object] = {}
+    timeout = resolve_timeout(args)
+    if isinstance(timeout, tuple):
+        kw["connect_timeout"] = datetime.timedelta(seconds=timeout[0])
+        kw["read_timeout"] = datetime.timedelta(seconds=timeout[1])
+    elif timeout is not None:
+        kw["timeout"] = datetime.timedelta(seconds=timeout)
+    if args.insecure:
+        kw["tls_verify"] = False
+    if args.proxy:
+        kw["proxies"] = [wreq.Proxy.all(args.proxy)]
+    return wreq.blocking.Client(**kw)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
 def _close_client(client: object) -> None:

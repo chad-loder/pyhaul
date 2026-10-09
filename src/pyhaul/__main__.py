@@ -1,8 +1,9 @@
 """Console entrypoint and ``python -m pyhaul`` shim.
 
 The CLI needs at least one HTTP client extra: ``niquests``, ``requests``,
-``httpx``, or ``urllib3`` (install ``pyhaul[niquests]``, ``pyhaul[requests]``,
-``pyhaul[httpx]``, or ``pyhaul[urllib3]`` respectively).
+``httpx``, ``urllib3``, or ``wreq`` (install ``pyhaul[niquests]``,
+``pyhaul[requests]``, ``pyhaul[httpx]``, ``pyhaul[urllib3]``, or ``pyhaul[wreq]``
+respectively).
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 
-_HTTP_CLIENT_MODULES = ("niquests", "requests", "httpx", "urllib3")
+_HTTP_CLIENT_MODULES = ("niquests", "requests", "httpx", "urllib3", "wreq")
 
 
 def main() -> int:

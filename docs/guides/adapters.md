@@ -11,7 +11,7 @@ wraps it internally.
 | `httpx` | `httpx.Client` / `httpx.AsyncClient` | Yes | 0.27 | `pip install pyhaul[httpx]` |
 | `niquests` | `niquests.Session` / `niquests.AsyncSession` | Yes | 3.14 | `pip install pyhaul[niquests]` |
 | `aiohttp` | `aiohttp.ClientSession` | Async only | 3.10 | `pip install pyhaul[aiohttp]` |
-| `wreq` | `wreq.Client` | Async only | 0.11 | `pip install pyhaul[wreq]` |
+| `wreq` | `wreq.blocking.Client` / `wreq.Client` | Yes | 0.11 | `pip install pyhaul[wreq]` |
 | `requests` | `requests.Session` | Sync only | 2.32 | `pip install pyhaul[requests]` |
 | `urllib3` | `urllib3.PoolManager` | Sync only | 2.0 | `pip install pyhaul[urllib3]` |
 
@@ -65,7 +65,8 @@ see [Writing a Custom Adapter](custom-transport.md).
 pyhaul does not override your HTTP client's redirect policy. Library defaults differ:
 **`httpx.Client`** / **`httpx.AsyncClient`** use **`follow_redirects=False`**
 (httpx treats opt-in redirect following as conservative with respect to credentials on
-cross-host redirects), and **`wreq.Client`** does not follow redirects either;
+cross-host redirects), and **`wreq.blocking.Client`** / **`wreq.Client`** do not follow
+redirects either;
 **`requests.Session`**, **`niquests.Session`**, **`aiohttp.ClientSession`**, and urllib3
 (via pyhaul's adapter) follow redirects in the usual configurations unless you turn that
 off. CDN and mirror URLs often redirect — configure the session or client you pass to
@@ -156,7 +157,17 @@ async def main():
 asyncio.run(main())
 ```
 
-### wreq
+### wreq (sync)
+
+```python
+import wreq.blocking
+from pyhaul import haul
+
+with wreq.blocking.Client() as client:
+    result = haul("https://example.com/file.bin", client, dest="file.bin")
+```
+
+### wreq (async)
 
 ```python
 import asyncio
@@ -358,12 +369,19 @@ client = httpx.Client(
 
 ### wreq
 
-- Async only. Pass a `wreq.Client`; pyhaul does not wrap `wreq.blocking`.
-- A default `wreq.Client` decompresses gzip, brotli, deflate, and zstd bodies;
+- Both sync (`wreq.blocking.Client`) and async (`wreq.Client`) are supported.
+- The sync client is thread-safe and releases the GIL during network I/O, so one
+  client can serve a thread pool. Calls block until they return and Ctrl-C waits
+  for them, so set a read timeout to bound a stalled server.
+- A default wreq client decompresses gzip, brotli, deflate, and zstd bodies;
   pyhaul turns that off on every request to keep raw bytes for accurate resume.
+- Responses close when pyhaul is done with them. On wreq 0.13+ a fully read
+  response returns its connection to the pool; on 0.11 each download uses a
+  fresh connection.
 - Body chunks are passed through as zero-copy `memoryview`s (wreq 0.13+).
 - TLS verification and connect timeouts are client settings; set them on the
-  `wreq.Client`. TLS errors map to `TransportTLSError`.
+  wreq client. TLS errors map to `TransportTLSError`; read failures and
+  truncated bodies map to `TransportConnectionError`.
 
 ### urllib3
 
