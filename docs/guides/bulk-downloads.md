@@ -93,7 +93,7 @@ with httpx.Client() as client:
 ## Parallel downloads with asyncio
 
 For async clients (`httpx.AsyncClient`, `aiohttp.ClientSession`,
-`niquests.AsyncSession`), use `asyncio.TaskGroup` or `asyncio.gather`:
+`niquests.AsyncSession`, `wreq.Client`), use `asyncio.TaskGroup` or `asyncio.gather`:
 
 ```python
 import asyncio

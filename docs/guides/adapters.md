@@ -65,11 +65,12 @@ see [Writing a Custom Adapter](custom-transport.md).
 pyhaul does not override your HTTP client's redirect policy. Library defaults differ:
 **`httpx.Client`** / **`httpx.AsyncClient`** use **`follow_redirects=False`**
 (httpx treats opt-in redirect following as conservative with respect to credentials on
-cross-host redirects); **`requests.Session`**, **`niquests.Session`**,
-**`aiohttp.ClientSession`**, and urllib3 (via pyhaul's adapter) follow redirects in the
-usual configurations unless you turn that off. CDN and mirror URLs often redirect — configure
-the session or client you pass to pyhaul accordingly (for example
-`httpx.Client(follow_redirects=True)`).
+cross-host redirects), and **`wreq.Client`** does not follow redirects either;
+**`requests.Session`**, **`niquests.Session`**, **`aiohttp.ClientSession`**, and urllib3
+(via pyhaul's adapter) follow redirects in the usual configurations unless you turn that
+off. CDN and mirror URLs often redirect — configure the session or client you pass to
+pyhaul accordingly (for example `httpx.Client(follow_redirects=True)` or
+`wreq.Client(redirect=wreq.redirect.Policy.limited())`).
 
 ## Per-client examples
 
@@ -150,6 +151,22 @@ from pyhaul import haul_async
 async def main():
     async with aiohttp.ClientSession() as session:
         result = await haul_async("https://example.com/file.bin", session, dest="file.bin")
+
+
+asyncio.run(main())
+```
+
+### wreq
+
+```python
+import asyncio
+import wreq
+from pyhaul import haul_async
+
+
+async def main():
+    async with wreq.Client() as client:
+        result = await haul_async("https://example.com/file.bin", client, dest="file.bin")
 
 
 asyncio.run(main())
@@ -338,6 +355,15 @@ client = httpx.Client(
 - pyhaul sets `auto_decompress=False` on the request to ensure raw bytes for
   accurate resume.
 - TLS certificate errors map to `TransportTLSError`.
+
+### wreq
+
+- Async only. Pass a `wreq.Client`; pyhaul does not wrap `wreq.blocking`.
+- A default `wreq.Client` decompresses gzip, brotli, deflate, and zstd bodies;
+  pyhaul turns that off on every request to keep raw bytes for accurate resume.
+- Body chunks are passed through as zero-copy `memoryview`s (wreq 0.13+).
+- TLS verification and connect timeouts are client settings; set them on the
+  `wreq.Client`. TLS errors map to `TransportTLSError`.
 
 ### urllib3
 

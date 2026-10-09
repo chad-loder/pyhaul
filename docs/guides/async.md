@@ -105,7 +105,8 @@ non-I/O logic with the sync path.
     ```
 
 !!! note
-    pyhaul sets `auto_decompress=False` on aiohttp requests internally to
+    pyhaul sets `auto_decompress=False` on aiohttp requests, and turns off
+    wreq's gzip, brotli, deflate, and zstd decompression per request, to
     ensure raw bytes for accurate resume. Your session's other settings
     (auth, proxies, timeouts) pass through unchanged.
 

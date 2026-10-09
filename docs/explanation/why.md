@@ -63,7 +63,9 @@ the server sent, so your checkpoint cursor drifts and your next
 resume starts from the wrong offset. Instead you have to drop down
 to the raw streaming layer: `response.raw.stream(decode_content=False)`
 for requests/urllib3, `response.iter_raw()` / `response.aiter_raw()`
-for httpx and niquests. These give you post-transfer-encoding,
+for httpx and niquests, `auto_decompress=False` for aiohttp, and
+per-request `gzip=False` (plus `brotli`, `deflate`, `zstd`) for wreq,
+whose default client decompresses. These give you post-transfer-encoding,
 pre-content-encoding bytes — the exact bytes the server framed. But
 now you're responsible for understanding that "raw" doesn't mean
 "straight off the socket": on a persistent HTTP/1.1 connection,

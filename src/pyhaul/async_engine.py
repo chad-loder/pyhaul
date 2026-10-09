@@ -115,7 +115,7 @@ async def haul_async(  # noqa: C901, PLR0912, PLR0915 — stream loop + transpor
     """Async equivalent of :func:`pyhaul.engine.haul`.
 
     *client* is your async HTTP session — ``httpx.AsyncClient``,
-    ``niquests.AsyncSession``, or ``aiohttp.ClientSession``.
+    ``niquests.AsyncSession``, ``aiohttp.ClientSession``, or ``wreq.Client``.
 
     *url* is validated on entry; invalid schemes or missing hosts raise
     :class:`ValueError`.
