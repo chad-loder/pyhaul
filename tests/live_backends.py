@@ -1,6 +1,6 @@
 """Live HTTP transport matrix helpers for the test suite.
 
-Every sync client (niquests, requests, httpx, urllib3) and async client
+Every sync client (niquests, requests, httpx, urllib3, wreq) and async client
 (niquests, aiohttp, httpx, wreq) gets the same integration coverage via
 :class:`tests.conftest.HttpTest`.
 
@@ -20,7 +20,7 @@ from typing import Any, cast
 
 from pyhaul.transport.protocols import TransportSession
 
-ALL_SYNC_BACKENDS: tuple[str, ...] = ("niquests", "requests", "httpx", "urllib3")
+ALL_SYNC_BACKENDS: tuple[str, ...] = ("niquests", "requests", "httpx", "urllib3", "wreq")
 ALL_ASYNC_BACKENDS: tuple[str, ...] = ("niquests", "aiohttp", "httpx", "wreq")
 
 # Interleaves sync and async so each third holds both kinds. Reordering
@@ -34,6 +34,7 @@ _ROTATION: tuple[str, ...] = (
     "async:niquests",
     "sync:urllib3",
     "async:wreq",
+    "sync:wreq",
 )
 _OS_INDEX = {"linux": 0, "darwin": 1, "win32": 2}
 
@@ -67,6 +68,10 @@ def make_native(backend: str) -> object:
         import urllib3 as u3
 
         return u3.PoolManager()
+    if backend == "wreq":
+        import wreq.blocking
+
+        return wreq.blocking.Client()
     msg = f"unknown transport backend {backend!r}"
     raise ValueError(msg)
 
@@ -89,6 +94,10 @@ def make_transport(backend: str, native: object) -> TransportSession:
         from pyhaul.transport.urllib3_adapter import Urllib3Adapter
 
         return Urllib3Adapter(native)  # type: ignore[arg-type]
+    if backend == "wreq":
+        from pyhaul.transport.wreq_adapter import SyncWreqAdapter
+
+        return SyncWreqAdapter(native)  # type: ignore[arg-type]
     msg = f"unknown transport backend {backend!r}"
     raise ValueError(msg)
 

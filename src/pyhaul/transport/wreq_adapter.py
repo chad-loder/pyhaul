@@ -1,30 +1,37 @@
-"""wreq-backed async transport adapter.
+"""wreq-backed transport adapters, sync and async.
 
-Wraps :class:`wreq.Client` (Python bindings around the Rust
-``wreq`` library: HTTP/1.1 + HTTP/2, BoringSSL, JA3/JA4 fingerprint
-impersonation, native ``socks5h://`` URL-scheme support that makes
-DNS-leak misconfiguration structurally impossible).
+Wraps :class:`wreq.blocking.Client` and :class:`wreq.Client` (Python
+bindings around the Rust ``wreq`` library: HTTP/1.1 + HTTP/2, BoringSSL,
+JA3/JA4 fingerprint impersonation, native ``socks5h://`` URL-scheme
+support that makes DNS-leak misconfiguration structurally impossible).
 
-Adds :class:`AsyncWreqAdapter` as a peer of
-:class:`AsyncAiohttpAdapter`; the two are interchangeable behind the
-:class:`pyhaul.transport.protocols.AsyncTransportSession` Protocol.
+:class:`SyncWreqAdapter` implements
+:class:`pyhaul.transport.protocols.TransportSession` and
+:class:`AsyncWreqAdapter` implements
+:class:`pyhaul.transport.protocols.AsyncTransportSession`. Both share the
+request-option translation, header decoding, and error mapping below.
 
-**Raw bytes.** A default :class:`wreq.Client` decompresses gzip, brotli,
-deflate, and zstd bodies and drops ``Content-Encoding``. Every request
-this adapter makes turns that off, so
-:meth:`AsyncTransportResponse.aiter_raw_bytes` yields the bytes as the
-server framed them and byte ranges stay consistent across resumes,
-whatever the caller's client is configured to do.
+**Raw bytes.** A default wreq client decompresses gzip, brotli, deflate,
+and zstd bodies and drops ``Content-Encoding``. Every request these
+adapters make turns that off, so body chunks are the bytes as the server
+framed them and byte ranges stay consistent across resumes, whatever the
+caller's client is configured to do.
+
+**Connections.** Responses are closed when the caller's ``with`` block
+exits. On wreq 0.13+ a fully read response returns its connection to the
+pool; on 0.11 closing never reuses the connection. An unread or partly
+read body always closes its connection instead of draining it.
 """
 
 from __future__ import annotations
 
 import datetime
-from collections.abc import AsyncGenerator, AsyncIterator, Buffer, Generator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Buffer, Generator, Iterator, Mapping
 from contextlib import asynccontextmanager, contextmanager
 from typing import TypedDict
 
 import wreq
+import wreq.blocking
 from wreq import exceptions as _wreq_errors
 
 from pyhaul._types import Url
@@ -36,57 +43,62 @@ from pyhaul.transport.errors import (
     TransportTLSError,
     TransportUnsupportedError,
 )
-from pyhaul.transport.protocols import AsyncTransportResponse, AsyncTransportSession
+from pyhaul.transport.protocols import (
+    AsyncTransportResponse,
+    AsyncTransportSession,
+    TransportResponse,
+    TransportSession,
+)
 from pyhaul.transport.types import TransportHeaders, TransportRequestOptions
 
 
-def headers_from_wreq_response(resp: wreq.Response) -> TransportHeaders:
-    """Build :class:`TransportHeaders` from a ``wreq.Response`` (multi-value safe).
+def headers_from_wreq_response(resp: wreq.Response | wreq.blocking.Response) -> TransportHeaders:
+    """Build :class:`TransportHeaders` from a wreq response (multi-value safe).
 
-    ``wreq.HeaderMap`` has no ``items()``; it exposes ``keys()`` and
-    ``get_all(name)``, both yielding byte buffers (``memoryview`` per the
-    stubs). Names and values decode as ``latin-1`` (HTTP's wire encoding),
-    and ``get_all`` keeps repeated headers such as ``Set-Cookie`` as
-    separate pairs.
+    ``wreq.HeaderMap.keys()`` and ``get_all(name)`` yield ``bytes`` on 0.11
+    and ``memoryview`` on 0.13; ``bytes(...)`` covers both. Names and values
+    decode as ``latin-1`` (HTTP's wire encoding), and ``get_all`` keeps
+    repeated headers such as ``Set-Cookie`` as separate pairs.
     """
     hm = resp.headers
     pairs: list[tuple[str, str]] = []
-    for raw_name in hm.keys():  # noqa: SIM118 — wreq HeaderMap is not iterable
+    for raw_name in hm.keys():  # noqa: SIM118 — get_all() per name keeps repeated values separate
         name = bytes(raw_name).decode("latin-1")
         pairs.extend((name, bytes(raw_value).decode("latin-1")) for raw_value in hm.get_all(name))
     return TransportHeaders.from_pairs(transport_header_pairs(pairs))
 
 
-# Exception translation: wreq has a flat hierarchy in `wreq.exceptions`
+# wreq raises one flat hierarchy from `wreq.exceptions` for both clients
 # (TlsError, ConnectionError, ProxyConnectionError, ConnectionResetError,
-# TimeoutError, StatusError, DecodingError, RequestError, RedirectError,
-# BodyError, BuilderError, UpgradeError, WebSocketError, RustPanic).
-# We map them onto pyhaul's four-bucket TransportError taxonomy.
+# TimeoutError, BodyError, DecodingError, StatusError, RequestError,
+# RedirectError, BuilderError, UpgradeError, WebSocketError, RustPanic).
 _TLS_ERRORS = (_wreq_errors.TlsError,)
+# BodyError is a mid-body read failure, including a read timeout on 0.13+.
+# DecodingError is a framing or truncation failure: decompression is off.
 _CONN_ERRORS = (
     _wreq_errors.ConnectionError,
     _wreq_errors.ProxyConnectionError,
     _wreq_errors.ConnectionResetError,
     _wreq_errors.TimeoutError,
+    _wreq_errors.BodyError,
+    _wreq_errors.DecodingError,
 )
 _HTTP_ERRORS = (_wreq_errors.StatusError,)
+_UNSUPPORTED_ERRORS = (_wreq_errors.BuilderError,)
 _HTTP_ERROR_MIN = 400
 _HTTP_ERROR_MAX = 600
 _OTHER_MAPPED_ERRORS = (
-    _wreq_errors.DecodingError,
     _wreq_errors.RequestError,
     _wreq_errors.RedirectError,
 )
-_MAPPED_ERRORS = _TLS_ERRORS + _CONN_ERRORS + _HTTP_ERRORS + _OTHER_MAPPED_ERRORS
+_MAPPED_ERRORS = _TLS_ERRORS + _CONN_ERRORS + _HTTP_ERRORS + _UNSUPPORTED_ERRORS + _OTHER_MAPPED_ERRORS
 
 
 def _translate_error(exc: Exception) -> TransportError:
     """Map a ``wreq`` exception to the corresponding pyhaul transport error.
 
-    ``StatusError`` exposes a ``.status`` attribute (the 4xx/5xx code);
-    older or future wreq releases may rename it. Use ``getattr`` with
-    a default so adapter compatibility doesn't silently break on a
-    field rename.
+    ``StatusError`` carries no status attribute in 0.11 or 0.13; the
+    ``getattr`` lookups pick one up if a later release adds it.
     """
     if isinstance(exc, _HTTP_ERRORS):
         status_code = getattr(exc, "status", None) or getattr(exc, "status_code", None)
@@ -95,12 +107,14 @@ def _translate_error(exc: Exception) -> TransportError:
         return TransportTLSError(str(exc))
     if isinstance(exc, _CONN_ERRORS):
         return TransportConnectionError(str(exc))
+    if isinstance(exc, _UNSUPPORTED_ERRORS):
+        return TransportUnsupportedError(str(exc))
     return TransportError(str(exc))
 
 
 @contextmanager
 def map_wreq_transport_errors() -> Generator[None]:
-    """Map :mod:`wreq` failures to :mod:`pyhaul.transport.errors` (sync helper for tests)."""
+    """Map :mod:`wreq` failures to :mod:`pyhaul.transport.errors`."""
     try:
         yield
     except TransportError:
@@ -162,17 +176,17 @@ def _request_options_to_wreq_kwargs(
         kw["redirect"] = wreq.redirect.Policy.limited() if options.allow_redirects else wreq.redirect.Policy.none()
     # `options.verify` is intentionally unwired: TLS verification in wreq
     # is configured at Client-build time (not per-request), so caller
-    # owns it via the wreq.Client they pass us. Documented constraint.
+    # owns it via the wreq client they pass us. Documented constraint.
     return kw
 
 
-class WreqTransportResponse(AsyncTransportResponse):
-    """Async transport view over a :class:`wreq.Response`."""
+class _WreqResponseView[R: (wreq.Response, wreq.blocking.Response)]:
+    """Status, headers, and status check shared by the sync and async responses."""
 
     __slots__ = ("_headers", "_resp")
 
-    def __init__(self, resp: wreq.Response) -> None:
-        self._resp = resp
+    def __init__(self, resp: R) -> None:
+        self._resp: R = resp
         self._headers: TransportHeaders | None = None
 
     @property
@@ -182,7 +196,8 @@ class WreqTransportResponse(AsyncTransportResponse):
         ``wreq.StatusCode`` defines no ``__int__``, so ``int()`` raises
         ``TypeError``; ``as_int()`` is the integer view.
         """
-        return self._resp.status.as_int()
+        code: int = self._resp.status.as_int()
+        return code
 
     @property
     def headers(self) -> TransportHeaders:
@@ -200,19 +215,86 @@ class WreqTransportResponse(AsyncTransportResponse):
                 status_code=code,
             )
 
-    async def aiter_raw_bytes(self, *, chunk_size: int) -> AsyncIterator[Buffer]:
+
+class WreqSyncTransportResponse(_WreqResponseView[wreq.blocking.Response], TransportResponse):
+    """Sync transport view over a :class:`wreq.blocking.Response`."""
+
+    __slots__ = ()
+
+    def iter_raw_bytes(self, *, chunk_size: int) -> Iterator[Buffer]:
         """Yield raw response body chunks without decoding or copying.
 
-        ``wreq``'s streamer yields body chunks (``bytes`` before 0.13,
-        read-only ``memoryview`` from 0.13) and ``HeaderMap`` frames for
-        HTTP trailers; body chunks pass through as-is. Chunk sizes follow
-        wreq's framing, not ``chunk_size``.
+        Body chunks are ``bytes`` before wreq 0.13 and read-only
+        ``memoryview`` from 0.13; ``HeaderMap`` frames carry HTTP trailers
+        and are skipped. Chunk sizes follow wreq's framing, not ``chunk_size``.
         """
+        del chunk_size
+        with map_wreq_transport_errors(), self._resp.stream() as streamer:
+            for chunk in streamer:
+                if not isinstance(chunk, wreq.HeaderMap) and chunk:
+                    yield chunk
+
+
+class WreqTransportResponse(_WreqResponseView[wreq.Response], AsyncTransportResponse):
+    """Async transport view over a :class:`wreq.Response`."""
+
+    __slots__ = ()
+
+    async def aiter_raw_bytes(self, *, chunk_size: int) -> AsyncIterator[Buffer]:
+        """Async version of :meth:`WreqSyncTransportResponse.iter_raw_bytes`."""
         del chunk_size
         async with map_wreq_transport_errors_async(), self._resp.stream() as streamer:
             async for chunk in streamer:
                 if not isinstance(chunk, wreq.HeaderMap) and chunk:
                     yield chunk
+
+
+class SyncWreqAdapter:
+    """Wrap a :class:`wreq.blocking.Client` as a :class:`TransportSession`.
+
+    One client may be shared across threads: wreq's blocking client is
+    thread-safe and releases the GIL during network I/O. Calls block until
+    they return, so set a read timeout to bound a stalled server.
+    """
+
+    __slots__ = ("_client",)
+
+    def __init__(self, client: wreq.blocking.Client) -> None:
+        self._client = client
+
+    def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
+        """Return *headers* unchanged; wreq emulation settings live on the client."""
+        return headers
+
+    @contextmanager
+    def stream_get(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Generator[TransportResponse]:
+        """Open a streaming GET request and yield the response."""
+        kwargs = _request_options_to_wreq_kwargs(options)
+        with map_wreq_transport_errors():
+            resp = self._client.get(str(url), headers=dict(headers), **kwargs)
+            with resp:
+                yield WreqSyncTransportResponse(resp)
+
+    @contextmanager
+    def stream_head(
+        self,
+        url: Url,
+        *,
+        headers: Mapping[str, str],
+        options: TransportRequestOptions | None = None,
+    ) -> Generator[TransportResponse]:
+        """Open a HEAD request and yield the response."""
+        kwargs = _request_options_to_wreq_kwargs(options)
+        with map_wreq_transport_errors():
+            resp = self._client.head(str(url), headers=dict(headers), **kwargs)
+            with resp:
+                yield WreqSyncTransportResponse(resp)
 
 
 class AsyncWreqAdapter:
@@ -224,11 +306,7 @@ class AsyncWreqAdapter:
         self._client = client
 
     def prepare_headers(self, headers: TransportHeaders) -> TransportHeaders:
-        """Optionally mutate headers before they are sent (noop).
-
-        wreq's emulation config covers TLS / HTTP-2 fingerprint headers
-        at the client level, so no per-request mutation is required here.
-        """
+        """Return *headers* unchanged; wreq emulation settings live on the client."""
         return headers
 
     @asynccontextmanager
@@ -242,12 +320,7 @@ class AsyncWreqAdapter:
         """Open a streaming GET request and yield the response."""
         kwargs = _request_options_to_wreq_kwargs(options)
         async with map_wreq_transport_errors_async():
-            resp = await self._client.get(
-                str(url),
-                headers=dict(headers),
-                **kwargs,
-            )
-            # Closing releases the connection even when the body is never read.
+            resp = await self._client.get(str(url), headers=dict(headers), **kwargs)
             async with resp:
                 yield WreqTransportResponse(resp)
 
@@ -262,20 +335,16 @@ class AsyncWreqAdapter:
         """Open a HEAD request and yield the response."""
         kwargs = _request_options_to_wreq_kwargs(options)
         async with map_wreq_transport_errors_async():
-            resp = await self._client.head(
-                str(url),
-                headers=dict(headers),
-                **kwargs,
-            )
+            resp = await self._client.head(str(url), headers=dict(headers), **kwargs)
             async with resp:
                 yield WreqTransportResponse(resp)
+
+
+def wreq_transport(client: wreq.blocking.Client) -> TransportSession:
+    """Shorthand: ``SyncWreqAdapter(client)``."""
+    return SyncWreqAdapter(client)
 
 
 def async_wreq_transport(client: wreq.Client) -> AsyncTransportSession:
     """Shorthand: ``AsyncWreqAdapter(client)``."""
     return AsyncWreqAdapter(client)
-
-
-# Silence "imported but unused" without exposing TransportUnsupportedError
-# at the module-public level — kept available for future scheme mapping.
-_ = TransportUnsupportedError

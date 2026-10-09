@@ -13,7 +13,7 @@ import hashlib
 import logging
 import os
 import time
-from collections.abc import Mapping
+from collections.abc import Buffer, Mapping
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from pathlib import Path
@@ -484,7 +484,7 @@ def open_part_file(plan: StreamPlan, part_path: Path) -> int:
 
 def write_chunk(
     fd: int,
-    chunk: bytes,
+    chunk: Buffer,
     plan: StreamPlan,
     prep: PrepareHaul,
     state: HaulState,
@@ -493,7 +493,7 @@ def write_chunk(
 ) -> None:
     """Write *chunk* to *fd*, advance counters, and flush ctrl if threshold hit."""
     os.write(fd, chunk)
-    n = len(chunk)
+    n = memoryview(chunk).nbytes
     plan.cursor += n
     plan.bytes_since_flush += n
     state.bytes_read += n

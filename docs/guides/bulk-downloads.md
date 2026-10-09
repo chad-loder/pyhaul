@@ -41,7 +41,8 @@ result = haul(url, client, dest="data.bin")
 
 ## Parallel downloads with threads (sync)
 
-For sync clients (`requests`, `httpx.Client`, `niquests.Session`, `urllib3`),
+For sync clients (`requests`, `httpx.Client`, `niquests.Session`, `urllib3`,
+`wreq.blocking.Client`),
 use a thread pool. Each thread gets its own session or shares a thread-safe
 session:
 
@@ -88,7 +89,7 @@ with httpx.Client() as client:
 !!! note
     `requests.Session` is the only sync client that is *not* thread-safe.
     Create one session per thread, or switch to `niquests.Session`, `httpx.Client`,
-    or `urllib3.PoolManager` — all of which are thread-safe.
+    `urllib3.PoolManager`, or `wreq.blocking.Client` — all of which are thread-safe.
 
 ## Parallel downloads with asyncio
 

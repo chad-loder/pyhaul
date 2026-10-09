@@ -53,7 +53,7 @@ python -m pyhaul -H 'Cookie: x=1' -A 'my-bot/1.0' https://host/f.zip
 | `-x URL`, `--proxy URL` | Proxy URL (e.g. `socks5h://127.0.0.1:9050`, `http://host:3128`) |
 | `-H HEADER`, `--header HEADER` | Add custom header `Name: Value` (repeatable) |
 | `-A NAME`, `--user-agent NAME` | User-Agent string |
-| `--http-backend NAME` | HTTP client library: `niquests` (default), `requests`, `httpx`, `urllib3` |
+| `--http-backend NAME` | HTTP client library: `niquests` (default), `requests`, `httpx`, `urllib3`, `wreq` |
 | `-k`, `--insecure` | Skip TLS certificate verification |
 | `--connect-timeout SECS` | Maximum seconds to wait for connection |
 | `--read-timeout SECS` | Maximum seconds between response chunks (default: 4x connect-timeout) |

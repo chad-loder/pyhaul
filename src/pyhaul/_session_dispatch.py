@@ -1,7 +1,7 @@
 """Auto-coerce HTTP client objects into pyhaul transport sessions.
 
-Built-in adapters handle requests, niquests, httpx, and urllib3 (sync) and
-niquests, httpx, aiohttp, and wreq (async).  Third-party
+Built-in adapters handle requests, niquests, httpx, urllib3, and wreq (sync)
+and niquests, httpx, aiohttp, and wreq (async).  Third-party
 packages can register additional adapters via :func:`register_sync_adapter`
 and :func:`register_async_adapter` — no monkeypatching required.
 
@@ -114,6 +114,18 @@ def _try_async_aiohttp(obj: object) -> AsyncTransportSession | None:
     return None
 
 
+def _try_wreq(obj: object) -> TransportSession | None:
+    try:
+        import wreq.blocking
+    except ImportError:
+        return None
+    if isinstance(obj, wreq.blocking.Client):
+        from pyhaul.transport.wreq_adapter import SyncWreqAdapter
+
+        return SyncWreqAdapter(obj)
+    return None
+
+
 def _try_async_wreq(obj: object) -> AsyncTransportSession | None:
     try:
         import wreq
@@ -137,6 +149,7 @@ _sync_factories: tuple[SyncAdapterFactory, ...] = (
     _try_niquests,
     _try_httpx,
     _try_urllib3,
+    _try_wreq,
 )
 
 _async_factories: tuple[AsyncAdapterFactory, ...] = (
@@ -187,7 +200,7 @@ def coerce_sync_session(obj: object) -> TransportSession:
     raise TypeError(
         f"No sync adapter for {type(obj).__module__}.{type(obj).__qualname__}. "
         f"Install a pyhaul extra (pyhaul[niquests], pyhaul[requests], "
-        f"pyhaul[httpx], pyhaul[urllib3]) or call register_sync_adapter()."
+        f"pyhaul[httpx], pyhaul[urllib3], pyhaul[wreq]) or call register_sync_adapter()."
     )
 
 

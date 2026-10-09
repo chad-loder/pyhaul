@@ -41,10 +41,13 @@ class TransportResponse(Protocol):
 
     # CPD-ON
 
-    def iter_raw_bytes(self, *, chunk_size: int) -> Iterator[bytes]:
+    def iter_raw_bytes(self, *, chunk_size: int) -> Iterator[Buffer]:
         """Yield raw entity-body chunks (post-TE, pre-CE).
 
-        ``chunk_size`` is a hint; the last chunk may be shorter.
+        ``chunk_size`` is a hint; the last chunk may be shorter. Chunks may
+        be any byte buffer (``bytes``, ``memoryview``, ...), so zero-copy
+        clients can yield views without copying. The engine consumes each
+        chunk before requesting the next.
         """
         ...
 
