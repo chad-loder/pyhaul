@@ -72,6 +72,7 @@ class ServerState:
 
     force_200_enabled: bool = False
     inject_content_encoding: bool = False
+    content_encoding: str | None = None
     omit_206_content_range: bool = False
     lie_206_content_range: bool = False
     ignore_range_end: bool = False
@@ -131,6 +132,12 @@ class HttpTest:
 
     def inject_content_encoding_on_206(self) -> HttpTest:
         self._state.inject_content_encoding = True
+        return self
+
+    def send_content_encoding(self, value: str) -> HttpTest:
+        """Label every GET response (200 and 206) with ``Content-Encoding: value``,
+        ignoring the client's ``Accept-Encoding: identity``; the body bytes are served as-is."""
+        self._state.content_encoding = value
         return self
 
     def omit_content_range_on_206(self) -> HttpTest:
@@ -206,6 +213,7 @@ class _Snapshot:
     etag: str
     force_200: bool
     inject_content_encoding: bool
+    content_encoding: str | None
     omit_206_content_range: bool
     lie_206_content_range: bool
     ignore_range_end: bool
@@ -240,6 +248,7 @@ def _make_handler(state: ServerState) -> type[_http_server.BaseHTTPRequestHandle
                 etag=state.etag,
                 force_200=state.force_200_enabled,
                 inject_content_encoding=state.inject_content_encoding,
+                content_encoding=state.content_encoding,
                 omit_206_content_range=state.omit_206_content_range,
                 lie_206_content_range=state.lie_206_content_range,
                 ignore_range_end=state.ignore_range_end,
@@ -292,6 +301,8 @@ def _make_handler(state: ServerState) -> type[_http_server.BaseHTTPRequestHandle
             self.send_header("ETag", snap.etag)
             if snap.inject_content_encoding:
                 self.send_header("Content-Encoding", "gzip")
+            elif snap.content_encoding:
+                self.send_header("Content-Encoding", snap.content_encoding)
             self.end_headers()
             if snap.truncate_206_body_at is not None:
                 self.wfile.write(chunk[: snap.truncate_206_body_at])
@@ -305,6 +316,8 @@ def _make_handler(state: ServerState) -> type[_http_server.BaseHTTPRequestHandle
             self.send_response(200)
             self.send_header("Content-Length", str(len(snap.content)))
             self.send_header("ETag", snap.etag)
+            if snap.content_encoding:
+                self.send_header("Content-Encoding", snap.content_encoding)
             self.end_headers()
             if snap.truncate_200_body_at is not None and self.command == "GET":
                 self.wfile.write(snap.content[: snap.truncate_200_body_at])

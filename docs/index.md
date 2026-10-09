@@ -185,7 +185,7 @@ Install [`pyhaul`](https://pypi.org/project/pyhaul/) from PyPI — pick the extr
 
 -   **[HTTP Client Adapters](guides/adapters.md)**
 
-    Use pyhaul with httpx, requests, aiohttp, niquests, or urllib3 — including
+    Use pyhaul with httpx, requests, aiohttp, niquests, wreq, or urllib3 — including
     auth and session integration.
 
 -   **[API Reference](reference/api.md)**

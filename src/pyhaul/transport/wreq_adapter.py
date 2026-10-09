@@ -9,14 +9,12 @@ Adds :class:`AsyncWreqAdapter` as a peer of
 :class:`AsyncAiohttpAdapter`; the two are interchangeable behind the
 :class:`pyhaul.transport.protocols.AsyncTransportSession` Protocol.
 
-**Decompression caveat.** ``wreq`` performs automatic decompression
-when the ``gzip`` / ``brotli`` / ``deflate`` / ``zstd`` extras are
-enabled at the Rust-library build level. Pyhaul's contract is that
-:meth:`AsyncTransportResponse.aiter_raw_bytes` yields the bytes as
-the server framed them, *pre*-content-encoding. Callers using this
-adapter for streaming downloads should build their :class:`wreq.Client`
-without the decompression extras, or accept that resume-on-chunk-hash
-will treat decompressed bytes as the canonical stream.
+**Raw bytes.** A default :class:`wreq.Client` decompresses gzip, brotli,
+deflate, and zstd bodies and drops ``Content-Encoding``. Every request
+this adapter makes turns that off, so
+:meth:`AsyncTransportResponse.aiter_raw_bytes` yields the bytes as the
+server framed them and byte ranges stay consistent across resumes,
+whatever the caller's client is configured to do.
 """
 
 from __future__ import annotations
@@ -134,6 +132,10 @@ class _WreqRequestKwargs(TypedDict, total=False):
     timeout: datetime.timedelta
     read_timeout: datetime.timedelta
     redirect: wreq.redirect.Policy
+    gzip: bool
+    brotli: bool
+    deflate: bool
+    zstd: bool
 
 
 def _request_options_to_wreq_kwargs(
@@ -145,10 +147,11 @@ def _request_options_to_wreq_kwargs(
     tuple maps only its read half to ``read_timeout``: wreq sets connect
     timeouts at Client-build time, not per request. wreq ignores unknown
     kwargs, so ``allow_redirects`` must become a ``redirect`` policy.
+    Decompression is always off per request, overriding the client.
     """
+    kw: _WreqRequestKwargs = {"gzip": False, "brotli": False, "deflate": False, "zstd": False}
     if options is None:
-        return {}
-    kw: _WreqRequestKwargs = {}
+        return kw
     if options.timeout is not None:
         t = options.timeout
         if isinstance(t, tuple):

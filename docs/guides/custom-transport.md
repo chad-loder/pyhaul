@@ -73,7 +73,8 @@ class TransportResponse:
     pre-content-encoding. This means the bytes as the server framed them,
     without decompression. If your library auto-decompresses, you need to
     bypass that layer (e.g. `decode_content=False` in requests/urllib3,
-    `iter_raw()` instead of `iter_bytes()` in httpx).
+    `iter_raw()` instead of `iter_bytes()` in httpx, `gzip=False` and its
+    siblings per request in wreq).
 
 ## Minimal working example
 

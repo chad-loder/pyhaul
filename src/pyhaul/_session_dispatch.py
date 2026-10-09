@@ -1,6 +1,7 @@
 """Auto-coerce HTTP client objects into pyhaul transport sessions.
 
-Built-in adapters handle requests, niquests, httpx, and urllib3.  Third-party
+Built-in adapters handle requests, niquests, httpx, and urllib3 (sync) and
+niquests, httpx, aiohttp, and wreq (async).  Third-party
 packages can register additional adapters via :func:`register_sync_adapter`
 and :func:`register_async_adapter` — no monkeypatching required.
 
@@ -200,6 +201,6 @@ def coerce_async_session(obj: object) -> AsyncTransportSession:
             return result
     raise TypeError(
         f"No async adapter for {type(obj).__module__}.{type(obj).__qualname__}. "
-        f"Install a pyhaul extra (pyhaul[niquests], pyhaul[httpx]) "
+        f"Install a pyhaul extra (pyhaul[niquests], pyhaul[httpx], pyhaul[aiohttp], pyhaul[wreq]) "
         f"or call register_async_adapter()."
     )

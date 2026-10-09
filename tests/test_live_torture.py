@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 from typing import TYPE_CHECKING
 
 import pytest
@@ -87,6 +88,27 @@ def test_206_truncation_then_resume_completes(http: HttpTest) -> None:
     assert isinstance(result, CompleteHaul)
     assert result.sha256 == _get_expected_hash(data)
     assert http.output == data
+
+
+@pytest.mark.parametrize("encoding", ["gzip", "deflate", "br", "zstd"])
+def test_content_encoded_body_is_saved_as_served_across_resume(http: HttpTest, encoding: str) -> None:
+    """A server that ignores ``Accept-Encoding: identity`` and labels its bytes
+    with a ``Content-Encoding`` gets them saved verbatim: ranges and lengths
+    refer to the encoded bytes, so a client that decoded them would corrupt the
+    resume and the hash. Only the gzip body is valid compressed data; the
+    others are bytes no decoder accepts, so any decoding attempt fails loudly."""
+    raw = deterministic(64 * 1024, seed=7)
+    data = gzip.compress(raw, mtime=0) if encoding == "gzip" else raw
+    http.serve(data).send_content_encoding(encoding).truncate_206_body_after(len(data) // 3)
+
+    with pytest.raises(PartialHaulError):
+        http.haul()
+
+    http._state.truncate_206_body_at = None
+    result = http.haul()
+    assert isinstance(result, CompleteHaul)
+    assert http.output == data
+    assert result.sha256 == _get_expected_hash(data)
 
 
 def test_206_repeated_truncation_then_resume(http: HttpTest) -> None:
