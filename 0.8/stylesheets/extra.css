@@ -1,0 +1,10 @@
+/* Nav section headers ("Guides", "Reference", etc.) — visually distinct
+   from clickable page links so they don't afford clicking. */
+.md-nav--primary .md-nav__item--section > .md-nav__link {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  cursor: default;
+}

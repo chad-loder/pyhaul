@@ -1,0 +1,1785 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Resumable, cursor-based, CDN-safe HTTP downloads for Python">
+      
+      
+      
+        <link rel="canonical" href="https://chad-loder.github.io/pyhaul/latest/explanation/design/">
+      
+      
+        <link rel="prev" href="../why/">
+      
+      
+        <link rel="next" href="../../reference/api/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Design & Architecture - pyhaul</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-architecture" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="pyhaul" class="md-header__button md-logo" aria-label="pyhaul" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            pyhaul
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Design & Architecture
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/chad-loder/pyhaul" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    chad-loder/pyhaul
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="pyhaul" class="md-nav__button md-logo" aria-label="pyhaul" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    pyhaul
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/chad-loder/pyhaul" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    chad-loder/pyhaul
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/bulk-downloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bulk Downloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/adapters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP Client Adapters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/retry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Retry Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/custom-transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing a Custom Adapter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Explanation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Explanation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../why/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why pyhaul Exists
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design & Architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design & Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-resume-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How resume works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#download-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Download lifecycle
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Download lifecycle">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stream-completeness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stream completeness
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sidecar-file-naming-and-preflight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sidecar file naming and preflight
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sidecar file naming and preflight">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#preflight-path-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preflight path validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transport-adapter-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transport adapter architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Transport adapter architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#request-headers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request headers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exception-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exception design
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#crash-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Crash safety
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Crash safety">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-atomic-rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why atomic rename
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-same-filesystem-matters-for-atomicity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why same-filesystem matters for atomicity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-guarantees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The guarantees
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#control-file-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Control file structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Control file structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-block-level-hashes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why block-level hashes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#control-file-size-overhead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Control file size overhead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-sha-256-and-not-blake3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why SHA-256 and not BLAKE3
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/headers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Headers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/exceptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exceptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Control File Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-resume-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How resume works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#download-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Download lifecycle
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Download lifecycle">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stream-completeness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stream completeness
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sidecar-file-naming-and-preflight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sidecar file naming and preflight
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sidecar file naming and preflight">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#preflight-path-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preflight path validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transport-adapter-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transport adapter architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Transport adapter architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#request-headers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request headers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exception-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exception design
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#crash-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Crash safety
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Crash safety">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-atomic-rename" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why atomic rename
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-same-filesystem-matters-for-atomicity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why same-filesystem matters for atomicity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-guarantees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The guarantees
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#control-file-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Control file structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Control file structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-block-level-hashes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why block-level hashes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#control-file-size-overhead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Control file size overhead
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-sha-256-and-not-blake3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why SHA-256 and not BLAKE3
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/chad-loder/pyhaul/edit/main/docs/explanation/design.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="design-architecture">Design &amp; Architecture<a class="headerlink" href="#design-architecture" title="Permanent link">&para;</a></h1>
+<p><strong>See also:</strong> <a href="../why/">Why pyhaul Exists</a> · <a href="../../reference/spec/">Control File Spec</a></p>
+<h2 id="how-resume-works">How resume works<a class="headerlink" href="#how-resume-works" title="Permanent link">&para;</a></h2>
+<ol>
+<li><code>haul()</code> reads <code>.part.ctrl</code> (if it exists) to recover the cursor
+   position and stored ETag.</li>
+<li>Sends <code>Range: bytes=&lt;cursor&gt;-</code> with <code>If-Range: &lt;etag&gt;</code> when a <strong>strong</strong>
+   ETag is stored — omitted when there is no ETag <strong>or</strong> when only a <strong>weak</strong>
+   ETag is available (weak validators are not used for byte-range preconditioning).</li>
+<li><strong>206 Partial Content</strong> — server honors the range. Stream appends
+   from the cursor.</li>
+<li><strong>200 OK</strong> — server ignores the range (resource changed, or server
+   doesn't support ranges). Cursor resets to 0; stream overwrites from
+   the beginning.
+   Rare mislabeled <strong>206</strong> responses fall here too: if <code>Content-Range</code>
+   describes the entire representation from byte 0 while we asked for a resume,
+   pyhaul treats that like <strong>200</strong> (same cursor reset).</li>
+<li><strong>416 Range Not Satisfiable</strong> — the server's reported total matches
+   the cursor (already complete) or the representation shrank (checkpoint
+   reset, next call restarts).</li>
+</ol>
+<p>The engine handles each case without caller intervention.</p>
+<h2 id="download-lifecycle">Download lifecycle<a class="headerlink" href="#download-lifecycle" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>In-flight.</strong> Two sidecar files: <code>&lt;dest&gt;.part</code> (data) and
+  <code>&lt;dest&gt;.part.ctrl</code> (binary checkpoint with cursor position, ETag,
+  block-level hashes, etc.)</li>
+<li><strong>Interrupted.</strong> Both files remain. Next <code>haul()</code> resumes
+  automatically.</li>
+<li><strong>Complete.</strong> <code>.part</code> is atomically renamed to <code>dest</code>; <code>.ctrl</code> is
+  deleted. SHA-256 is computed and returned.</li>
+<li><strong>Discard.</strong> Delete both <code>.part</code> and <code>.part.ctrl</code> to force a
+  restart.</li>
+</ul>
+<h3 id="stream-completeness">Stream completeness<a class="headerlink" href="#stream-completeness" title="Permanent link">&para;</a></h3>
+<p>After the response body finishes, <code>after_stream()</code>
+compares bytes written to <strong><code>plan.extent</code></strong> when that value is known from
+<strong><code>Content-Range</code></strong> (full representation length on <strong>206</strong>). If the stream ends
+with <strong><code>plan.cursor &lt; plan.extent</code></strong>, pyhaul raises <a class="autorefs autorefs-internal" title="              pyhaul._types.PartialHaulError(reason: str = '')" href="../../reference/exceptions/#pyhaul._types.PartialHaulError"><code>PartialHaulError</code></a>
+and saves checkpoint — this covers “server promised <em>N</em> bytes for this
+response, delivered fewer.”</p>
+<p>Supported HTTP clients obey transfer framing, so pyhaul does <strong>not</strong> add a
+separate “bytes received vs <code>Content-Length</code>” gate for overflow: the raw-byte
+iterator stops at the framing boundary.</p>
+<p>When <strong><code>Content-Range</code></strong> uses an unknown instance length (<strong><code>bytes start-end/\*</code></strong>),
+<strong><code>plan.extent</code></strong> may be <strong><code>None</code></strong>. In that case there is no declared total to
+compare against, so an early-terminated chunked body cannot be detected as
+incomplete here — only as success. That combination is uncommon (e.g. some
+large object stores); fixing it in general would require extra requests (such as
+<strong><code>HEAD</code></strong>) that pyhaul deliberately avoids.</p>
+<h2 id="sidecar-file-naming-and-preflight">Sidecar file naming and preflight<a class="headerlink" href="#sidecar-file-naming-and-preflight" title="Permanent link">&para;</a></h2>
+<p>All sidecar files are derived from the caller-provided destination path by
+appending suffixes:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Derivation</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;dest&gt;.part</code></td>
+<td><code>dest.with_suffix(dest.suffix + ".part")</code></td>
+<td>Partial data</td>
+</tr>
+<tr>
+<td><code>&lt;dest&gt;.part.ctrl</code></td>
+<td><code>&lt;dest&gt;.part</code> + <code>.ctrl</code></td>
+<td>Binary checkpoint</td>
+</tr>
+<tr>
+<td><code>&lt;dest&gt;.part.ctrl.tmp</code></td>
+<td><code>&lt;dest&gt;.part.ctrl</code> + <code>.tmp</code></td>
+<td>Ephemeral temp for atomic checkpoint writes</td>
+</tr>
+</tbody>
+</table>
+<p>For a destination <code>data/2024-vol01.csv.gz</code>, the files are
+<code>data/2024-vol01.csv.gz.part</code>, <code>data/2024-vol01.csv.gz.part.ctrl</code>, and
+(transiently) <code>data/2024-vol01.csv.gz.part.ctrl.tmp</code>.</p>
+<h3 id="preflight-path-validation">Preflight path validation<a class="headerlink" href="#preflight-path-validation" title="Permanent link">&para;</a></h3>
+<p>Before making any HTTP request, <code>haul()</code> checks that the destination path plus
+the longest sidecar suffix (<code>.part.ctrl</code>) fits within the filesystem's limits.
+This catches two independent constraints:</p>
+<ol>
+<li><strong>Filename component length</strong> — <code>NAME_MAX</code> for the target directory (255
+   bytes on ext4/APFS/XFS, 255 UTF-16 code units on NTFS). On macOS, filenames
+   are measured in NFD-normalized UTF-8 bytes to match what APFS actually
+   stores.</li>
+<li><strong>Full path length</strong> — <code>PATH_MAX</code> for the target filesystem. On Windows,
+   paths beyond 250 characters automatically get the <code>\\?\</code> extended-length
+   prefix, raising the effective limit to 32,767.</li>
+</ol>
+<p>If either check fails, <code>haul()</code> raises <a class="autorefs autorefs-internal" title="            pyhaul._types.DestinationError" href="../../reference/exceptions/#pyhaul._types.DestinationError"><code>DestinationError</code></a> immediately — before
+opening any network connection or creating any files.</p>
+<h2 id="transport-adapter-architecture">Transport adapter architecture<a class="headerlink" href="#transport-adapter-architecture" title="Permanent link">&para;</a></h2>
+<p><code>haul()</code> and <code>haul_async()</code> auto-detect supported client types and
+wrap them internally via a registry of adapter factories. The adapter
+protocol stays small — three methods: <a class="autorefs autorefs-internal" title="            prepare_headers(headers: TransportHeaders) -> TransportHeaders" href="../../reference/api/#pyhaul.transport.protocols.TransportSession.prepare_headers"><code>prepare_headers()</code></a>
+(optional policy hook), <a class="autorefs autorefs-internal" title="            stream_get(url: Url, *, headers: Mapping[str, str], options: TransportRequestOptions | None = None) -> AbstractContextManager[TransportResponse]" href="../../reference/api/#pyhaul.transport.protocols.TransportSession.stream_get"><code>stream_get()</code></a>
+(streaming download), and <a class="autorefs autorefs-internal" title="            stream_head(url: Url, *, headers: Mapping[str, str], options: TransportRequestOptions | None = None) -> AbstractContextManager[TransportResponse]" href="../../reference/api/#pyhaul.transport.protocols.TransportSession.stream_head"><code>stream_head()</code></a>
+(metadata probe for resume and content-length detection).</p>
+<h3 id="request-headers">Request headers<a class="headerlink" href="#request-headers" title="Permanent link">&para;</a></h3>
+<p>Before each GET, the engine merges headers in order:</p>
+<ol>
+<li><strong>Caller-supplied</strong> — optional <code>headers=</code> on <a class="autorefs autorefs-internal" title="            pyhaul.engine.haul(url: str, client: TransportSession | object, *, dest: str | Path, headers: Mapping[str, str] | None = None, state: HaulState | None = None, chunk_size: int = DEFAULT_CHUNK, flush_every: int = DEFAULT_FLUSH, on_progress: Callable[[HaulState], None] | None = None) -> CompleteHaul" href="../../reference/api/#pyhaul.engine.haul"><code>haul()</code></a> /
+   <a class="autorefs autorefs-internal" title="            pyhaul.async_engine.haul_async(url: str, client: AsyncTransportSession | object, *, dest: str | Path, headers: Mapping[str, str] | None = None, state: HaulState | None = None, chunk_size: int = DEFAULT_CHUNK, flush_every: int = DEFAULT_FLUSH, on_progress: AsyncProgressCallback | None = None) -> CompleteHaul
+
+  
+      async
+  " href="../../reference/api/#pyhaul.async_engine.haul_async"><code>haul_async()</code></a> (same mapping type the adapters receive).</li>
+<li><strong>Structural defaults</strong> — range negotiation (<code>Range</code>, <code>If-Range</code> when applicable),
+   plus pyhaul's cache and encoding defaults (<code>Accept-Encoding</code>, <code>Cache-Control</code>), merged so
+   structural requirements win on conflict.</li>
+<li><strong>Adapter policy</strong> — <a class="autorefs autorefs-internal" title="            prepare_headers(headers: TransportHeaders) -> TransportHeaders" href="../../reference/api/#pyhaul.transport.protocols.TransportSession.prepare_headers"><code>prepare_headers()</code></a>
+   receives the merged set as <a class="autorefs autorefs-internal" title="              pyhaul.transport._headers.TransportHeaders(items: Iterable[Pair] = ())" href="../../reference/headers/#pyhaul.transport._headers.TransportHeaders"><code>TransportHeaders</code></a>
+   and returns the headers passed to <code>stream_get</code>. Built-in adapters use a no-op; custom code
+   can normalize or annotate for tests or telemetry. Removing <code>Range</code> / <code>If-Range</code> here can
+   break resume — treat those as advanced use only.</li>
+</ol>
+<p>For layered debugging or cross-cutting header rules without subclassing every adapter, see
+<a href="../../guides/custom-transport/#layering-headers-with-a-session-proxy">Writing a Custom Adapter: session proxy</a>.</p>
+<p>This design means:</p>
+<ul>
+<li><strong>Your session is borrowed, not owned.</strong> pyhaul never creates,
+  configures, or closes sessions. Auth headers, proxy config, connection
+  pools — everything passes through unchanged.</li>
+<li><strong>Transport errors propagate unwrapped.</strong> <code>httpx.ReadTimeout</code> stays
+  <code>httpx.ReadTimeout</code>. You catch the types you already know.</li>
+<li><strong>Custom transports are easy.</strong> Implement <a class="autorefs autorefs-internal" title="            pyhaul.transport.protocols.TransportSession" href="../../reference/api/#pyhaul.transport.protocols.TransportSession"><code>TransportSession</code></a>
+  (three methods) and register it. See <a href="../../guides/custom-transport/">Writing a Custom Adapter</a>.</li>
+</ul>
+<p>For the supported client types and per-adapter notes, see
+<a href="../../guides/adapters/">HTTP Client Adapters</a>.</p>
+<h2 id="exception-design">Exception design<a class="headerlink" href="#exception-design" title="Permanent link">&para;</a></h2>
+<p>pyhaul's exception hierarchy separates retryable from non-retryable errors:</p>
+<ul>
+<li><a class="autorefs autorefs-internal" title="              pyhaul._types.PartialHaulError(reason: str = '')" href="../../reference/exceptions/#pyhaul._types.PartialHaulError"><code>PartialHaulError</code></a> — the stream ended early, but progress is saved. Retry.</li>
+<li><a class="autorefs autorefs-internal" title="              pyhaul._types.UnexpectedStatusError(status_code: int, headers: TransportHeaders, reason: str = '')" href="../../reference/exceptions/#pyhaul._types.UnexpectedStatusError"><code>UnexpectedStatusError</code></a> — server returned a non-download status
+  (408, 425, 429, many 5xx, CDN-specific codes, 404, …). Check <code>exc.is_transient</code> (or <code>exc.is_server_error</code> for any HTTP 5xx) to decide whether to retry,
+  and inspect <code>exc.retry_after</code> / <code>exc.retry_after_seconds</code> for server-requested backoff.</li>
+<li><a class="autorefs autorefs-internal" title="            pyhaul._types.ServerMisconfiguredError" href="../../reference/exceptions/#pyhaul._types.ServerMisconfiguredError"><code>ServerMisconfiguredError</code></a> — the server violated HTTP in a way that makes
+  safe resume impossible. Don't retry.</li>
+<li><a class="autorefs autorefs-internal" title="            pyhaul._types.ControlFileError" href="../../reference/exceptions/#pyhaul._types.ControlFileError"><code>ControlFileError</code></a> — the checkpoint file is corrupt. Auto-recovers on next
+  attempt.</li>
+</ul>
+<p>Transport errors from the underlying HTTP library pass through unwrapped to
+preserve the caller's existing error-handling code.</p>
+<p>For the full exception table, see <a href="../../reference/exceptions/">Exceptions Reference</a>.</p>
+<h2 id="crash-safety">Crash safety<a class="headerlink" href="#crash-safety" title="Permanent link">&para;</a></h2>
+<p>The order of writes matters. pyhaul uses a strict three-phase
+sequence throughout:</p>
+<ol>
+<li><strong>Data first.</strong> Write bytes to the <code>.part</code> file, then call
+   <code>fdatasync</code> to flush them to durable storage.</li>
+<li><strong>Checkpoint second.</strong> Serialize the new checkpoint, write it to
+   <code>&lt;dest&gt;.part.ctrl.tmp</code>, <code>fsync</code> the temp file, then <code>rename</code> it
+   over <code>&lt;dest&gt;.part.ctrl</code>. Because <code>rename</code> is atomic on POSIX (and
+   <code>replace</code> on Windows), the checkpoint on disk is always either the
+   old version or the new version — never a half-written mix.</li>
+<li><strong>Finalization last.</strong> On completion, atomically rename <code>.part</code> to
+   the destination path, then delete <code>.part.ctrl</code>.</li>
+</ol>
+<h3 id="why-atomic-rename">Why atomic rename<a class="headerlink" href="#why-atomic-rename" title="Permanent link">&para;</a></h3>
+<p>The alternative — writing directly to the destination file — leaves a
+window where a crash produces a partial file at the final path.
+Readers of that file have no way to distinguish "complete" from
+"half-written." The <code>rename</code> syscall is the standard POSIX mechanism
+for atomic file replacement: the kernel updates a single directory
+entry, so the operation either fully succeeds or has no effect. There
+is no intermediate state visible to other processes.</p>
+<h3 id="why-same-filesystem-matters-for-atomicity">Why same-filesystem matters for atomicity<a class="headerlink" href="#why-same-filesystem-matters-for-atomicity" title="Permanent link">&para;</a></h3>
+<p><code>rename()</code> is only atomic when source and destination are on the same
+filesystem. A cross-filesystem "rename" is actually copy-then-delete,
+which is neither atomic nor crash-safe. pyhaul ensures this by
+constructing every sidecar file as a <strong>sibling of the destination</strong> —
+the <code>.part</code>, <code>.part.ctrl</code>, and <code>.part.ctrl.tmp</code> files all live in the
+same directory as the final destination. Since they share a directory,
+they are guaranteed to share a filesystem, and every rename in the
+pipeline is truly atomic.</p>
+<p>This is also why pyhaul does not use <code>tempfile.mkstemp()</code> or the
+system temp directory (<code>/tmp</code>, <code>%TEMP%</code>). Those may reside on a
+different filesystem or partition than the destination, which would
+break the atomicity guarantee on the final rename.</p>
+<h3 id="the-guarantees">The guarantees<a class="headerlink" href="#the-guarantees" title="Permanent link">&para;</a></h3>
+<p>The payoff is a set of invariants you can verify by inspecting a
+directory with no other context:</p>
+<ul>
+<li><strong>If the destination file exists at the requested path, it is
+  complete and uncorrupted.</strong> There is no in-between state where a
+  partially-written file sits at the final name.</li>
+<li><strong>If <code>.part</code> and <code>.part.ctrl</code> exist instead, the first
+  <code>valid_length</code> bytes of <code>.part</code> are durable and correct.</strong> The rest
+  is junk from preallocation or unflushed writes that gets trimmed on
+  completion. A subsequent <code>haul()</code> call against the same destination
+  picks up from byte <code>valid_length</code>.</li>
+</ul>
+<h2 id="control-file-structure">Control file structure<a class="headerlink" href="#control-file-structure" title="Permanent link">&para;</a></h2>
+<p>The <code>.part.ctrl</code> file is a compact binary checkpoint. It packs everything
+pyhaul needs to resume into a small, flat structure:</p>
+<ul>
+<li><strong>40-byte fixed header</strong> — magic bytes (<code>HAUL</code>), format version, cursor
+  position, block size, extent (total download size if known), and start
+  offset.</li>
+<li><strong>CRC-protected TLV extensions</strong> — variable-length metadata: the server's
+  ETag (for change detection on resume), server-reported total length (if
+  known), and a tail hash (SHA-256 of the current partial block). Each
+  TLV chunk includes a CRC32 to detect corruption in the checkpoint itself.</li>
+<li><strong>Hash payload</strong> — a flat sequence of 32-byte SHA-256 digests, one per
+  completed 8 MiB block.</li>
+</ul>
+<p>The full binary format is specified in the
+<a href="../../reference/spec/">Control File Spec</a>.</p>
+<h3 id="why-block-level-hashes">Why block-level hashes<a class="headerlink" href="#why-block-level-hashes" title="Permanent link">&para;</a></h3>
+<p>The naive approach to resume validation is: re-read the entire <code>.part</code> file,
+hash it, and compare against a stored hash. For small files that's fine. For
+a 50 GB file over a flaky satellite link where <code>haul()</code> gets called hundreds
+of times, re-reading and re-hashing 50 GB on every resume attempt would
+dominate the total download time.</p>
+<p>Block-level hashing solves this. pyhaul hashes each 8 MiB block
+independently as bytes stream in, and stores the completed block hashes in
+the control file. On resume, only the <strong>last partial block</strong> (at most 8 MiB)
+needs to be re-read and verified against its stored tail hash. All
+previously completed blocks are trusted via their stored digests. This makes
+resume validation O(block_size), not O(file_size).</p>
+<p>On completion, the final file hash is computed as
+<code>SHA-256(concatenated block hashes)</code>, formatted as <code>&lt;hex&gt;-&lt;count&gt;</code>. This is
+a tree hash — the digest of digests — not a flat hash of the file content.
+It can be computed incrementally without ever holding the entire file in
+memory or re-reading it from disk.</p>
+<h3 id="control-file-size-overhead">Control file size overhead<a class="headerlink" href="#control-file-size-overhead" title="Permanent link">&para;</a></h3>
+<p>Even with a hash per block, the control file stays small. The 8 MiB block
+size means one 32-byte hash per 8 MiB of download data — a ratio of
+roughly 0.0004%:</p>
+<table>
+<thead>
+<tr>
+<th>Part file</th>
+<th style="text-align: right;">Blocks</th>
+<th style="text-align: right;">Ctrl file size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>100 MB</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">474 B</td>
+</tr>
+<tr>
+<td>1 GB</td>
+<td style="text-align: right;">120</td>
+<td style="text-align: right;">3.8 KiB</td>
+</tr>
+<tr>
+<td>10 GB</td>
+<td style="text-align: right;">1,193</td>
+<td style="text-align: right;">37 KiB</td>
+</tr>
+<tr>
+<td>100 GB</td>
+<td style="text-align: right;">11,921</td>
+<td style="text-align: right;">373 KiB</td>
+</tr>
+<tr>
+<td>1 TB</td>
+<td style="text-align: right;">119,210</td>
+<td style="text-align: right;">3.6 MiB</td>
+</tr>
+</tbody>
+</table>
+<p>A 100 GB download produces a checkpoint under 400 KiB. The control file is
+negligible relative to the data it describes.</p>
+<h3 id="why-sha-256-and-not-blake3">Why SHA-256 and not BLAKE3<a class="headerlink" href="#why-sha-256-and-not-blake3" title="Permanent link">&para;</a></h3>
+<p>A tree hash like <a href="https://github.com/BLAKE3-team/BLAKE3">BLAKE3</a> would be a
+more natural fit here — BLAKE3 is inherently a Merkle tree, so block-level
+incremental hashing is built into the algorithm rather than layered on top. It
+would also be faster (BLAKE3 uses SIMD and parallelism internally).</p>
+<p>However, pyhaul is a <strong>zero-dependency pure-Python library</strong>. <code>hashlib.sha256</code>
+is in the standard library on every Python installation; BLAKE3 would require
+a compiled C/Rust extension (<code>blake3</code> on PyPI). Since the hashing overhead is
+small relative to network I/O and disk writes, SHA-256's performance is
+adequate, and the manual block-level tree construction achieves the same
+incremental-verification goal that BLAKE3 would provide natively.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../why/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Why pyhaul Exists">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Why pyhaul Exists
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../reference/api/" class="md-footer__link md-footer__link--next" aria-label="Next: API">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                API
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "content.tabs.link", "content.action.edit", "navigation.footer", "navigation.sections", "navigation.expand", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
