@@ -1261,7 +1261,8 @@ same instance unchanged if you have nothing to adjust.</p>
 pre-content-encoding. This means the bytes as the server framed them,
 without decompression. If your library auto-decompresses, you need to
 bypass that layer (e.g. <code>decode_content=False</code> in requests/urllib3,
-<code>iter_raw()</code> instead of <code>iter_bytes()</code> in httpx).</p>
+<code>iter_raw()</code> instead of <code>iter_bytes()</code> in httpx, <code>gzip=False</code> and its
+siblings per request in wreq).</p>
 </div>
 <h2 id="minimal-working-example">Minimal working example<a class="headerlink" href="#minimal-working-example" title="Permanent link">&para;</a></h2>
 <p>Here's a complete sync adapter for the <code>urllib3</code> library, simplified for

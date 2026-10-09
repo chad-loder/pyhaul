@@ -2505,7 +2505,7 @@ underlying HTTP library propagate unwrapped.</p>
 
         <p>Async equivalent of :func:<code>pyhaul.engine.haul</code>.</p>
 <p><em>client</em> is your async HTTP session — <code>httpx.AsyncClient</code>,
-<code>niquests.AsyncSession</code>, or <code>aiohttp.ClientSession</code>.</p>
+<code>niquests.AsyncSession</code>, <code>aiohttp.ClientSession</code>, or <code>wreq.Client</code>.</p>
 <p><em>url</em> is validated on entry; invalid schemes or missing hosts raise
 :class:<code>ValueError</code>.</p>
 <p><em>headers</em>, when provided, are merged with pyhaul's structural requirements.</p>

@@ -1270,7 +1270,8 @@ non-I/O logic with the sync path.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>pyhaul sets <code>auto_decompress=False</code> on aiohttp requests internally to
+<p>pyhaul sets <code>auto_decompress=False</code> on aiohttp requests, and turns off
+wreq's gzip, brotli, deflate, and zstd decompression per request, to
 ensure raw bytes for accurate resume. Your session's other settings
 (auth, proxies, timeouts) pass through unchanged.</p>
 </div>

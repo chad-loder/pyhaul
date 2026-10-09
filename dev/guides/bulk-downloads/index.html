@@ -1285,7 +1285,7 @@ or <code>urllib3.PoolManager</code> — all of which are thread-safe.</p>
 </div>
 <h2 id="parallel-downloads-with-asyncio">Parallel downloads with asyncio<a class="headerlink" href="#parallel-downloads-with-asyncio" title="Permanent link">&para;</a></h2>
 <p>For async clients (<code>httpx.AsyncClient</code>, <code>aiohttp.ClientSession</code>,
-<code>niquests.AsyncSession</code>), use <code>asyncio.TaskGroup</code> or <code>asyncio.gather</code>:</p>
+<code>niquests.AsyncSession</code>, <code>wreq.Client</code>), use <code>asyncio.TaskGroup</code> or <code>asyncio.gather</code>:</p>
 <div class="python highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
