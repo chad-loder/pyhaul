@@ -9,6 +9,21 @@ Released versions are published to PyPI at <https://pypi.org/project/pyhaul/#his
 
 <!-- version list -->
 
+## v0.8.0 (2026-10-08) — [Release](https://github.com/chad-loder/pyhaul/releases/tag/v0.8.0) · [PyPI](https://pypi.org/project/pyhaul/0.8.0)
+
+### Bug Fixes
+
+- **transport**: Keep wreq response bodies undecoded, and cover wreq wherever the docs list clients
+  ([#90](https://github.com/chad-loder/pyhaul/pull/90),
+  [`bbedae8`](https://github.com/chad-loder/pyhaul/commit/bbedae87ff005aa91fad6cbf72a758a82366fd01))
+
+### Features
+
+- **transport**: Add a sync wreq adapter for wreq.blocking.Client, and map wreq body and decoding
+  failures to connection errors ([#91](https://github.com/chad-loder/pyhaul/pull/91),
+  [`05d9b67`](https://github.com/chad-loder/pyhaul/commit/05d9b67c7a934d3a3cd45ddfdb3c76c6ec733fcf))
+
+
 ## v0.7.1 (2026-10-08) — [Release](https://github.com/chad-loder/pyhaul/releases/tag/v0.7.1) · [PyPI](https://pypi.org/project/pyhaul/0.7.1)
 
 ### Bug Fixes
