@@ -592,10 +592,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#wreq" class="md-nav__link">
+  <a href="#wreq-sync" class="md-nav__link">
     <span class="md-ellipsis">
       
-        wreq
+        wreq (sync)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wreq-async" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        wreq (async)
       
     </span>
   </a>
@@ -747,7 +758,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#wreq_1" class="md-nav__link">
+  <a href="#wreq" class="md-nav__link">
     <span class="md-ellipsis">
       
         wreq
@@ -1412,10 +1423,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#wreq" class="md-nav__link">
+  <a href="#wreq-sync" class="md-nav__link">
     <span class="md-ellipsis">
       
-        wreq
+        wreq (sync)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wreq-async" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        wreq (async)
       
     </span>
   </a>
@@ -1567,7 +1589,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#wreq_1" class="md-nav__link">
+  <a href="#wreq" class="md-nav__link">
     <span class="md-ellipsis">
       
         wreq
@@ -1672,8 +1694,8 @@ wraps it internally.</p>
 </tr>
 <tr>
 <td><code>wreq</code></td>
-<td><code>wreq.Client</code></td>
-<td>Async only</td>
+<td><code>wreq.blocking.Client</code> / <code>wreq.Client</code></td>
+<td>Yes</td>
 <td>0.11</td>
 <td><code>pip install pyhaul[wreq]</code></td>
 </tr>
@@ -1739,7 +1761,8 @@ see <a href="../custom-transport/">Writing a Custom Adapter</a>.</p>
 <p>pyhaul does not override your HTTP client's redirect policy. Library defaults differ:
 <strong><code>httpx.Client</code></strong> / <strong><code>httpx.AsyncClient</code></strong> use <strong><code>follow_redirects=False</code></strong>
 (httpx treats opt-in redirect following as conservative with respect to credentials on
-cross-host redirects), and <strong><code>wreq.Client</code></strong> does not follow redirects either;
+cross-host redirects), and <strong><code>wreq.blocking.Client</code></strong> / <strong><code>wreq.Client</code></strong> do not follow
+redirects either;
 <strong><code>requests.Session</code></strong>, <strong><code>niquests.Session</code></strong>, <strong><code>aiohttp.ClientSession</code></strong>, and urllib3
 (via pyhaul's adapter) follow redirects in the usual configurations unless you turn that
 off. CDN and mirror URLs often redirect — configure the session or client you pass to
@@ -1808,64 +1831,71 @@ pyhaul accordingly (for example <code>httpx.Client(follow_redirects=True)</code>
 <a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>
 <a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </code></pre></div>
-<h3 id="wreq">wreq<a class="headerlink" href="#wreq" title="Permanent link">&para;</a></h3>
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">wreq</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyhaul</span><span class="w"> </span><span class="kn">import</span> <span class="n">haul_async</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">wreq</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">haul_async</span><span class="p">(</span><span class="s2">"https://example.com/file.bin"</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">"file.bin"</span><span class="p">)</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<h3 id="wreq-sync">wreq (sync)<a class="headerlink" href="#wreq-sync" title="Permanent link">&para;</a></h3>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">wreq.blocking</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyhaul</span><span class="w"> </span><span class="kn">import</span> <span class="n">haul</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">with</span> <span class="n">wreq</span><span class="o">.</span><span class="n">blocking</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">haul</span><span class="p">(</span><span class="s2">"https://example.com/file.bin"</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">"file.bin"</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="wreq-async">wreq (async)<a class="headerlink" href="#wreq-async" title="Permanent link">&para;</a></h3>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">wreq</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyhaul</span><span class="w"> </span><span class="kn">import</span> <span class="n">haul_async</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">wreq</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">haul_async</span><span class="p">(</span><span class="s2">"https://example.com/file.bin"</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">"file.bin"</span><span class="p">)</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </code></pre></div>
 <h3 id="urllib3">urllib3<a class="headerlink" href="#urllib3" title="Permanent link">&para;</a></h3>
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">urllib3</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyhaul</span><span class="w"> </span><span class="kn">import</span> <span class="n">haul</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">http</span> <span class="o">=</span> <span class="n">urllib3</span><span class="o">.</span><span class="n">PoolManager</span><span class="p">()</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">result</span> <span class="o">=</span> <span class="n">haul</span><span class="p">(</span><span class="s2">"https://example.com/file.bin"</span><span class="p">,</span> <span class="n">http</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">"file.bin"</span><span class="p">)</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">urllib3</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyhaul</span><span class="w"> </span><span class="kn">import</span> <span class="n">haul</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">http</span> <span class="o">=</span> <span class="n">urllib3</span><span class="o">.</span><span class="n">PoolManager</span><span class="p">()</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">result</span> <span class="o">=</span> <span class="n">haul</span><span class="p">(</span><span class="s2">"https://example.com/file.bin"</span><span class="p">,</span> <span class="n">http</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">"file.bin"</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="auth-and-session-integration">Auth and session integration<a class="headerlink" href="#auth-and-session-integration" title="Permanent link">&para;</a></h2>
 <p>Since pyhaul uses your session as-is, authentication works exactly as it does
 in your application today.</p>
 <h3 id="bearer-tokens">Bearer tokens<a class="headerlink" href="#bearer-tokens" title="Permanent link">&para;</a></h3>
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Authorization"</span><span class="p">:</span> <span class="s2">"Bearer sk-..."</span><span class="p">})</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Authorization"</span><span class="p">:</span> <span class="s2">"Bearer sk-..."</span><span class="p">})</span>
 </code></pre></div>
 <h3 id="basic-auth">Basic auth<a class="headerlink" href="#basic-auth" title="Permanent link">&para;</a></h3>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:6"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><input id="__tabbed_1_6" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">httpx</label><label for="__tabbed_1_2">requests</label><label for="__tabbed_1_3">niquests</label><label for="__tabbed_1_4">aiohttp</label><label for="__tabbed_1_5">urllib3</label><label for="__tabbed_1_6">wreq</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">auth</span><span class="o">=</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"password"</span><span class="p">))</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">auth</span><span class="o">=</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"password"</span><span class="p">))</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">session</span><span class="o">.</span><span class="n">auth</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"password"</span><span class="p">)</span>
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">session</span> <span class="o">=</span> <span class="n">niquests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">session</span><span class="o">.</span><span class="n">auth</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"password"</span><span class="p">)</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">session</span> <span class="o">=</span> <span class="n">niquests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">session</span><span class="o">.</span><span class="n">auth</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"password"</span><span class="p">)</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
 <p>aiohttp 3.14 deprecates <code>auth=aiohttp.BasicAuth(...)</code>. A default
 <code>Authorization</code> header works on every supported aiohttp version:</p>
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">token</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="sa">b</span><span class="s2">"user:password"</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">session</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">ClientSession</span><span class="p">(</span><span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Authorization"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Basic </span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">"</span><span class="p">})</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">token</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="sa">b</span><span class="s2">"user:password"</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">session</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">ClientSession</span><span class="p">(</span><span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Authorization"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Basic </span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">"</span><span class="p">})</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">http</span> <span class="o">=</span> <span class="n">urllib3</span><span class="o">.</span><span class="n">PoolManager</span><span class="p">(</span><span class="n">headers</span><span class="o">=</span><span class="n">urllib3</span><span class="o">.</span><span class="n">make_headers</span><span class="p">(</span><span class="n">basic_auth</span><span class="o">=</span><span class="s2">"user:password"</span><span class="p">))</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">http</span> <span class="o">=</span> <span class="n">urllib3</span><span class="o">.</span><span class="n">PoolManager</span><span class="p">(</span><span class="n">headers</span><span class="o">=</span><span class="n">urllib3</span><span class="o">.</span><span class="n">make_headers</span><span class="p">(</span><span class="n">basic_auth</span><span class="o">=</span><span class="s2">"user:password"</span><span class="p">))</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
 <p><code>wreq.Client</code> takes basic auth only per request, so set the header on the client:</p>
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">token</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="sa">b</span><span class="s2">"user:password"</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">client</span> <span class="o">=</span> <span class="n">wreq</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Authorization"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Basic </span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">"</span><span class="p">})</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">token</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="sa">b</span><span class="s2">"user:password"</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">client</span> <span class="o">=</span> <span class="n">wreq</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Authorization"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"Basic </span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">"</span><span class="p">})</span>
 </code></pre></div>
 </div>
 </div>
@@ -1873,37 +1903,29 @@ in your application today.</p>
 <h3 id="custom-auth-flows">Custom auth flows<a class="headerlink" href="#custom-auth-flows" title="Permanent link">&para;</a></h3>
 <p>If your application uses a custom auth handler (e.g. OAuth token refresh),
 attach it to the session before passing it to pyhaul:</p>
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">httpx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Auth</span><span class="p">,</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">TokenRefreshAuth</span><span class="p">(</span><span class="n">Auth</span><span class="p">):</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">auth_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">):</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>        <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s2">"Authorization"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Bearer </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">get_token</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>        <span class="k">yield</span> <span class="n">request</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_token</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># your token refresh logic</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">auth</span><span class="o">=</span><span class="n">TokenRefreshAuth</span><span class="p">())</span>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="n">result</span> <span class="o">=</span> <span class="n">haul</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">"file.bin"</span><span class="p">)</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">httpx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Auth</span><span class="p">,</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">TokenRefreshAuth</span><span class="p">(</span><span class="n">Auth</span><span class="p">):</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">auth_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">):</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s2">"Authorization"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Bearer </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">get_token</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>        <span class="k">yield</span> <span class="n">request</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_token</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># your token refresh logic</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">auth</span><span class="o">=</span><span class="n">TokenRefreshAuth</span><span class="p">())</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="n">result</span> <span class="o">=</span> <span class="n">haul</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">"file.bin"</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="proxies">Proxies<a class="headerlink" href="#proxies" title="Permanent link">&para;</a></h3>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:6"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><input id="__tabbed_2_4" name="__tabbed_2" type="radio" /><input id="__tabbed_2_5" name="__tabbed_2" type="radio" /><input id="__tabbed_2_6" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">httpx</label><label for="__tabbed_2_2">requests</label><label for="__tabbed_2_3">niquests</label><label for="__tabbed_2_4">urllib3</label><label for="__tabbed_2_5">aiohttp</label><label for="__tabbed_2_6">wreq</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">proxy</span><span class="o">=</span><span class="s2">"http://proxy.corp:3128"</span><span class="p">)</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">proxy</span><span class="o">=</span><span class="s2">"http://proxy.corp:3128"</span><span class="p">)</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">session</span><span class="o">.</span><span class="n">proxies</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="s2">"http"</span><span class="p">:</span> <span class="s2">"http://proxy.corp:3128"</span><span class="p">,</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="s2">"https"</span><span class="p">:</span> <span class="s2">"http://proxy.corp:3128"</span><span class="p">,</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="p">}</span>
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">session</span> <span class="o">=</span> <span class="n">niquests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
 <a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">session</span><span class="o">.</span><span class="n">proxies</span> <span class="o">=</span> <span class="p">{</span>
 <a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="s2">"http"</span><span class="p">:</span> <span class="s2">"http://proxy.corp:3128"</span><span class="p">,</span>
 <a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="s2">"https"</span><span class="p">:</span> <span class="s2">"http://proxy.corp:3128"</span><span class="p">,</span>
@@ -1911,17 +1933,25 @@ attach it to the session before passing it to pyhaul:</p>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">http</span> <span class="o">=</span> <span class="n">urllib3</span><span class="o">.</span><span class="n">ProxyManager</span><span class="p">(</span><span class="s2">"http://proxy.corp:3128"</span><span class="p">)</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">session</span> <span class="o">=</span> <span class="n">niquests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="n">session</span><span class="o">.</span><span class="n">proxies</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="s2">"http"</span><span class="p">:</span> <span class="s2">"http://proxy.corp:3128"</span><span class="p">,</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>    <span class="s2">"https"</span><span class="p">:</span> <span class="s2">"http://proxy.corp:3128"</span><span class="p">,</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="n">http</span> <span class="o">=</span> <span class="n">urllib3</span><span class="o">.</span><span class="n">ProxyManager</span><span class="p">(</span><span class="s2">"http://proxy.corp:3128"</span><span class="p">)</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
 <p>Session-level <code>proxy=</code> needs aiohttp 3.11 or later. On aiohttp 3.10, pass
 <code>trust_env=True</code> and set <code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code> in the environment.</p>
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="n">session</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">ClientSession</span><span class="p">(</span><span class="n">proxy</span><span class="o">=</span><span class="s2">"http://proxy.corp:3128"</span><span class="p">)</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="n">session</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="o">.</span><span class="n">ClientSession</span><span class="p">(</span><span class="n">proxy</span><span class="o">=</span><span class="s2">"http://proxy.corp:3128"</span><span class="p">)</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">wreq</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="p">[</span><span class="n">wreq</span><span class="o">.</span><span class="n">Proxy</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="s2">"http://proxy.corp:3128"</span><span class="p">)])</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">wreq</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="p">[</span><span class="n">wreq</span><span class="o">.</span><span class="n">Proxy</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="s2">"http://proxy.corp:3128"</span><span class="p">)])</span>
 </code></pre></div>
 </div>
 </div>
@@ -1929,12 +1959,12 @@ attach it to the session before passing it to pyhaul:</p>
 <h3 id="connection-pooling">Connection pooling<a class="headerlink" href="#connection-pooling" title="Permanent link">&para;</a></h3>
 <p>Your session's connection pool is shared across all <code>haul()</code> calls. pyhaul
 does not create its own connections.</p>
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>    <span class="n">limits</span><span class="o">=</span><span class="n">httpx</span><span class="o">.</span><span class="n">Limits</span><span class="p">(</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>        <span class="n">max_connections</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>        <span class="n">max_keepalive_connections</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>    <span class="p">)</span>
-<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="p">)</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>    <span class="n">limits</span><span class="o">=</span><span class="n">httpx</span><span class="o">.</span><span class="n">Limits</span><span class="p">(</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>        <span class="n">max_connections</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>        <span class="n">max_keepalive_connections</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>    <span class="p">)</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="adapter-specific-notes">Adapter-specific notes<a class="headerlink" href="#adapter-specific-notes" title="Permanent link">&para;</a></h2>
 <h3 id="httpx">httpx<a class="headerlink" href="#httpx" title="Permanent link">&para;</a></h3>
@@ -1967,14 +1997,21 @@ does not create its own connections.</p>
   accurate resume.</li>
 <li>TLS certificate errors map to <code>TransportTLSError</code>.</li>
 </ul>
-<h3 id="wreq_1">wreq<a class="headerlink" href="#wreq_1" title="Permanent link">&para;</a></h3>
+<h3 id="wreq">wreq<a class="headerlink" href="#wreq" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Async only. Pass a <code>wreq.Client</code>; pyhaul does not wrap <code>wreq.blocking</code>.</li>
-<li>A default <code>wreq.Client</code> decompresses gzip, brotli, deflate, and zstd bodies;
+<li>Both sync (<code>wreq.blocking.Client</code>) and async (<code>wreq.Client</code>) are supported.</li>
+<li>The sync client is thread-safe and releases the GIL during network I/O, so one
+  client can serve a thread pool. Calls block until they return and Ctrl-C waits
+  for them, so set a read timeout to bound a stalled server.</li>
+<li>A default wreq client decompresses gzip, brotli, deflate, and zstd bodies;
   pyhaul turns that off on every request to keep raw bytes for accurate resume.</li>
+<li>Responses close when pyhaul is done with them. On wreq 0.13+ a fully read
+  response returns its connection to the pool; on 0.11 each download uses a
+  fresh connection.</li>
 <li>Body chunks are passed through as zero-copy <code>memoryview</code>s (wreq 0.13+).</li>
 <li>TLS verification and connect timeouts are client settings; set them on the
-  <code>wreq.Client</code>. TLS errors map to <code>TransportTLSError</code>.</li>
+  wreq client. TLS errors map to <code>TransportTLSError</code>; read failures and
+  truncated bodies map to <code>TransportConnectionError</code>.</li>
 </ul>
 <h3 id="urllib3_1">urllib3<a class="headerlink" href="#urllib3_1" title="Permanent link">&para;</a></h3>
 <ul>
@@ -1986,20 +2023,20 @@ does not create its own connections.</p>
 <p>Transport errors from your HTTP library <strong>pass through unwrapped</strong>. pyhaul
 does not wrap <code>httpx.ReadTimeout</code> in a pyhaul exception — you catch the types
 you already know:</p>
-<div class="python highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyhaul</span><span class="w"> </span><span class="kn">import</span> <span class="n">haul</span><span class="p">,</span> <span class="n">PartialHaulError</span>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">haul</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">"file.bin"</span><span class="p">)</span>
-<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="k">except</span> <span class="n">PartialHaulError</span><span class="p">:</span>
-<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>    <span class="c1"># stream ended early — progress saved, safe to retry</span>
-<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>    <span class="o">...</span>
-<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a><span class="k">except</span> <span class="n">httpx</span><span class="o">.</span><span class="n">ReadTimeout</span><span class="p">:</span>
-<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>    <span class="c1"># your library's native timeout — handle as you normally would</span>
-<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>    <span class="o">...</span>
-<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a><span class="k">except</span> <span class="n">httpx</span><span class="o">.</span><span class="n">ConnectError</span><span class="p">:</span>
-<a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a>    <span class="c1"># connection failed — no progress to save</span>
-<a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>    <span class="o">...</span>
+<div class="python highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyhaul</span><span class="w"> </span><span class="kn">import</span> <span class="n">haul</span><span class="p">,</span> <span class="n">PartialHaulError</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">haul</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">"file.bin"</span><span class="p">)</span>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="k">except</span> <span class="n">PartialHaulError</span><span class="p">:</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>    <span class="c1"># stream ended early — progress saved, safe to retry</span>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>    <span class="o">...</span>
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="k">except</span> <span class="n">httpx</span><span class="o">.</span><span class="n">ReadTimeout</span><span class="p">:</span>
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a>    <span class="c1"># your library's native timeout — handle as you normally would</span>
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a>    <span class="o">...</span>
+<a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a><span class="k">except</span> <span class="n">httpx</span><span class="o">.</span><span class="n">ConnectError</span><span class="p">:</span>
+<a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a>    <span class="c1"># connection failed — no progress to save</span>
+<a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a>    <span class="o">...</span>
 </code></pre></div>
 <p>See <a href="../../reference/exceptions/">Exceptions Reference</a> for the full pyhaul
 exception hierarchy, including <a class="autorefs autorefs-internal" title="              pyhaul._types.PartialHaulError(reason: str = '')" href="../../reference/exceptions/#pyhaul._types.PartialHaulError"><code>PartialHaulError</code></a>.</p>

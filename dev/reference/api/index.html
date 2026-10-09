@@ -2468,7 +2468,8 @@
 
         <p>Download a single byte range to <em>dest</em>, resumably.</p>
 <p><em>client</em> is your HTTP session — <code>requests.Session</code>,
-<code>httpx.Client</code>, <code>niquests.Session</code>, or <code>urllib3.PoolManager</code>.</p>
+<code>httpx.Client</code>, <code>niquests.Session</code>, <code>urllib3.PoolManager</code>, or
+<code>wreq.blocking.Client</code>.</p>
 <p><em>url</em> is validated on entry; invalid schemes or missing hosts raise
 :class:<code>ValueError</code>.</p>
 <p><em>headers</em>, when provided, are merged with pyhaul's structural requirements.</p>
@@ -3538,7 +3539,7 @@ conformance testing) or add session-specific metadata.</p>
 
 
 <h4 id="pyhaul.transport.protocols.TransportResponse.iter_raw_bytes" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">iter_raw_bytes</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">iter_raw_bytes</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Buffer</span><span class="p">]</span></code>
 
 <a href="#pyhaul.transport.protocols.TransportResponse.iter_raw_bytes" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -3546,7 +3547,10 @@ conformance testing) or add session-specific metadata.</p>
     <div class="doc doc-contents ">
 
         <p>Yield raw entity-body chunks (post-TE, pre-CE).</p>
-<p><code>chunk_size</code> is a hint; the last chunk may be shorter.</p>
+<p><code>chunk_size</code> is a hint; the last chunk may be shorter. Chunks may
+be any byte buffer (<code>bytes</code>, <code>memoryview</code>, ...), so zero-copy
+clients can yield views without copying. The engine consumes each
+chunk before requesting the next.</p>
 
 
     </div>
