@@ -1580,7 +1580,7 @@ constructing every sidecar file as a <strong>sibling of the destination</strong>
 the <code>.part</code>, <code>.part.ctrl</code>, and <code>.part.ctrl.tmp</code> files all live in the
 same directory as the final destination. Since they share a directory,
 they are guaranteed to share a filesystem, and every rename in the
-pipeline is truly atomic.</p>
+pipeline is atomic.</p>
 <p>This is also why pyhaul does not use <code>tempfile.mkstemp()</code> or the
 system temp directory (<code>/tmp</code>, <code>%TEMP%</code>). Those may reside on a
 different filesystem or partition than the destination, which would

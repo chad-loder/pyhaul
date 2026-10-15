@@ -1468,7 +1468,7 @@ even if the caller tried to override them.</p>
 atomically (write-to-tmp, <code>fsync</code>, rename), and finalizes the download
 by atomically renaming <code>.part</code> onto the destination path. Sidecar
 files are constructed as siblings of the destination, so every rename
-is on the same filesystem and truly atomic. Data bytes are never marked
+is on the same filesystem and atomic. Data bytes are never marked
 committed until they are on disk; the destination path is only ever
 populated by that final rename.</p>
 <p>The payoff is a set of guarantees you can verify by inspecting a
