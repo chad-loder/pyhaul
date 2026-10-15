@@ -21,13 +21,14 @@ keywords = [
     "aiohttp",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: System :: Networking",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -435,8 +436,7 @@ exclude = ["tests", "examples"]
 # ---------------------------------------------------------------------------
 [tool.semantic_release]
 commit_parser = "conventional"
-major_on_zero = false
-allow_zero_version = true
+allow_zero_version = false
 tag_format = "v{version}"
 version_variables = ["src/pyhaul/_version.py:__version__"]
 build_command = "uv lock --upgrade-package pyhaul"

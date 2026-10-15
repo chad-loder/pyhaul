@@ -15,9 +15,8 @@ In either case, we aim to acknowledge reports within 72 hours.
 
 ## Supported versions
 
-`pyhaul` is pre-1.0, so only the latest published minor version is
-actively maintained. Once a stable 1.x line ships, this policy will be
-updated to cover at least the current and previous minor releases.
+Security fixes land in the current and previous minor releases of the
+latest major version.
 
 ## Scope
 

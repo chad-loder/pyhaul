@@ -104,6 +104,11 @@ lint-fix: _lint-py-fix _lint-sh-fix _lint-docs-fix
 test:
     uv run pytest
 
+# Every live backend on 3.15; CI runs 3.15 with a reduced live matrix. Only the `test` group, since the lock has no 3.15 wheel for pydantic-core.
+[group('quality')]
+test-315:
+    PYHAUL_LIVE_MATRIX=full uv run --isolated --frozen --python 3.15 --no-default-groups --group test pytest
+
 [group('quality')]
 check: lint test
 

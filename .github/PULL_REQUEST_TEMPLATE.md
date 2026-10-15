@@ -4,8 +4,6 @@ Your PR title must follow Conventional Commits:
   fix:      bug fix                   -> patch bump
   feat!: … or BREAKING CHANGE footer  -> major bump
   perf | refactor | docs | test | build | ci | chore | style | revert
-
-Pre-1.0: `feat` also produces a patch bump (major_on_zero = false in pyproject.toml).
 -->
 
 ## Summary

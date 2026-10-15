@@ -5,9 +5,12 @@ Every sync client (niquests, requests, httpx, urllib3, wreq) and async client
 :class:`tests.conftest.HttpTest`.
 
 ``PYHAUL_LIVE_MATRIX=reduced`` keeps one third of the backends, chosen by
-``(rotation index + OS index + Python minor) % 3``. Across three Python
-versions on one OS, or three OSes on one Python version, every backend runs
-at least once. CI sets it on every row except the full Linux and macOS rows.
+``(rotation index + OS index + Python index) % 3``. Python 3.14 is the
+primary version: CI runs it full on Linux and macOS, and the Python index
+skips it, so 3.12, 3.13 and 3.15 take indexes 0, 1 and 2. Those three
+versions and three OSes form a Latin square: across them on one OS, or
+across the three OSes on one of them, every backend runs exactly once.
+CI sets ``reduced`` on every row except the full Linux and macOS 3.14 rows.
 """
 
 from __future__ import annotations
@@ -37,12 +40,15 @@ _ROTATION: tuple[str, ...] = (
     "sync:wreq",
 )
 _OS_INDEX = {"linux": 0, "darwin": 1, "win32": 2}
+# Must match the Python version of the full rows in .github/workflows/ci.yml.
+_PRIMARY_MINOR = 14
 
 
 def _in_matrix(key: str) -> bool:
     if os.environ.get("PYHAUL_LIVE_MATRIX", "full") != "reduced":
         return True
-    row = _OS_INDEX.get(sys.platform, 0) + sys.version_info.minor
+    minor = sys.version_info.minor
+    row = _OS_INDEX.get(sys.platform, 0) + minor - (minor > _PRIMARY_MINOR)
     return (_ROTATION.index(key) + row) % 3 == 0
 
 
