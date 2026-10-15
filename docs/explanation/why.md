@@ -179,7 +179,7 @@ The order of writes matters. `pyhaul` flushes the `.part` data with
 atomically (write-to-tmp, `fsync`, rename), and finalizes the download
 by atomically renaming `.part` onto the destination path. Sidecar
 files are constructed as siblings of the destination, so every rename
-is on the same filesystem and truly atomic. Data bytes are never marked
+is on the same filesystem and atomic. Data bytes are never marked
 committed until they are on disk; the destination path is only ever
 populated by that final rename.
 

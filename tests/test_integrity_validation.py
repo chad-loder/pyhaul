@@ -108,7 +108,7 @@ def test_resume_tail_corruption_detected(tmp_path: Path) -> None:
         etag=ETag.from_canonical("v1"),
         block_size=10,
         hashes=[_get_hash(block1)],
-        tail_hash=_get_hash(tail_good),  # We thought it was GOOD when we saved ctrl
+        tail_hash=_get_hash(tail_good),  # ctrl records the good tail hash
         reported_length=20,
     )
     write_atomic(ctrl_path, registry.dump(cp))

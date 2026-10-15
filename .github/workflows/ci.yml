@@ -228,7 +228,7 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          uv sync --frozen --all-groups --no-install-project
+          uv sync --frozen --no-default-groups --group test --no-install-project
           whl=(dist/pyhaul-*.whl)
           uv pip install --force-reinstall --no-deps "${whl[0]}"
       # --no-sync: without src/, uv would try to build the workspace project; the wheel is already installed.
@@ -298,33 +298,6 @@ jobs:
           files: coverage.xml
           name: combined
           token: ${{ secrets.CODECOV_TOKEN }}
-
-  test-prospective:
-    name: Test (ubuntu / Python 3.15 preview, experimental)
-    needs: [plan, lint]
-    if: needs.plan.outputs.run-tests == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Set up uv
-        uses: $/.github/actions/setup-uv-pinned
-        with:
-          enable-cache: "true"
-          save-cache: ${{ env.UV_CACHE_SAVE }}
-      # uv-managed CPython (python-build-standalone); avoids deadsnakes/Launchpad flakes on GHA.
-      - name: Install CPython 3.15 preview
-        run: uv python install 3.15
-      # Only the `test` group: `lint` pulls semgrep → pydantic-core (Rust/PyO3) which
-      # often lags CPython pre-releases; the lint job already runs on 3.14 in test-stable.
-      - name: Install project
-        run: uv sync --locked --python 3.15 --no-default-groups --group test
-      - name: pytest
-        run: uv run pytest
 
   test-floors:
     name: Test (ubuntu / Python 3.12 / HTTP client minimums)
@@ -450,9 +423,11 @@ jobs:
           status=0
           zizmor=$(jq 'length' findings/zizmor.json) || { echo "::error::zizmor produced no valid report"; exit 1; }
           semgrep=$(jq '.results | length' findings/semgrep.json) || { echo "::error::semgrep produced no valid report"; exit 1; }
-          audit=$(jq '.summary.vulnerabilities + .summary.adverse_statuses' findings/uv-audit.json) || { echo "::error::uv audit produced no valid report"; exit 1; }
+          # verspec is archived upstream; it reaches only the docs group (via mike) and never ships.
+          findings='[.vulnerabilities[], (.adverse_statuses[] | select(.name != "verspec" or .status != "archived"))]'
+          audit=$(jq "$findings | length" findings/uv-audit.json) || { echo "::error::uv audit produced no valid report"; exit 1; }
           if (( audit > 0 )); then
-            jq -r '.vulnerabilities[], .adverse_statuses[] | "::error::uv audit: \(tojson)"' findings/uv-audit.json
+            jq -r "${findings}[]"' | "::error::uv audit: \(tojson)"' findings/uv-audit.json
             status=1
           fi
           if (( zizmor > 0 )); then
@@ -471,12 +446,11 @@ jobs:
   ci-ok:
     name: CI green
     if: always()
-    needs: [lint, build, test-stable, test-prospective, test-floors, install-dev, coverage, meta, scan-gate]
+    needs: [lint, build, test-stable, test-floors, install-dev, coverage, meta, scan-gate]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
       - uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
-          allowed-failures: test-prospective
-          allowed-skips: test-stable, test-prospective, test-floors, coverage
+          allowed-skips: test-stable, test-floors, coverage
           jobs: ${{ toJSON(needs) }}

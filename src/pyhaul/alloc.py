@@ -1,7 +1,7 @@
 """File preallocation: fail-fast disk space reservation.
 
 Linux / libc: ``posix_fallocate`` when it succeeds.  On macOS, ``posix_fallocate``
-often returns ``ENOTSUP`` on APFS; we then try ``fcntl(F_PREALLOCATE)`` with a
+often returns ``ENOTSUP`` on APFS; the fallback is ``fcntl(F_PREALLOCATE)`` with a
 full ``fstore_t``, then ``ftruncate`` to the final logical size.  Otherwise
 ``ftruncate`` extends the file sparsely.
 
@@ -146,7 +146,7 @@ def allocate_file(fd: int, *, total_length: int) -> AllocationResult:
     without calling ``posix_fallocate``, preserving whatever reservation state
     a prior run left.
 
-    We do not retry ``EINTR`` from ``posix_fallocate``: POSIX requires libc to
+    ``EINTR`` from ``posix_fallocate`` is not retried: POSIX requires libc to
     handle interruption internally for this entry point.
     """
     if total_length <= 0:

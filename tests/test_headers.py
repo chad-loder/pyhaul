@@ -1,4 +1,4 @@
-"""Comprehensive tests for :class:`TransportHeaders`."""
+"""Tests for :class:`TransportHeaders`."""
 
 from __future__ import annotations
 
@@ -387,7 +387,7 @@ class TestRepr:
         assert r == "TransportHeaders([('content-type', 'text/html')])"
 
     def test_repr_list_shape_preserves_duplicate_field_names(self) -> None:
-        """List-of-tuples ``repr`` mirrors wire rows (dict-shaped ``repr`` would lie)."""
+        """List-of-tuples ``repr`` mirrors wire rows (a dict ``repr`` would hide duplicates)."""
         h = TransportHeaders.from_pairs(
             [
                 ("X-Trace", "first"),

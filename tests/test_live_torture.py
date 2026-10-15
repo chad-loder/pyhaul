@@ -216,9 +216,8 @@ def test_resume_after_etag_change_restarts_from_zero(http: HttpTest) -> None:
     http.part_path.write_bytes(v1[:half])
     _write_synthetic_ctrl(http, valid_length=half, extent=len(v1), etag='"v1"')
 
-    # Server swaps to v2.  The before_each hook returns 200 (no Range
-    # honour) whenever If-Range doesn't match, which the stdlib handler
-    # does automatically for us when force_200 is set.
+    # Server swaps to v2.  With force_200 set, the stdlib handler returns
+    # 200 (Range not honored) whenever If-Range doesn't match.
     def swap_to_v2(_req: Request, state: ServerState) -> None:
         state.content = v2
         state.etag = '"v2"'
@@ -239,17 +238,12 @@ def test_resume_after_etag_change_restarts_from_zero(http: HttpTest) -> None:
 
 def test_resume_without_etag_still_works(http: HttpTest) -> None:
     """When the original download had no ETag, resume sends Range but
-    omits If-Range.  The server honours the Range and returns 206."""
+    omits If-Range.  The server honors the Range and returns 206."""
     data = deterministic(8 * 1024, seed=20)
     half = len(data) // 2
 
-    http.serve(data).set_etag('""')
-
-    # We can't use an empty ETag("") directly because our engine won't
-    # emit If-Range when etag is empty. But the server sets ETag to '""'
-    # which after parse_etag is also treated as no-etag? Let me use ''.
-    # Actually, the test server sends whatever state.etag is.  We want
-    # the ctrl to record an empty ETag so If-Range is skipped.
+    # The ctrl records an empty ETag so the engine skips If-Range; the
+    # server's own ETag is irrelevant to that decision.
     http.serve(data).set_etag('"test-etag"')
 
     http.part_path.parent.mkdir(parents=True, exist_ok=True)

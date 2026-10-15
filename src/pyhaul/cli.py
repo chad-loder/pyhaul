@@ -157,8 +157,8 @@ def format_duration(seconds: float) -> str:
 class Printer:
     """Stderr-only info / error printer.
 
-    curl writes content to stdout and status to stderr; we do the same so
-    pipelines stay grep-friendly.
+    Like curl, content goes to stdout and status to stderr, so pipelines
+    stay grep-friendly.
     """
 
     def __init__(self, *, quiet: bool) -> None:
@@ -434,8 +434,8 @@ class _InterruptState:
     """Async-signal-safe interrupt state.
 
     Signal handlers must only perform async-signal-safe operations.
-    We restrict ourselves to: setting a ``threading.Event``, assigning an
-    attribute, and calling ``os._exit`` (a raw syscall wrapper that is
+    These handlers only set a ``threading.Event``, assign an
+    attribute, and call ``os._exit`` (a raw syscall wrapper that is
     documented as safe from a signal handler). No stdio, no logging, no
     lock acquisition.
     """

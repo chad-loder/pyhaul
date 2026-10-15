@@ -133,22 +133,22 @@ This repository uses [Conventional Commits](https://www.conventionalcommits.org/
 The PR title is what matters most -- it's validated on every pull request
 and is what `python-semantic-release` reads when deciding the next version.
 
-| Type | Meaning | Pre-1.0 bump | Post-1.0 bump |
-|---|---|---|---|
-| `feat:` | new feature | patch | minor |
-| `fix:` | bug fix | patch | patch |
-| `perf:` | performance improvement | patch | patch |
-| `refactor:` | internal change, no behavior diff | none | none |
-| `docs:` | documentation | none | none |
-| `test:` | tests only | none | none |
-| `build:` | build system changes | none | none |
-| `ci:` | CI changes | none | none |
-| `chore:` | maintenance | none | none |
-| `style:` | formatting, whitespace, etc. | none | none |
+| Type | Meaning | Version bump |
+|---|---|---|
+| `feat:` | new feature | minor |
+| `fix:` | bug fix | patch |
+| `perf:` | performance improvement | patch |
+| `refactor:` | internal change, no behavior diff | none |
+| `docs:` | documentation | none |
+| `test:` | tests only | none |
+| `build:` | build system changes | none |
+| `ci:` | CI changes | none |
+| `chore:` | maintenance | none |
+| `style:` | formatting, whitespace, etc. | none |
 
 A breaking change is either a `!` after the type (`feat!: ...`) or a
 `BREAKING CHANGE:` footer in the commit body. Either triggers a **major**
-bump (or `0.x.0` bump pre-1.0).
+bump.
 
 Subject lines should:
 

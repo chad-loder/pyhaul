@@ -133,7 +133,7 @@ class ServerMeta:
 class ProbeResult:
     """Structured remote metadata from :func:`~pyhaul.probe.probe` / :func:`~pyhaul.async_probe.probe_async`.
 
-    The probe sequence mirrors common CDN/origin behaviour: send ``HEAD``, then — when
+    The probe sequence mirrors common CDN/origin behavior: send ``HEAD``, then — when
     metadata is still incomplete — issue ``GET`` with ``Range: bytes=0-0`` (see pypdl-style
     discovery). Values are best-effort hints for planners (concurrent range shards,
     progress UI); they are not a substitute for download-time validation.

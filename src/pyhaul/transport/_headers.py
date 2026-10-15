@@ -269,7 +269,7 @@ class TransportHeaders(Mapping[str, str]):
         return self.without(name).with_added(name, value)
 
     # ------------------------------------------------------------------
-    # Repr — ``[(name, value), ...]`` wire shape (not a dict literal); redacts sensitive
+    # Repr — ``[(name, value), ...]`` in wire order (not a dict literal); redacts sensitive
     # ------------------------------------------------------------------
 
     def __repr__(self) -> str:
