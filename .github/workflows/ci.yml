@@ -423,9 +423,11 @@ jobs:
           status=0
           zizmor=$(jq 'length' findings/zizmor.json) || { echo "::error::zizmor produced no valid report"; exit 1; }
           semgrep=$(jq '.results | length' findings/semgrep.json) || { echo "::error::semgrep produced no valid report"; exit 1; }
-          audit=$(jq '.summary.vulnerabilities + .summary.adverse_statuses' findings/uv-audit.json) || { echo "::error::uv audit produced no valid report"; exit 1; }
+          # verspec is archived upstream; it reaches only the docs group (via mike) and never ships.
+          findings='[.vulnerabilities[], (.adverse_statuses[] | select(.name != "verspec" or .status != "archived"))]'
+          audit=$(jq "$findings | length" findings/uv-audit.json) || { echo "::error::uv audit produced no valid report"; exit 1; }
           if (( audit > 0 )); then
-            jq -r '.vulnerabilities[], .adverse_statuses[] | "::error::uv audit: \(tojson)"' findings/uv-audit.json
+            jq -r "${findings}[]"' | "::error::uv audit: \(tojson)"' findings/uv-audit.json
             status=1
           fi
           if (( zizmor > 0 )); then
