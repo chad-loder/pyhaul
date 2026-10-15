@@ -9,6 +9,15 @@ Released versions are published to PyPI at <https://pypi.org/project/pyhaul/#his
 
 <!-- version list -->
 
+## v1.0.0 (2026-10-15) — [Release](https://github.com/chad-loder/pyhaul/releases/tag/v1.0.0) · [PyPI](https://pypi.org/project/pyhaul/1.0.0)
+
+### Features
+
+- Declare Production/Stable and Python 3.15 support
+  ([#93](https://github.com/chad-loder/pyhaul/pull/93),
+  [`d56343a`](https://github.com/chad-loder/pyhaul/commit/d56343a2b57f94d290c829685fef95c95ffeb131))
+
+
 ## v0.8.0 (2026-10-08) — [Release](https://github.com/chad-loder/pyhaul/releases/tag/v0.8.0) · [PyPI](https://pypi.org/project/pyhaul/0.8.0)
 
 ### Bug Fixes
