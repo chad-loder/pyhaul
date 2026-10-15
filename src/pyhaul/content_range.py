@@ -1,4 +1,4 @@
-"""Tolerant-but-honest Content-Range header parser.
+"""Lenient Content-Range header parser.
 
 Accepts the canonical form and common server deviations (``bytes=`` instead
 of ``bytes ``, omitted unit token, benign OWS).  Rejects when interpretation

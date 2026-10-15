@@ -268,7 +268,7 @@ class EntityTag:
         return f'"{esc}"'
 
     def to_canonical(self) -> str:
-        r"""RFC-shaped ``entity-tag`` text for ``.part.ctrl`` TLV UTF-8 (or ``""`` when absent).
+        r"""RFC 9110 ``entity-tag`` text for ``.part.ctrl`` TLV UTF-8 (or ``""`` when absent).
 
         Uses the same quoting as :meth:`to_http_field_value` so the opaque is always
         framed by ``quoted-string`` rules (escaping ``\`` and ``"`` inside the opaque).
@@ -283,7 +283,7 @@ EMPTY_ETAG: Final[EntityTag] = EntityTag(
     raw_value="",
 )
 
-# Historical public name — ``ETag`` was previously a ``typing.NewType`` over ``str``.
+# Public alias; part of the stable API.
 ETag = EntityTag
 
 

@@ -271,7 +271,7 @@ class TestResume206:
         assert req_headers["If-Range"] == '"test"'
 
     def test_mislabeled_206_full_body_restores_like_graceful_200(self, tmp_path: Path) -> None:
-        """206 + Content-Range from byte 0 for entire resource while we resumed."""
+        """206 + Content-Range from byte 0 for entire resource on a resume."""
         from pyhaul.engine import haul
 
         full_body = b"AAAAABBBBB"
@@ -379,7 +379,7 @@ class TestResumeEtagChanged:
 
     def test_206_etag_mismatch_raises_error(self, tmp_path: Path) -> None:
         """
-        If the server returns 206 but the ETag doesn't match our checkpoint,
+        If the server returns 206 but the ETag doesn't match the checkpoint,
         the engine must NOT continue (which would corrupt the file).
         """
         from pyhaul.engine import haul
@@ -413,7 +413,7 @@ class TestResumeEtagChanged:
         session.add_response(_make_206_response(new_body_part, start=5, total=10, etag='"new"'))
 
         # This should fail because the ETag changed. Continuing would produce AAAAABBBBB (corruption).
-        # We expect a ServerMisconfiguredError or similar protection.
+        # Expect ServerMisconfiguredError or similar protection.
         from pyhaul._types import ServerMisconfiguredError
 
         with pytest.raises(ServerMisconfiguredError, match="ETag mismatch"):

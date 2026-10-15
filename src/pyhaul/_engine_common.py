@@ -250,7 +250,7 @@ def _on_416(
 ) -> CompleteHaul:
     """Handle 416 Range Not Satisfiable.
 
-    If the server confirms our cursor matches the resource length, the
+    If the server confirms the local cursor matches the resource length, the
     file is already complete — finalize and return.  Otherwise reset
     the checkpoint and raise :class:`PartialHaulError`.
     """
@@ -350,8 +350,8 @@ def _plan_206(
     # Resume hash state
     hb = HashBuilder(block_size=prep.block_size, initial_hashes=prep.hashes)
 
-    # If we are resuming at a non-block boundary, we MUST re-read the partial tail
-    # of the last block to warm up the hasher.
+    # A resume at a non-block boundary MUST re-read the partial tail of the
+    # last block to warm up the hasher.
     num_full_blocks = len(prep.hashes)
     bytes_hashed = num_full_blocks * prep.block_size
     bytes_to_re_read = prep.cursor - bytes_hashed
@@ -399,7 +399,7 @@ def _parse_content_length(raw: str | None) -> int | None:
     """Parse ``Content-Length`` for full-response (200) planning.
 
     Values are normally stripped by :class:`~pyhaul.transport.types.TransportHeaders`;
-    we still strip here for defense in depth.
+    this function strips again for defense in depth.
 
     Some misbehaving proxies emit comma-separated duplicate lengths (see RFC 7230).
     """

@@ -147,7 +147,7 @@ class TestNoResolve:
 
     @pytest.mark.skipif(sys.platform == "win32", reason="POSIX no-resolve test")
     def test_relative_path_not_expanded(self) -> None:
-        """A short relative path should not be penalised by a long cwd."""
+        """A short relative path should not be penalized by a long cwd."""
         short_relative = "data/foo.bin"
         with patch("pyhaul.fs._get_name_max", return_value=255):
             assert path_fits(short_relative) is True
@@ -247,7 +247,7 @@ class TestSafeOpenPath:
         assert _win32_safe_open_path(already) == already
 
     def test_win32_short_path_preserves_relative(self) -> None:
-        """Short relative paths stay relative -- just slash-normalised."""
+        """Short relative paths stay relative -- only slash-normalized."""
         from pyhaul.fs import _win32_safe_open_path
 
         rel = "data/downloads/file.bin"

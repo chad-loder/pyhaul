@@ -175,8 +175,8 @@ def _request_options_to_wreq_kwargs(
     if options.allow_redirects is not None:
         kw["redirect"] = wreq.redirect.Policy.limited() if options.allow_redirects else wreq.redirect.Policy.none()
     # `options.verify` is intentionally unwired: TLS verification in wreq
-    # is configured at Client-build time (not per-request), so caller
-    # owns it via the wreq client they pass us. Documented constraint.
+    # is configured at Client-build time (not per-request), so the caller
+    # owns it via the wreq client passed to the adapter. Documented constraint.
     return kw
 
 

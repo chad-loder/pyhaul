@@ -15,7 +15,7 @@ Key principles:
   Complement to ``no-transform`` (one is for the server, the other for
   every proxy in the chain).
 
-We deliberately **omit** ``no-cache`` and ``Pragma: no-cache``.  From
+``no-cache`` and ``Pragma: no-cache`` are deliberately **omitted**.  From
 multiple Tor exit IPs, these look like a Layer-7 DDoS cache-busting
 attack to CDN WAFs and result in 403/429/dropped connections.
 """
@@ -66,9 +66,9 @@ def merge_headers(
     Follows these precedence rules:
     1.  **Structural headers** (Range, If-Range) always come from pyhaul.
     2.  **Identity enforcement** (Accept-Encoding) always comes from pyhaul.
-    3.  **Safety headers** (Cache-Control) come from pyhaul unless the user
+    3.  **Safety headers** (Cache-Control) come from pyhaul unless the caller
         explicitly provided their own.
-    4.  **Metadata headers** (UA, Auth, Cookies) always come from the user.
+    4.  **Metadata headers** (UA, Auth, Cookies) always come from the caller.
 
     Case-insensitive for keys; returns a dict with keys as provided by
     pyhaul or user (favoring user casing for metadata).
@@ -88,13 +88,13 @@ def merge_headers(
                     user_keys_lower[rk_lower],
                     rv,
                 )
-            # Remove any user-cased version to ensure our casing/value wins
+            # Remove any user-cased version so pyhaul's casing and value win
             if rk_lower in user_keys_lower:
                 final.pop(user_keys_lower[rk_lower])
             final[rk] = rv
             continue
 
-        # If it's a safety header, only apply if the user hasn't provided one.
+        # If it's a safety header, only apply if the caller hasn't provided one.
         if rk_lower in SAFETY_HEADERS:
             if rk_lower not in user_keys_lower:
                 final[rk] = rv

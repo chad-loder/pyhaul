@@ -16,7 +16,7 @@ Two independent constraints are checked:
    be handed to ``open()``.  On Windows, :func:`safe_open_path` applies
    the ``\\\\?\\`` extended-length prefix *only when needed* (path
    exceeds 250 chars), so the effective limit is 32,767.  Short and
-   relative paths pass through with just slash normalisation.  On POSIX
+   relative paths pass through with only slash normalization.  On POSIX
    the limit is queried via ``PC_PATH_MAX`` (falling back to 4,096) and
    the caller-provided string is measured as-is (no symlink resolution).
 """
@@ -101,8 +101,8 @@ def _name_byte_len(name: str) -> int:
     """Filename length in the units the OS uses for its limit.
 
     POSIX filesystems measure NAME_MAX in bytes (UTF-8).  On macOS
-    (APFS), filenames are stored in NFD (decomposed) form, so we
-    normalize before measuring to match what the filesystem records.
+    (APFS), filenames are stored in NFD (decomposed) form, so names are
+    normalized before measuring to match what the filesystem records.
 
     Windows NTFS measures in UTF-16 code units — astral-plane characters
     (emoji, CJK Extension B, etc.) consume 2 code units via surrogate
@@ -119,9 +119,9 @@ def _name_byte_len(name: str) -> int:
 
 
 def _get_path_max(parent_dir: str) -> int:
-    r"""Path-length limit that applies to strings we hand to ``open()``.
+    r"""Path-length limit that applies to strings handed to ``open()``.
 
-    On Windows we use :func:`safe_open_path` which prepends the
+    On Windows, :func:`safe_open_path` prepends the
     ``\\\\?\\`` extended-length prefix when needed, so the effective
     limit is 32,767.  On POSIX the limit is queried from the filesystem
     via ``PC_PATH_MAX``, falling back to 4,096.
@@ -145,7 +145,7 @@ def safe_open_path(path: str | os.PathLike[str]) -> str:
     On Windows, applies the ``\\\\?\\`` extended-length prefix **only
     when the path exceeds** :data:`_WIN32_LONG_PATH_THRESHOLD`
     characters.  Short and relative paths are returned with just
-    forward-slash → backslash normalisation, preserving the caller's
+    forward-slash → backslash normalization, preserving the caller's
     original form.  When the prefix *is* applied, the path is resolved
     to an absolute canonical form (no ``..`` components) as required by
     the Win32 ``\\\\?\\`` API.
@@ -185,7 +185,7 @@ def path_fits(
        fit within the platform's path-length limit.
 
     On Windows the path check models what :func:`safe_open_path` will
-    do: short paths pass through with just slash normalisation; long
+    do: short paths pass through with only slash normalization; long
     paths get the ``\\\\?\\`` prefix and the limit becomes 32,767.
     On POSIX the caller-provided string is measured as-is.
     """
