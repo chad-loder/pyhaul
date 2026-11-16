@@ -5,7 +5,9 @@
     "security:openssf-scorecard"
   ],
   "osvVulnerabilityAlerts": true,
-  "dependencyDashboardOSVVulnerabilitySummary": "unresolved",
+  "dependencyDashboard": {
+    "osvVulnerabilitySummary": "unresolved"
+  },
   "vulnerabilityAlerts": {
     "labels": ["security"],
     "minimumReleaseAge": null
